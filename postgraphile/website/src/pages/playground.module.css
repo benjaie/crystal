@@ -1,0 +1,234 @@
+.container {
+  min-height: 100vh;
+  background: radial-gradient(120% 120% at 30% 10%, #152a4d, #0d1117);
+  color: #e8f0ff;
+  padding: 2.5rem 1.5rem 3.5rem;
+}
+
+.content {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 1.25rem;
+  align-items: center;
+}
+
+.titleBlock h1 {
+  font-size: 2.6rem;
+  margin: 0 0 0.4rem;
+  letter-spacing: -0.02em;
+}
+
+.titleBlock p {
+  margin: 0;
+  color: #c7d4f3;
+  line-height: 1.5;
+}
+
+.badgeRow {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: 0.6rem;
+}
+
+.badge {
+  background: #1f3b73;
+  color: #cfe3ff;
+  border: 1px solid #35569c;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  letter-spacing: 0.01em;
+}
+
+.panel {
+  background: rgba(17, 24, 39, 0.9);
+  border: 1px solid #1f2a44;
+  border-radius: 16px;
+  padding: 1rem 1.25rem 1.15rem;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
+}
+
+.statusRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.status {
+  font-weight: 600;
+  color: #9dd7ff;
+}
+
+.buttonRow {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.button {
+  border: 1px solid #2f4d8d;
+  background: linear-gradient(120deg, #1f4ad8, #19b7ff);
+  color: #0b1021;
+  font-weight: 700;
+  padding: 0.55rem 1.05rem;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.buttonSecondary {
+  border: 1px solid #334463;
+  background: #121a2c;
+  color: #d8e4ff;
+}
+
+.button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 30px rgba(25, 183, 255, 0.25);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 1rem;
+}
+
+.editorHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
+}
+
+.fileTabs {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.tab {
+  border: 1px solid #273451;
+  background: rgba(255, 255, 255, 0.02);
+  color: #d8e4ff;
+  padding: 0.35rem 0.75rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.tabActive {
+  border-color: #3a5bbb;
+  background: rgba(25, 183, 255, 0.12);
+  color: #9dd7ff;
+}
+
+.textarea {
+  width: 100%;
+  min-height: 320px;
+  background: #0c1526;
+  color: #e9f2ff;
+  border: 1px solid #1f2f4f;
+  border-radius: 12px;
+  padding: 0.85rem;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.smallTextarea {
+  min-height: 120px;
+}
+
+.stack {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.label {
+  font-size: 0.9rem;
+  color: #a7b6d8;
+  margin: 0 0 0.25rem;
+}
+
+.output {
+  background: #0c1526;
+  border: 1px solid #1f2f4f;
+  border-radius: 12px;
+  padding: 0.85rem;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.92rem;
+  color: #d6e6ff;
+  white-space: pre-wrap;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.tagList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.4rem 0 0.2rem;
+}
+
+.tag {
+  background: rgba(255, 255, 255, 0.06);
+  color: #bcd2ff;
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.82rem;
+  border: 1px solid #23314f;
+}
+
+.textInput {
+  width: 100%;
+  background: #0c1526;
+  color: #e9f2ff;
+  border: 1px solid #1f2f4f;
+  border-radius: 10px;
+  padding: 0.55rem 0.75rem;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.95rem;
+}
+
+.error {
+  background: rgba(255, 94, 122, 0.12);
+  border: 1px solid rgba(255, 118, 146, 0.4);
+  color: #ffc0d0;
+  border-radius: 10px;
+  padding: 0.6rem 0.8rem;
+}
+
+.success {
+  color: #9ff4c3;
+}
+
+.schemaBox {
+  max-height: 300px;
+  overflow: auto;
+}
+
+@media screen and (max-width: 1100px) {
+  .grid,
+  .hero {
+    grid-template-columns: 1fr;
+  }
+}
