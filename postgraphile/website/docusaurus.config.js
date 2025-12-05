@@ -75,6 +75,7 @@ const config = {
     () => ({
       name: "webpack-customization-plugin",
       configureWebpack() {
+        const webpack = require("webpack");
         return {
           experiments: {
             asyncWebAssembly: true,
@@ -95,6 +96,10 @@ const config = {
               },
             ],
           },
+          plugins: [
+            // Silence node: scheme imports in client bundle
+            new webpack.NormalModuleReplacementPlugin(/^node:/, false),
+          ],
           resolve: {
             alias: {
               "node:fs": false,
