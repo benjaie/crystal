@@ -16,10 +16,12 @@
     "posttest": "yarn build"
   },
   "dependencies": {
+    "@dataplan/pg": "workspace:^",
     "@docusaurus/core": "^3.9.2",
     "@docusaurus/preset-classic": "^3.9.2",
     "@docusaurus/remark-plugin-npm2yarn": "^3.9.2",
     "@docusaurus/theme-mermaid": "^3.9.2",
+    "@electric-sql/pglite": "^0.3.14",
     "@fortawesome/fontawesome-svg-core": "^7.1.0",
     "@fortawesome/free-brands-svg-icons": "^7.1.0",
     "@fortawesome/free-regular-svg-icons": "^7.1.0",
@@ -27,11 +29,17 @@
     "@fortawesome/react-fontawesome": "^3.1.0",
     "@mdx-js/react": "^3.1.1",
     "clsx": "^2.1.1",
+    "grafast": "workspace:^",
+    "graphile-config": "workspace:^",
+    "graphql": "^16.9.0",
+    "pg-sql2": "workspace:^",
     "postcss": "^8.5.6",
     "postcss-nested": "^7.0.2",
+    "postgraphile": "workspace:^",
     "prism-react-renderer": "^2.4.1",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "sucrase": "^3.35.1"
   },
   "devDependencies": {
     "@docusaurus/module-type-aliases": "^3.9.2",

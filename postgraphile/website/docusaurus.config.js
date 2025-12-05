@@ -76,13 +76,36 @@ const config = {
       name: "webpack-customization-plugin",
       configureWebpack() {
         return {
+          experiments: {
+            asyncWebAssembly: true,
+          },
           module: {
             rules: [
               {
                 resourceQuery: /raw/,
                 type: "asset/source",
               },
+              {
+                test: /\.wasm$/,
+                type: "asset/resource",
+              },
+              {
+                test: /\.data$/,
+                type: "asset/resource",
+              },
             ],
+          },
+          resolve: {
+            // Prevent optional Node.js modules from being bundled on the client
+            fallback: {
+              crypto: false,
+              util: false,
+              fs: false,
+              zlib: false,
+              stream: false,
+              "stream/promises": false,
+              module: false,
+            },
           },
         };
       },
