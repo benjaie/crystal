@@ -25,11 +25,11 @@ async function loadPgliteArtifacts(): Promise<PgliteArtifacts> {
   if (!cachedArtifacts) {
     cachedArtifacts = (async () => {
       const dataUrl = new URL(
-        "@electric-sql/pglite/dist/pglite.data",
+        "../../../../node_modules/@electric-sql/pglite/dist/pglite.data",
         import.meta.url,
       ).toString();
       const wasmUrl = new URL(
-        "@electric-sql/pglite/dist/pglite.wasm",
+        "../../../../node_modules/@electric-sql/pglite/dist/pglite.wasm",
         import.meta.url,
       ).toString();
 

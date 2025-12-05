@@ -96,11 +96,18 @@ const config = {
             ],
           },
           resolve: {
+            alias: {
+              "node:fs": false,
+              "node:fs/promises": false,
+            },
             // Prevent optional Node.js modules from being bundled on the client
             fallback: {
+              assert: false,
               crypto: false,
               util: false,
               fs: false,
+              "node:fs": false,
+              "node:fs/promises": false,
               zlib: false,
               stream: false,
               "stream/promises": false,
