@@ -70,7 +70,7 @@ interface PgSQL2Proto {
 }
 
 const pgSQL2Proto: PgSQL2Proto = Object.assign(Object.create(null), {
-  [inspect.custom]: nodeInspect,
+  [inspect?.custom]: nodeInspect,
 });
 
 /**
