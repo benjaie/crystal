@@ -58,7 +58,7 @@
   color: #059669;
   padding: 0 0.8rem 0.1rem;
   font-size: 0.8rem;
-  border-radius: calc(infinity * 1px);
+  border-radius: 9999px;
   margin-left: 1rem;
   height: 1.5rem;
 }
@@ -71,7 +71,7 @@
 .badge {
   margin: -1.8rem 0 0;
   background-color: white;
-  border-radius: calc(infinity * 1px);
+  border-radius: 9999px;
   border: 1px solid var(--ifm-color-primary-darker);
   padding: 0rem 0.8rem 0.1rem;
   .featured & {

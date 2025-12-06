@@ -83,6 +83,11 @@ const config = {
           module: {
             rules: [
               {
+                test: /graphile-build\/graphile-build\/dist\/.*\.js$/,
+                type: "javascript/auto",
+                parser: { sourceType: "module" },
+              },
+              {
                 resourceQuery: /raw/,
                 type: "asset/source",
               },
@@ -97,8 +102,10 @@ const config = {
             ],
           },
           plugins: [
-            // Silence node: scheme imports in client bundle
-            new webpack.NormalModuleReplacementPlugin(/^node:/, false),
+            // Strip `node:` scheme so alias/fallback can take over
+            new webpack.NormalModuleReplacementPlugin(/^node:/, (resource) => {
+              resource.request = resource.request.replace(/^node:/, "");
+            }),
           ],
           resolve: {
             alias: {
@@ -111,6 +118,7 @@ const config = {
               crypto: false,
               util: false,
               fs: false,
+              "fs/promises": false,
               "node:fs": false,
               "node:fs/promises": false,
               zlib: false,
