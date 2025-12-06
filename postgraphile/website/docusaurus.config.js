@@ -111,6 +111,10 @@ const config = {
             alias: {
               "node:fs": false,
               "node:fs/promises": false,
+              util: require("path").resolve(
+                __dirname,
+                "./src/playground/util-shim.ts",
+              ),
             },
             // Prevent optional Node.js modules from being bundled on the client
             fallback: {
