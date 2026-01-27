@@ -124,7 +124,20 @@ const config = {
     "sort-imports": "off",
     "import/order": "off",
 
-    "import/extensions": ["error", "ignorePackages"],
+    "import/extensions": [
+      "error",
+      "always",
+      {
+        ignorePackages: true,
+        checkTypeImports: true,
+        pathGroupOverrides: [
+          {
+            pattern: "{graphile-build-pg,postgraphile,pgl,ruru}/**",
+            action: "ignore",
+          },
+        ],
+      },
+    ],
     "import/no-deprecated": "warn",
 
     // Apply has been more optimised than spread, use whatever feels right.

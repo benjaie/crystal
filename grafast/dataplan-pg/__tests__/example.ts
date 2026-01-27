@@ -30,8 +30,8 @@ import { format } from "prettier";
 import {
   makePgAdaptorWithPgClient,
   PgSubscriber,
-} from "../dist/adaptors/pg.d.ts";
-import { makeExampleSchema } from "../dist/examples/exampleSchema.js";
+} from "../dist/adaptors/pg.js";
+import { makeExampleSchema } from "../src/examples/exampleSchema.ts";
 
 const schema = makeExampleSchema();
 

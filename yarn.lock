@@ -10022,11 +10022,11 @@ __metadata:
   linkType: hard
 
 "baseline-browser-mapping@npm:^2.8.25":
-  version: 2.8.31
-  resolution: "baseline-browser-mapping@npm:2.8.31"
+  version: 2.9.18
+  resolution: "baseline-browser-mapping@npm:2.9.18"
   bin:
     baseline-browser-mapping: dist/cli.js
-  checksum: 10/aefad7523ab6e93a28d278c2faae08b934d6f8899f9b6868a50cccb2e2cbb12bad0f5eda3ccb70d7f2e2f9e58cc1973050523e867e6bb0793ab0c63e194956b6
+  checksum: 10/7607ae6cad62e013787f13f52856899ebc81d4fc47c311ed513619ade9c83a317b8c0e17092e6de96a0d26f2c6bbf10e1c37db84d419cfb2e4a5485fa5af0d93
   languageName: node
   linkType: hard
 
@@ -23265,7 +23265,21 @@ __metadata:
     react: "npm:^19.2.0"
     react-dom: "npm:^19.2.0"
     react-error-boundary: "npm:^6.0.0"
+    ruru-types: "workspace:^"
     tslib: "npm:^2.8.1"
+    typescript: "npm:^5.9.3"
+  peerDependencies:
+    graphql: ^16.9.0
+  languageName: unknown
+  linkType: soft
+
+"ruru-types@workspace:^, ruru-types@workspace:grafast/ruru-types":
+  version: 0.0.0-use.local
+  resolution: "ruru-types@workspace:grafast/ruru-types"
+  dependencies:
+    "@graphiql/toolkit": "npm:^0.11.3"
+    graphiql: "npm:^5.2.1"
+    graphql: "npm:^16.9.0"
     typescript: "npm:^5.9.3"
   peerDependencies:
     graphql: ^16.9.0
@@ -23287,6 +23301,7 @@ __metadata:
     http-proxy: "npm:^1.18.1"
     mini-css-extract-plugin: "npm:^2.9.4"
     ruru-components: "workspace:^"
+    ruru-types: "workspace:^"
     style-loader: "npm:^4.0.0"
     svg-inline-loader: "npm:^0.8.2"
     ts-loader: "npm:^9.5.4"
