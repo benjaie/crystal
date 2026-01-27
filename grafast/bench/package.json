@@ -1,6 +1,5 @@
 {
   "name": "@localrepo/grafast-bench",
-  "type": "module",
   "version": "0.0.1-rc.0",
   "private": true,
   "description": "Grafast benchmarks",

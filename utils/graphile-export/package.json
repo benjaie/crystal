@@ -1,6 +1,5 @@
 {
   "name": "graphile-export",
-  "type": "module",
   "version": "1.0.0-rc.3",
   "description": "Export in-memory generated GraphQL schemas to JS files when built with our helpers.",
   "main": "./dist/index.js",

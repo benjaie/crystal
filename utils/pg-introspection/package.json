@@ -1,6 +1,5 @@
 {
   "name": "pg-introspection",
-  "type": "module",
   "version": "1.0.0-rc.3",
   "description": "Strongly typed PostgreSQL introspection library",
   "main": "dist/index.js",

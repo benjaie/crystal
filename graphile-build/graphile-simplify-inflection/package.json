@@ -1,6 +1,5 @@
 {
   "name": "@graphile/simplify-inflection",
-  "type": "module",
   "version": "8.0.0-rc.3",
   "description": "Simplifies the graphile-build/graphile-build-pg inflection to trim the `ByFooIdAndBarId` from relations, etc",
   "main": "dist/index.js",

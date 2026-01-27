@@ -1,6 +1,5 @@
 {
   "name": "graphql-codegen-grafast",
-  "type": "module",
   "version": "1.0.0-rc.3",
   "description": "A GraphQL code generator plugin for Grafast schemas",
   "scripts": {

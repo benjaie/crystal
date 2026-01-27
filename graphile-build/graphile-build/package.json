@@ -1,6 +1,5 @@
 {
   "name": "graphile-build",
-  "type": "module",
   "version": "5.0.0-rc.3",
   "description": "Build a GraphQL schema from plugins",
   "main": "./dist/index.js",
