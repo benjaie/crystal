@@ -1,1 +1,1 @@
-export * from "ruru";
+export type * from "ruru";

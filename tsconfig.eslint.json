@@ -1,0 +1,23 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.mts",
+    "**/*.mtsx",
+    "**/*.cts",
+    "**/*.ctsx",
+    "**/*.d.ts"
+  ],
+  "exclude": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/bundle/**",
+    "**/.next/**",
+    "**/website/**/build/**",
+    "**/website/**/.docusaurus/**"
+  ]
+}

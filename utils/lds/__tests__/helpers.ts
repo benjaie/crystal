@@ -4,7 +4,7 @@ import { Pool } from "pg";
 import PgLogicalDecoding from "../src/pg-logical-decoding.js";
 
 export const DATABASE_URL = process.env.LDS_TEST_DATABASE_URL || "lds_test";
-export { PoolClient } from "pg";
+export type { PoolClient } from "pg";
 
 export async function tryDropSlot(slotName: string) {
   try {

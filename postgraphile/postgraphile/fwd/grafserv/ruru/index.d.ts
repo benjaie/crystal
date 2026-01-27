@@ -1,1 +1,1 @@
-export * from "grafserv/ruru";
+export type * from "grafserv/ruru";
