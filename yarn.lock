@@ -7190,13 +7190,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@tsconfig/node-ts@npm:^23.6.2":
-  version: 23.6.2
-  resolution: "@tsconfig/node-ts@npm:23.6.2"
-  checksum: 10/e867b8c78617207a2c9be5e38f9a342610fb7952fdf431d292fde37c7ff26d56c8505d400d50610c77d22535bc16b87a1f6b619138c84465e010e8cb46bea82f
-  languageName: node
-  linkType: hard
-
 "@tsconfig/node10@npm:^1.0.7":
   version: 1.0.12
   resolution: "@tsconfig/node10@npm:1.0.12"
@@ -23158,7 +23151,6 @@ __metadata:
     "@graphql-codegen/visitor-plugin-common": "npm:^6.2.0"
     "@graphql-eslint/eslint-plugin": "npm:^4.4.0"
     "@localrepo/prettier2-for-jest": "npm:prettier@^2"
-    "@tsconfig/node-ts": "npm:^23.6.2"
     "@tsconfig/node22": "npm:^22.0.5"
     "@types/jest": "npm:^30.0.0"
     "@types/jscodeshift": "npm:^17.3.0"
