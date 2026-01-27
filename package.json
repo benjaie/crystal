@@ -43,6 +43,7 @@
     "@graphql-codegen/visitor-plugin-common": "^6.2.0",
     "@graphql-eslint/eslint-plugin": "^4.4.0",
     "@localrepo/prettier2-for-jest": "npm:prettier@^2",
+    "@tsconfig/node-ts": "^23.6.2",
     "@tsconfig/node22": "^22.0.5",
     "@types/jest": "^30.0.0",
     "@types/jscodeshift": "^17.3.0",

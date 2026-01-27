@@ -13,14 +13,14 @@ import {
   makeGrafastSchema,
   sideEffect,
   Step,
-} from "../dist/index.js";
-import { planToMermaid } from "../dist/mermaid.js";
+} from "../dist/index.d.ts";
+import { planToMermaid } from "../dist/mermaid.d.ts";
 import {
   assertIterable,
   assertNotIterable,
   resolveStreamDefer,
   streamToArray,
-} from "./incrementalUtils.js";
+} from "./incrementalUtils.ts";
 
 const resolvedPreset = resolvePreset({
   grafast: {

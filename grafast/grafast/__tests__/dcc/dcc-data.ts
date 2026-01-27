@@ -4,7 +4,7 @@ import type {
   LoadManyCallback,
   LoadOneCallback,
   Maybe,
-} from "../../dist/index.js";
+} from "../../dist/index.d.ts";
 
 export type ItemType = "Equipment" | "Consumable" | "UtilityItem" | "MiscItem";
 export type ItemSpec = `${ItemType}:${number}`;

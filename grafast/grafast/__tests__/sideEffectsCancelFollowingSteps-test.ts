@@ -8,7 +8,7 @@ import {
   grafast,
   makeGrafastSchema,
   sideEffect,
-} from "../dist/index.js";
+} from "../dist/index.d.ts";
 
 const resolvedPreset = resolvePreset({});
 

@@ -2,7 +2,7 @@ import { expect } from 'chai';
 import { parse, Source, validate } from 'graphql';
 import { describe, it } from 'mocha';
 
-import { StarWarsSchema } from './starWarsSchema.js';
+import { StarWarsSchema } from './starWarsSchema.ts';
 
 /**
  * Helper function to test a query and the expected response.

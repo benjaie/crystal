@@ -13,7 +13,7 @@ import {
 } from "graphql";
 import { it } from "mocha";
 
-import { grafast } from "../dist/index.js";
+import { grafast } from "../dist/index.d.ts";
 
 const makeSchema = () => {
   const A = new GraphQLObjectType({

@@ -4,7 +4,7 @@ import { resolvePreset } from "graphile-config";
 import type { AsyncExecutionResult } from "graphql";
 import { it } from "mocha";
 
-import { constant, grafast, makeGrafastSchema } from "../dist/index.js";
+import { constant, grafast, makeGrafastSchema } from "../dist/index.d.ts";
 
 const resolvedPreset = resolvePreset({});
 const requestContext = {};

@@ -1,8 +1,8 @@
 {
   "name": "@grafserv/persisted",
+  "type": "module",
   "version": "1.0.0-rc.3",
   "description": "Persisted operations support for Grafserv",
-  "type": "commonjs",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {

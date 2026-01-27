@@ -13,7 +13,7 @@ import {
   sideEffect,
   trap,
   TRAP_ERROR,
-} from "../dist/index.js";
+} from "../dist/index.d.ts";
 
 const resolvedPreset = resolvePreset({});
 const requestContext = {};

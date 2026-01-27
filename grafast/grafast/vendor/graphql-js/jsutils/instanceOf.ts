@@ -1,4 +1,4 @@
-import { inspect } from './inspect.js';
+import { inspect } from './inspect.ts';
 
 /**
  * A replacement for instanceof which includes an error warning when multi-realm

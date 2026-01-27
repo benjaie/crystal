@@ -127,8 +127,7 @@ const config = {
     "import/extensions": [
       "error",
       "ignorePackages",
-      // TODO: fix this properly, rather than turning off 'ts'/'tsx'
-      { ts: "never", tsx: "never" },
+      { js: "never", jsx: "never", ts: "always", tsx: "always", mts: "always", cts: "always", mjs: "never", cjs: "never" },
     ],
     "import/no-deprecated": "warn",
 

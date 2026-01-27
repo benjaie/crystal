@@ -1,8 +1,8 @@
 {
   "name": "ruru",
+  "type": "module",
   "version": "2.0.0-rc.4",
   "description": "Grafast-flavoured GraphiQL distribution",
-  "type": "commonjs",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": "./dist/cli-run.js",

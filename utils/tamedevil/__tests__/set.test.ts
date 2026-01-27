@@ -1,4 +1,4 @@
-import te from "../dist/index.js";
+import te from "../dist/index.d.ts";
 
 const symbol = Symbol("symbol");
 

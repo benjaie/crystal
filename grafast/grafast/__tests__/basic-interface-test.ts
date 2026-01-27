@@ -4,7 +4,7 @@ import type { ExecutionResult, GraphQLObjectType } from "graphql";
 import { GraphQLInterfaceType } from "graphql";
 import { it } from "mocha";
 
-import { constant, grafast, makeGrafastSchema } from "../dist/index.js";
+import { constant, grafast, makeGrafastSchema } from "../dist/index.d.ts";
 
 const makeSchema = () =>
   makeGrafastSchema({
