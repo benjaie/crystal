@@ -218,6 +218,7 @@ const oldConfig = {
         "no-undef": "off",
         // This rule doesn't understand import of './js'
         "import/no-unresolved": "off",
+        "@typescript-eslint/consistent-type-exports": "error",
       },
     },
 
