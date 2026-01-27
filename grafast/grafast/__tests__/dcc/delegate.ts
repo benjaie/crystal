@@ -1,4 +1,4 @@
-import { get, Step } from "../../dist/index.js";
+import { get, Step } from "../../dist/index.d.ts";
 
 /**
  * Returns a "plantime only step" that will optimize away to be simply

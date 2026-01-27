@@ -2,7 +2,7 @@ import { expect } from "chai";
 import type { ExecutionResult } from "graphql";
 import { it } from "mocha";
 
-import { constant, grafast, makeGrafastSchema } from "../dist/index.js";
+import { constant, grafast, makeGrafastSchema } from "../dist/index.d.ts";
 
 const schema = makeGrafastSchema({
   typeDefs: /* GraphQL */ `

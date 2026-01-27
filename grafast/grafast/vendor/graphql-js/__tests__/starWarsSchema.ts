@@ -8,7 +8,7 @@ import {
   GraphQLString,
 } from 'graphql';
 
-import { getDroid, getFriends, getHero, getHuman } from './starWarsData.js';
+import { getDroid, getFriends, getHero, getHuman } from './starWarsData.ts';
 
 /**
  * This is designed to be an end-to-end test, demonstrating

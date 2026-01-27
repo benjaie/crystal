@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
-import { instanceOf } from '../instanceOf.js';
+import { instanceOf } from '../instanceOf.ts';
 
 describe('instanceOf', () => {
   it('do not throw on values without prototype', () => {

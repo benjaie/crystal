@@ -26,8 +26,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
  */
-import { parseBox } from "../dist/codecUtils/box.js";
-import { makeParseArrayWithTransform, parseArray } from "../dist/parseArray.js";
+import { parseBox } from "../dist/codecUtils/box.d.ts";
+import { makeParseArrayWithTransform, parseArray } from "../dist/parseArray.d.ts";
 
 test("empty", () => expect(parseArray("{}")).toEqual([]));
 test("empty string", () => expect(parseArray('{""}')).toEqual([""]));

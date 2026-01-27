@@ -1,6 +1,6 @@
 import { writeFile } from "node:fs/promises";
 
-import { ruruHTML } from "../dist/server.js";
+import { ruruHTML } from "../dist/server.d.ts";
 
 const __dirname = import.meta.dirname;
 

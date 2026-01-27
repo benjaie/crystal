@@ -8,14 +8,14 @@ import type {
   ExecutionDetails,
   ExecutionResults,
   PromiseOrDirect,
-} from "../dist/index.js";
+} from "../dist/index.d.ts";
 import {
   constant,
   grafast,
   lambda,
   makeGrafastSchema,
   Step,
-} from "../dist/index.js";
+} from "../dist/index.d.ts";
 
 const resolvedPreset = resolvePreset({});
 const requestContext = {};

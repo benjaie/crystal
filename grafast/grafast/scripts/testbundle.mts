@@ -70,7 +70,7 @@ const module = await (async () => {
 
 const graphqlModule = module.exports.graphql as typeof import("graphql");
 const grafastModule = module.exports
-  .grafast as typeof import("../dist/index.js");
+  .grafast as typeof import("../dist/index.d.ts");
 const { GraphQLObjectType, GraphQLSchema, GraphQLList, GraphQLInt } =
   graphqlModule;
 const { grafast, loadMany } = grafastModule;

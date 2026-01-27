@@ -7,7 +7,7 @@ import type {
 } from "graphql";
 import { isAsyncIterable } from "iterall";
 
-import { grafast } from "../dist/index.js";
+import { grafast } from "../dist/index.d.ts";
 
 export async function streamToArray(r: Awaited<ReturnType<typeof grafast>>) {
   if (isAsyncIterable(r)) {

@@ -3,13 +3,13 @@ import { expect } from "chai";
 import type { ExecutionResult } from "graphql";
 import { it } from "mocha";
 
-import type { ExecutionDetails } from "../dist/index.js";
+import type { ExecutionDetails } from "../dist/index.d.ts";
 import {
   arrayOfLength,
   grafast,
   makeGrafastSchema,
   Step,
-} from "../dist/index.js";
+} from "../dist/index.d.ts";
 
 if (process.env.NODE_ENV !== "test") {
   throw new Error(`Tests must run with NODE_ENV=test`);

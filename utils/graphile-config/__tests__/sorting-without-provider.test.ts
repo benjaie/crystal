@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { it } from "mocha";
 
-import { sortedPlugins } from "../dist/index.js";
+import { sortedPlugins } from "../dist/index.d.ts";
 
 const PLUGINS: GraphileConfig.Plugin[] = [
   {

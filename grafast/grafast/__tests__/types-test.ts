@@ -7,7 +7,7 @@ import type {
   DataFromObjectSteps,
   ListStep,
   Step,
-} from "../dist/index.js";
+} from "../dist/index.d.ts";
 
 type Expected = {
   test: number[];

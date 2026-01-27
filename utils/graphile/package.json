@@ -1,5 +1,6 @@
 {
   "name": "graphile",
+  "type": "module",
   "version": "5.0.0-rc.3",
   "description": "Swiss army knife for dealing with all things Graphile",
   "main": "dist/index.js",

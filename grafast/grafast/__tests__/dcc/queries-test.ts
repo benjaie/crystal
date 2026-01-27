@@ -7,15 +7,15 @@ import { Kind, parse, valueFromASTUntyped } from "graphql";
 import JSON5 from "json5";
 import { it } from "mocha";
 
-import { grafast } from "../../dist/index.js";
-import { planToMermaid } from "../../dist/mermaid.js";
+import { grafast } from "../../dist/index.d.ts";
+import { planToMermaid } from "../../dist/mermaid.d.ts";
 import {
   incsig,
   resolveStreamDefer,
   streamToArray,
-} from "../incrementalUtils.js";
-import { readSnapshot, snapshot } from "../snapshots.js";
-import { makeBaseArgs } from "./dcc-schema.js";
+} from "../incrementalUtils.ts";
+import { readSnapshot, snapshot } from "../snapshots.ts";
+import { makeBaseArgs } from "./dcc-schema.ts";
 
 const itNotCi = process.env.CI ? it.skip : it;
 

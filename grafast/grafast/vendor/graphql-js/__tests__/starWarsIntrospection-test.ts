@@ -1,8 +1,8 @@
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
-import { grafastGraphqlSync as graphqlSync } from '../../../src/index.js';
-import { StarWarsSchema } from './starWarsSchema.js';
+import { grafastGraphqlSync as graphqlSync } from '../../../src/index.ts';
+import { StarWarsSchema } from './starWarsSchema.ts';
 
 function queryStarWars(source: string) {
   const result = graphqlSync({ schema: StarWarsSchema, source });

@@ -5,14 +5,14 @@ import type { ExecutionResult } from "graphql";
 import { it } from "mocha";
 import sqlite3 from "sqlite3";
 
-import type { ExecutionDetails, GrafastResultsList } from "../dist/index.js";
+import type { ExecutionDetails, GrafastResultsList } from "../dist/index.d.ts";
 import {
   access,
   context,
   grafast,
   makeGrafastSchema,
   Step,
-} from "../dist/index.js";
+} from "../dist/index.d.ts";
 
 const resolvedPreset = resolvePreset({});
 const requestContext = {};
