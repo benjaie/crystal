@@ -3,6 +3,7 @@
   "version": "0.0.1-rc.0",
   "private": true,
   "description": "Grafast benchmarks",
+  "type": "commonjs",
   "main": "dist/index.js",
   "bin": "dist/cli-run.js",
   "types": "dist/index.d.ts",

@@ -13,7 +13,7 @@ import type {
   ExecutionResults,
   FieldArgs,
   PromiseOrDirect,
-} from "../dist/index.d.ts";
+} from "../dist/index.js";
 import {
   constant,
   context,
@@ -22,7 +22,7 @@ import {
   makeGrafastSchema,
   sideEffect,
   Step,
-} from "../dist/index.d.ts";
+} from "../dist/index.js";
 
 const resolvedPreset = resolvePreset({});
 const requestContext = {};

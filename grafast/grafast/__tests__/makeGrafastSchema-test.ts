@@ -3,7 +3,7 @@ import { expect } from "chai";
 import { constant } from "lodash";
 import { it } from "mocha";
 
-import { grafast, lambda, makeGrafastSchema } from "../dist/index.d.ts";
+import { grafast, lambda, makeGrafastSchema } from "../dist/index.js";
 
 it("can create a schema with an input", async () => {
   const schema = makeGrafastSchema({

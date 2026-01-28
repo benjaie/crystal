@@ -14,7 +14,7 @@ import {
   list,
   makeGrafastSchema,
   Step,
-} from "../dist/index.d.ts";
+} from "../dist/index.js";
 
 const resolvedPreset = resolvePreset({});
 const requestContext = {};

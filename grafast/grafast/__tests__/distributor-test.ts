@@ -13,8 +13,8 @@ import {
   makeGrafastSchema,
   sideEffect,
   Step,
-} from "../dist/index.d.ts";
-import { planToMermaid } from "../dist/mermaid.d.ts";
+} from "../dist/index.js";
+import { planToMermaid } from "../dist/mermaid.js";
 import {
   assertIterable,
   assertNotIterable,

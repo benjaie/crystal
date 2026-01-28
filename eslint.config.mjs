@@ -219,11 +219,6 @@ const oldConfig = {
 
       languageOptions: {
         parser: tsParser,
-        parserOptions: {
-          project: ["./tsconfig.eslint.json"],
-          tsconfigRootDir: __dirname,
-          extraFileExtensions: [".mtsx"],
-        },
       },
 
       rules: {
@@ -248,6 +243,9 @@ const oldConfig = {
       ignores: ["*/*/src/examples/**"],
       languageOptions: {
         parser: tsParser,
+        parserOptions: {
+          project: true,
+        },
       },
       rules: {
         "@typescript-eslint/consistent-type-imports": "error",

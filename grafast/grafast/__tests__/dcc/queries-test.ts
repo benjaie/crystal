@@ -7,8 +7,8 @@ import { Kind, parse, valueFromASTUntyped } from "graphql";
 import JSON5 from "json5";
 import { it } from "mocha";
 
-import { grafast } from "../../dist/index.d.ts";
-import { planToMermaid } from "../../dist/mermaid.d.ts";
+import { grafast } from "../../dist/index.js";
+import { planToMermaid } from "../../dist/mermaid.js";
 import {
   incsig,
   resolveStreamDefer,

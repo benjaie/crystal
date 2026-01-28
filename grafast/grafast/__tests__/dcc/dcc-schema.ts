@@ -6,7 +6,7 @@ import type {
   InterfacePlan,
   Maybe,
   Step,
-} from "../../dist/index.d.ts";
+} from "../../dist/index.js";
 import {
   coalesce,
   connection,
@@ -18,7 +18,7 @@ import {
   lambda,
   loadMany,
   loadOne,
-} from "../../dist/index.d.ts";
+} from "../../dist/index.js";
 import type {
   CrawlerData,
   Database,

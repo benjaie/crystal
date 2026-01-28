@@ -8,7 +8,7 @@ import type {
   ExecutionDetails,
   ExecutionResults,
   PromiseOrDirect,
-} from "../dist/index.d.ts";
+} from "../dist/index.js";
 import {
   constant,
   grafast,
@@ -16,7 +16,7 @@ import {
   lambda,
   makeGrafastSchema,
   Step,
-} from "../dist/index.d.ts";
+} from "../dist/index.js";
 
 const resolvedPreset = resolvePreset({});
 const requestContext = {};

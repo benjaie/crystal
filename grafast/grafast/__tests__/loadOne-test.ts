@@ -3,7 +3,7 @@ import { resolvePreset } from "graphile-config";
 import type { ExecutionResult } from "graphql";
 import { it } from "mocha";
 
-import type { LoadedRecordStep, ObjectPlan, Step } from "../dist/index.d.ts";
+import type { LoadedRecordStep, ObjectPlan, Step } from "../dist/index.js";
 import {
   context,
   grafast,
@@ -11,7 +11,7 @@ import {
   loadOneCallback,
   loadOneLoader,
   makeGrafastSchema,
-} from "../dist/index.d.ts";
+} from "../dist/index.js";
 
 const resolvedPreset = resolvePreset({});
 const requestContext = {};

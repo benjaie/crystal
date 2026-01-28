@@ -11,7 +11,7 @@ import {
   grafastSync,
   makeGrafastSchema,
   type Step,
-} from "../dist/index.d.ts";
+} from "../dist/index.js";
 
 const schema = makeGrafastSchema({
   typeDefs: /* GraphQL */ `

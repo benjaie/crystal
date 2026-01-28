@@ -3,8 +3,8 @@ import { resolvePreset } from "graphile-config";
 import type { ExecutionResult } from "graphql";
 import { it } from "mocha";
 
-import type { ExecutableStep } from "../dist/index.d.ts";
-import { constant, grafast, lambda, makeGrafastSchema } from "../dist/index.d.ts";
+import type { ExecutableStep } from "../dist/index.js";
+import { constant, grafast, lambda, makeGrafastSchema } from "../dist/index.js";
 
 const schema = makeGrafastSchema({
   typeDefs: /* GraphQL */ `
