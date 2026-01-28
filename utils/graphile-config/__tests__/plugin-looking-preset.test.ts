@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { it } from "mocha";
 
-import { resolvePreset } from "../dist/index.d.ts";
+import { resolvePreset } from "../dist/index.js";
 
 const SomePlugin: GraphileConfig.Plugin = {
   name: "SomePlugin",

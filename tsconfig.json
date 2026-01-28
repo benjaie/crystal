@@ -1,10 +1,12 @@
 {
-  "extends": ["@tsconfig/node22/tsconfig.json"],
+  "extends": "@tsconfig/node22/tsconfig.json",
   "ts-node": {
     "experimentalResolver": true
   },
   "compilerOptions": {
+    // Will be enabled by @tsconfig/node-ts soon
     "rewriteRelativeImportExtensions": true,
+    "erasableSyntaxOnly": true,
 
     "composite": true,
     "declaration": true,
