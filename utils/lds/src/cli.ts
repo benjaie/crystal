@@ -49,7 +49,7 @@ async function main() {
     });
   }, 25000);
 
-  wss.on("connection", function connection(ws: WebSocket) {
+  wss.on("connection", function connection(ws) {
     clients.push(ws);
 
     ws.on("close", () => {
@@ -71,7 +71,7 @@ async function main() {
       }
     });
 
-    ws.on("message", function incoming(rawMessage: WebSocket.RawData) {
+    ws.on("message", function incoming(rawMessage) {
       const message = rawMessage.toString("utf8");
       let topicJSON: string;
       let sub: boolean;

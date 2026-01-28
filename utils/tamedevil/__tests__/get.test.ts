@@ -1,4 +1,4 @@
-import te from "../dist/index.d.ts";
+import te from "../dist/index.js";
 
 it("gives simple access to simple string prop", () => {
   const untrustedInput = "frogs";

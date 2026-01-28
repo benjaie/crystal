@@ -1,4 +1,4 @@
-import te from "../dist/index.d.ts";
+import te from "../dist/index.js";
 
 it("allows normal keys", () => {
   const frag = te`return { ${te.safeKeyOrThrow("a")}: 1, ${te.safeKeyOrThrow(
