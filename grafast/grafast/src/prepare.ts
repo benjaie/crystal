@@ -42,6 +42,7 @@ import { establishOperationPlan } from "./establishOperationPlan.ts";
 import type {
   ErrorBehavior,
   EstablishOperationPlanEvent,
+  ExecutionEntryFlags,
   GrafastExecutionArgs,
   GrafastTimeouts,
   JSONValue,
@@ -103,6 +104,14 @@ const bypassGraphQLObj = Object.assign(Object.create(null), {
 });
 
 function noop() {}
+
+function getFlagUnionFromStore(store: Bucket["store"]): ExecutionEntryFlags {
+  let flagUnion = NO_FLAGS;
+  for (const ev of store.values()) {
+    flagUnion |= ev._getStateUnion();
+  }
+  return flagUnion;
+}
 
 function processRoot(
   // errors should already have been handled, and this ctx isn't suitable to be reused.
@@ -885,7 +894,7 @@ async function processStream(
       layerPlan: directLayerPlanChild,
       size,
       store,
-      flagUnion: NO_FLAGS,
+      flagUnion: getFlagUnionFromStore(store),
       polymorphicPathList,
       polymorphicType: null,
       iterators,
@@ -1054,7 +1063,7 @@ function processSingleDeferred(
     layerPlan: outputPlan.layerPlan,
     size,
     store,
-    flagUnion: NO_FLAGS,
+    flagUnion: getFlagUnionFromStore(store),
     polymorphicPathList,
     polymorphicType: null,
     iterators,
