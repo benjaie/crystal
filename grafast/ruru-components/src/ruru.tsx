@@ -96,43 +96,64 @@ const RuruError: FC<FallbackProps> = ({ error, resetErrorBoundary }) => {
     setHardResetStage(null);
   }, []);
   return (
-    <div>
-      <h2>{errorTitle}</h2>
-      <p>
-        The following particulars are provided in the hope that they may ferret
-        out the cause of this regrettable occurrence, clarity notwithstanding.
-      </p>
-      <pre>
-        <code>{error?.stack ?? error?.message ?? String(error)}</code>
-      </pre>
-      {hardResetStage === "done" ? (
-        <p>Reloading...</p>
-      ) : hardResetStage === "confirming" ? (
-        <>
-          <p>
-            <button onClick={deleteLocalData}>
-              CONFIRM! DELETE LOCAL DATA!
+    <div className="graphiql-container ruru-error-boundary">
+      <div className="ruru-error-card">
+        <div className="ruru-error-header">
+          <p className="ruru-error-eyebrow">Ruru</p>
+          <h2 className="ruru-error-title">{errorTitle}</h2>
+        </div>
+        <p className="ruru-error-lede">
+          The following particulars are provided in the hope that they may
+          ferret out the cause of this regrettable occurrence, clarity
+          notwithstanding.
+        </p>
+        <div className="ruru-error-details">
+          <div className="ruru-error-details-label">Error details</div>
+          <pre className="ruru-error-stack">
+            <code>{error?.stack ?? error?.message ?? String(error)}</code>
+          </pre>
+        </div>
+        {hardResetStage === "done" ? (
+          <p className="ruru-error-status">Reloading…</p>
+        ) : hardResetStage === "confirming" ? (
+          <div className="ruru-error-actions">
+            <button
+              className="ruru-error-button ruru-error-button-danger"
+              onClick={deleteLocalData}
+            >
+              Confirm, delete local data
             </button>
-          </p>
-          <p>
-            <button onClick={abort}>Cancel</button>
-          </p>
-        </>
-      ) : (
-        <>
-          <p>
-            <button onClick={tryAgain}>Try again</button>
-          </p>
-          {triedAgain ? (
-            <p>
-              <button onClick={destructivelyTryAgain}>
-                Delete all saved data (query history, tabs, variables, headers,
-                selected panels, etc) and try again
+            <button className="ruru-error-button" onClick={abort}>
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="ruru-error-actions">
+              <button
+                className="ruru-error-button ruru-error-button-primary"
+                onClick={tryAgain}
+              >
+                Try again
               </button>
-            </p>
-          ) : null}
-        </>
-      )}
+              {triedAgain ? (
+                <button
+                  className="ruru-error-button ruru-error-button-danger"
+                  onClick={destructivelyTryAgain}
+                >
+                  Delete saved data and try again
+                </button>
+              ) : null}
+            </div>
+            {triedAgain ? (
+              <p className="ruru-error-note">
+                This clears query history, tabs, variables, headers, and
+                selected panels.
+              </p>
+            ) : null}
+          </>
+        )}
+      </div>
     </div>
   );
 };
