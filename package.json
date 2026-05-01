@@ -43,7 +43,7 @@
     "@eslint/compat": "^2.0.0",
     "@eslint/eslintrc": "^3.3.1",
     "@eslint/js": "^9.39.1",
-    "@graphql-codegen/visitor-plugin-common": "^6.2.0",
+    "@graphql-codegen/visitor-plugin-common": "patch:@graphql-codegen/visitor-plugin-common@npm%3A6.3.0#~/.yarn/patches/@graphql-codegen-visitor-plugin-common-npm-6.3.0-341474c06b.patch",
     "@graphql-eslint/eslint-plugin": "^4.4.0",
     "@localrepo/prettier2-for-jest": "npm:prettier@^2",
     "@tsconfig/node22": "^22.0.5",
@@ -98,7 +98,8 @@
   "resolutions": {
     "@changesets/apply-release-plan@npm:^7.0.13": "patch:@changesets/apply-release-plan@npm%3A7.0.13#~/.yarn/patches/@changesets-apply-release-plan-npm-7.0.13-14603bf9e7.patch",
     "@docusaurus/plugin-content-docs@npm:3.9.2": "patch:@docusaurus/plugin-content-docs@npm%3A3.9.2#~/.yarn/patches/@docusaurus-plugin-content-docs-npm-3.9.2-65ef413098.patch",
-    "graphql": "^17.0.0-alpha.14"
+    "graphql": "^17.0.0-alpha.14",
+    "@graphql-codegen/visitor-plugin-common@npm:^6.3.0": "patch:@graphql-codegen/visitor-plugin-common@npm%3A6.3.0#~/.yarn/patches/@graphql-codegen-visitor-plugin-common-npm-6.3.0-341474c06b.patch"
   },
   "dependencies": {
     "@changesets/changelog-github": "^0.5.1",

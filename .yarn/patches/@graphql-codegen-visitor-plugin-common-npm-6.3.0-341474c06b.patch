@@ -1,0 +1,44 @@
+diff --git a/cjs/base-types-visitor.js b/cjs/base-types-visitor.js
+index 0c06def1841c898dfc831d52f66c0355e5e3e508..ec249473b897076182710d7070498d9f40f29535 100644
+--- a/cjs/base-types-visitor.js
++++ b/cjs/base-types-visitor.js
+@@ -439,7 +439,7 @@ class BaseTypesVisitor extends base_visitor_js_1.BaseVisitor {
+     }
+     getNodeComment(node) {
+         let commentText = node.description?.value;
+-        const deprecationDirective = node.directives.find(v => v.name.value === 'deprecated');
++        const deprecationDirective = node.directives?.find(v => v.name.value === 'deprecated');
+         if (deprecationDirective) {
+             const deprecationReason = this.getDeprecationReason(deprecationDirective);
+             commentText = `${commentText ? `${commentText}\n` : ''}@deprecated ${deprecationReason}`;
+@@ -450,7 +450,7 @@ class BaseTypesVisitor extends base_visitor_js_1.BaseVisitor {
+     getDeprecationReason(directive) {
+         if (directive.name.value === 'deprecated') {
+             let reason = 'Field no longer supported';
+-            const deprecatedReason = directive.arguments[0];
++            const deprecatedReason = directive.arguments?.[0];
+             if (deprecatedReason && deprecatedReason.value.kind === graphql_1.Kind.STRING) {
+                 reason = deprecatedReason.value.value;
+             }
+diff --git a/esm/base-types-visitor.js b/esm/base-types-visitor.js
+index 293b8e3fc9d2b96890e490178adf58ce783d0afb..972ff09be4f2a45e5c5a566dda071115765e1555 100644
+--- a/esm/base-types-visitor.js
++++ b/esm/base-types-visitor.js
+@@ -436,7 +436,7 @@ export class BaseTypesVisitor extends BaseVisitor {
+     }
+     getNodeComment(node) {
+         let commentText = node.description?.value;
+-        const deprecationDirective = node.directives.find(v => v.name.value === 'deprecated');
++        const deprecationDirective = node.directives?.find(v => v.name.value === 'deprecated');
+         if (deprecationDirective) {
+             const deprecationReason = this.getDeprecationReason(deprecationDirective);
+             commentText = `${commentText ? `${commentText}\n` : ''}@deprecated ${deprecationReason}`;
+@@ -447,7 +447,7 @@ export class BaseTypesVisitor extends BaseVisitor {
+     getDeprecationReason(directive) {
+         if (directive.name.value === 'deprecated') {
+             let reason = 'Field no longer supported';
+-            const deprecatedReason = directive.arguments[0];
++            const deprecatedReason = directive.arguments?.[0];
+             if (deprecatedReason && deprecatedReason.value.kind === Kind.STRING) {
+                 reason = deprecatedReason.value.value;
+             }

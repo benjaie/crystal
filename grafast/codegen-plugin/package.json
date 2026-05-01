@@ -42,10 +42,10 @@
     "access": "public"
   },
   "dependencies": {
-    "@graphql-codegen/visitor-plugin-common": "^6.2.0"
+    "@graphql-codegen/visitor-plugin-common": "patch:@graphql-codegen/visitor-plugin-common@npm%3A6.3.0#~/.yarn/patches/@graphql-codegen-visitor-plugin-common-npm-6.3.0-341474c06b.patch"
   },
   "devDependencies": {
-    "@graphql-codegen/plugin-helpers": "^6.1.0",
+    "@graphql-codegen/plugin-helpers": "^6.3.0",
     "graphql": "^16.9.0 || ^17.0.0-alpha.14",
     "typescript": "^5.9.3"
   },
