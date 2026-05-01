@@ -118,7 +118,7 @@
     "@whatwg-node/server": "^0.9.64",
     "grafast": "workspace:^1.0.0-rc.8",
     "graphile-config": "workspace:^",
-    "graphql": "^16.9.0",
+    "graphql": "^16.9.0 || ^17.0.0-alpha.14",
     "h3": "^1.13.0",
     "hono": "^4.6.15",
     "ws": "^8.12.1"
@@ -155,7 +155,7 @@
     "express": "^4.21.2",
     "fastify": "^5.8.3",
     "grafast": "workspace:^",
-    "graphql": "^16.9.0",
+    "graphql": "^16.9.0 || ^17.0.0-alpha.14",
     "graphql-http": "^1.22.4",
     "h3": "^1.15.9",
     "hono": "^4.12.12",

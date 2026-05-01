@@ -2852,7 +2852,7 @@ __metadata:
     grafast: "workspace:^"
     grafserv: "workspace:^"
     graphile-export: "workspace:^"
-    graphql: "npm:^16.9.0"
+    graphql: "npm:^16.9.0 || ^17.0.0-alpha.14"
     graphql-codegen-grafast: "workspace:^"
     iterall: "npm:^1.3.0"
     jest: "npm:^30.2.0"
@@ -2876,7 +2876,7 @@ __metadata:
     "@dataplan/json": "workspace:^"
     grafast: "workspace:^"
     graphile-config: "workspace:^1.0.0-rc.5"
-    graphql: ^16.9.0
+    graphql: ^16.9.0 || ^17.0.0-alpha.14
     pg: ^8.7.1
     pg-sql2: "workspace:^"
   peerDependenciesMeta:
@@ -4036,7 +4036,7 @@ __metadata:
     grafast: "workspace:^"
     grafserv: "workspace:^"
     graphile-config: "workspace:^"
-    graphql: "npm:^16.9.0"
+    graphql: "npm:^16.9.0 || ^17.0.0-alpha.14"
     jest: "npm:^30.2.0"
     jest-serializer-graphql-schema: "workspace:^"
     ts-node: "npm:^10.9.2"
@@ -4046,7 +4046,7 @@ __metadata:
     grafast: "workspace:^1.0.0-rc.8"
     grafserv: "workspace:^1.0.0-rc.6"
     graphile-config: "workspace:^1.0.0-rc.5"
-    graphql: ^16.9.0
+    graphql: ^16.9.0 || ^17.0.0-alpha.14
   peerDependenciesMeta:
     graphile-config:
       optional: true
@@ -14665,7 +14665,7 @@ __metadata:
     debug: "npm:^4.4.3"
     eventemitter3: "npm:^5.0.1"
     graphile-config: "workspace:^"
-    graphql: "npm:^16.9.0"
+    graphql: "npm:^16.9.0 || ^17.0.0-alpha.14"
     iterall: "npm:^1.3.0"
     jest: "npm:^30.2.0"
     lodash: "npm:^4.18.1"
@@ -14682,7 +14682,7 @@ __metadata:
     zx: "npm:^8.8.5"
   peerDependencies:
     "@envelop/core": ^5.0.0
-    graphql: ^16.9.0
+    graphql: ^16.9.0 || ^17.0.0-alpha.14
   peerDependenciesMeta:
     "@envelop/core":
       optional: true
@@ -14711,7 +14711,7 @@ __metadata:
     fastify: "npm:^5.8.3"
     grafast: "workspace:^"
     graphile-config: "workspace:^"
-    graphql: "npm:^16.9.0"
+    graphql: "npm:^16.9.0 || ^17.0.0-alpha.14"
     graphql-http: "npm:^1.22.4"
     graphql-ws: "npm:^6.0.5"
     h3: "npm:^1.15.9"
@@ -14732,7 +14732,7 @@ __metadata:
     "@whatwg-node/server": ^0.9.64
     grafast: "workspace:^1.0.0-rc.8"
     graphile-config: "workspace:^"
-    graphql: ^16.9.0
+    graphql: ^16.9.0 || ^17.0.0-alpha.14
     h3: ^1.13.0
     hono: ^4.6.15
     ws: ^8.12.1
@@ -14820,7 +14820,7 @@ __metadata:
     grafast: "workspace:^"
     graphile-config: "workspace:^"
     graphile-export: "workspace:^"
-    graphql: "npm:^16.9.0"
+    graphql: "npm:^16.9.0 || ^17.0.0-alpha.14"
     jest: "npm:^30.2.0"
     lodash: "npm:^4.18.1"
     pluralize: "npm:^7.0.0"
@@ -14833,7 +14833,7 @@ __metadata:
   peerDependencies:
     grafast: "workspace:^1.0.0-rc.8"
     graphile-config: "workspace:^1.0.0-rc.5"
-    graphql: ^16.9.0
+    graphql: ^16.9.0 || ^17.0.0-alpha.14
   languageName: unknown
   linkType: soft
 
@@ -14987,10 +14987,10 @@ __metadata:
   dependencies:
     "@graphql-codegen/plugin-helpers": "npm:^6.1.0"
     "@graphql-codegen/visitor-plugin-common": "npm:^6.2.0"
-    graphql: "npm:^16.9.0"
+    graphql: "npm:^16.9.0 || ^17.0.0-alpha.14"
     typescript: "npm:^5.9.3"
   peerDependencies:
-    graphql: ^16.9.0
+    graphql: ^16.9.0 || ^17.0.0-alpha.14
   languageName: unknown
   linkType: soft
 
@@ -15096,10 +15096,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"graphql@npm:^16.9.0":
-  version: 16.13.2
-  resolution: "graphql@npm:16.13.2"
-  checksum: 10/9ede86f0a7227d47a41e2076e0132839f66fbd14899abfd818d7de2ab81076ee249c8788ad42243367d68a027a8763cc4c7be2e441ccfb03a8549490c7b66c2f
+"graphql@npm:^16.9.0 || ^17.0.0-alpha.14":
+  version: 17.0.0-alpha.14
+  resolution: "graphql@npm:17.0.0-alpha.14"
+  checksum: 10/463fbb0c45b03ef8d93ee0df80b1baa314b24f9292478c795f8d665646e6b9d10867b13e76105ee032d84253753612a7a7a45110c435a4358850d08bfc7644ef
   languageName: node
   linkType: hard
 
@@ -23185,7 +23185,7 @@ __metadata:
     eslint_d: "npm:^14.3.0"
     glob: "npm:^13.0.0"
     globals: "npm:^16.5.0"
-    graphql: "npm:^16.9.0"
+    graphql: "npm:^16.9.0 || ^17.0.0-alpha.14"
     graphql-ws: "npm:^6.0.5"
     jest: "npm:^30.2.0"
     jscodeshift: "npm:^17.3.0"
@@ -23266,7 +23266,7 @@ __metadata:
     "@types/react-dom": "npm:^19.2.3"
     grafast: "workspace:^"
     graphiql: "npm:^5.2.1"
-    graphql: "npm:^16.9.0"
+    graphql: "npm:^16.9.0 || ^17.0.0-alpha.14"
     graphql-ws: "npm:^6.0.5"
     jest: "npm:^30.2.0"
     mermaid: "npm:^11.12.1"
@@ -23280,7 +23280,7 @@ __metadata:
     tslib: "npm:^2.8.1"
     typescript: "npm:^5.9.3"
   peerDependencies:
-    graphql: ^16.9.0
+    graphql: ^16.9.0 || ^17.0.0-alpha.14
   languageName: unknown
   linkType: soft
 
@@ -23290,12 +23290,12 @@ __metadata:
   dependencies:
     "@graphiql/toolkit": "npm:^0.11.3"
     graphiql: "npm:^5.2.1"
-    graphql: "npm:^16.9.0"
+    graphql: "npm:^16.9.0 || ^17.0.0-alpha.14"
     react: "npm:^18 || ^19"
     react-dom: "npm:^18 || ^19"
     typescript: "npm:^5.9.3"
   peerDependencies:
-    graphql: ^16.9.0
+    graphql: ^16.9.0 || ^17.0.0-alpha.14
     react: ^18 || ^19
     react-dom: ^18 || ^19
   peerDependenciesMeta:
@@ -23317,7 +23317,7 @@ __metadata:
     css-loader: "npm:^7.1.2"
     file-loader: "npm:^6.2.0"
     graphile-config: "workspace:^"
-    graphql: "npm:^16.9.0"
+    graphql: "npm:^16.9.0 || ^17.0.0-alpha.14"
     http-proxy: "npm:^1.18.1"
     mini-css-extract-plugin: "npm:^2.9.4"
     react: "npm:^18 || ^19"
@@ -23335,7 +23335,7 @@ __metadata:
     yargs: "npm:^17.7.2"
   peerDependencies:
     graphile-config: "workspace:^1.0.0-rc.5"
-    graphql: ^16.9.0
+    graphql: ^16.9.0 || ^17.0.0-alpha.14
     react: ^18 || ^19
     react-dom: ^18 || ^19
   peerDependenciesMeta:
