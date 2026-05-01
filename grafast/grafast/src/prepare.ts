@@ -1,8 +1,5 @@
 import * as graphql from "graphql";
-import type {
-  AsyncExecutionResult,
-  ExecutionResult,
-} from "graphql/execution/execute.js";
+import type { AsyncExecutionResult, ExecutionResult } from "graphql";
 import { isAsyncIterable } from "iterall";
 
 import * as assert from "./assert.ts";
