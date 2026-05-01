@@ -272,7 +272,7 @@
     "graphile-build-pg": "workspace:^",
     "graphile-config": "workspace:^",
     "graphile-utils": "workspace:^",
-    "graphql": "^16.9.0",
+    "graphql": "^16.9.0 || ^17.0.0-alpha.14",
     "iterall": "^1.3.0",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.16.3",
@@ -290,7 +290,7 @@
     "graphile-build": "workspace:^",
     "graphile-build-pg": "workspace:^",
     "graphile-config": "workspace:^",
-    "graphql": "^16.9.0",
+    "graphql": "^16.9.0 || ^17.0.0-alpha.14",
     "pg": "^8.7.1",
     "pg-sql2": "workspace:^",
     "tamedevil": "workspace:^"

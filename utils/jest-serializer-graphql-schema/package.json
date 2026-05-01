@@ -34,7 +34,7 @@
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "@types/node": "^22.19.1",
-    "graphql": "^16.9.0",
+    "graphql": "^16.9.0 || ^17.0.0-alpha.14",
     "jest": "^30.2.0",
     "pretty-format": "^30.2.0",
     "ts-node": "^10.9.2",

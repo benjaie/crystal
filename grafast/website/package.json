@@ -47,7 +47,7 @@
     "@lezer/highlight": "^1.2.3",
     "@types/react": "^19.2.7",
     "dataloader": "^2.2.3",
-    "graphql": "^16.9.0",
+    "graphql": "^16.9.0 || ^17.0.0-alpha.14",
     "mermaid": "^11.12.1",
     "sqlite3": "^5.1.7"
   },
