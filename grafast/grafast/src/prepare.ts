@@ -3,11 +3,11 @@ import type {
   AsyncExecutionResult,
   ExecutionResult,
 } from "graphql/execution/execute.js";
-import { buildExecutionContext } from "graphql/execution/execute.js";
 import { isAsyncIterable } from "iterall";
 
 import * as assert from "./assert.ts";
 import type { Bucket, RequestTools } from "./bucket.ts";
+import { buildExecutionContext } from "./buildExecutionContext.ts";
 import {
   $$contextPlanCache,
   $$eventEmitter,
@@ -653,13 +653,10 @@ export function grafastPrepare(
     const graphqlError =
       error instanceof GraphQLError
         ? error
-        : new GraphQLError(
-            error.message,
-            {
-              originalError: error,
-              extensions: error.extensions ?? null,
-            },
-          );
+        : new GraphQLError(error.message, {
+            originalError: error,
+            extensions: error.extensions ?? null,
+          });
     return { errors: [graphqlError] };
   }
 
