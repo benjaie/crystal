@@ -357,7 +357,7 @@ export class OperationPlan {
   /** @internal */
   public resolveInfoOperationBase: Pick<
     graphql.GraphQLResolveInfo,
-    "schema" | "operation" | "fragments"
+    "schema" | "operation" | "fragments" | "getAbortSignal"
   >;
 
   public readonly schema: GraphQLSchema;
@@ -401,6 +401,7 @@ export class OperationPlan {
       schema,
       operation,
       fragments,
+      getAbortSignal: () => undefined, // TODO: implement
     };
     this.variableValuesConstraints = variableValuesConstraints;
     this.contextConstraints = contextConstraints;
