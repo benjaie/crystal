@@ -818,6 +818,32 @@ class CodegenFile {
           `${config.name}.extensions`,
           `${config.name}.extensions`,
         ),
+
+        // GraphQL v17 stuff:
+        coerceOutputValue: func(
+          this,
+          config.coerceOutputValue,
+          `${config.name}.coerceOutputValue`,
+          `${config.name}.coerceOutputValue`,
+        ),
+        coerceInputValue: func(
+          this,
+          config.coerceInputValue,
+          `${config.name}.coerceInputValue`,
+          `${config.name}.coerceInputValue`,
+        ),
+        coerceInputLiteral: func(
+          this,
+          config.coerceInputLiteral,
+          `${config.name}.coerceInputLiteral`,
+          `${config.name}.coerceInputLiteral`,
+        ),
+        valueToLiteral: func(
+          this,
+          config.valueToLiteral,
+          `${config.name}.valueToLiteral`,
+          `${config.name}.valueToLiteral`,
+        ),
       });
     } else if (type instanceof GraphQLEnumType) {
       const config = type.toConfig();
@@ -1297,7 +1323,7 @@ function iife(statements: t.Statement[]): t.Expression {
 
 function func(
   file: CodegenFile,
-  fn: AnyFunction,
+  fn: AnyFunction | null | undefined,
   locationHint: string,
   nameHint: string,
 ): t.Expression {
