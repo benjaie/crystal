@@ -361,11 +361,9 @@ export class GrafservBase {
         this.eventEmitter.off("dynamicOptions:error", onError);
         const graphqlError = new graphql.GraphQLError(
           "Unknown error occurred",
-          null,
-          null,
-          null,
-          null,
-          e,
+          {
+            originalError: e,
+          },
         );
         deferred.resolve({
           type: "graphql",
@@ -403,11 +401,9 @@ export class GrafservBase {
         this.eventEmitter.off("dynamicOptions:error", onError);
         const graphqlError = new graphql.GraphQLError(
           "Unknown error occurred",
-          null,
-          null,
-          null,
-          null,
-          e,
+          {
+            originalError: e,
+          },
         );
         // TODO: this should be an HTML response
         deferred.resolve({
@@ -629,13 +625,11 @@ function defaultMakeGetExecutionConfig(): (
     const err = Promise.reject(
       new GraphQLError(
         "The schema is currently unavailable",
-        null,
-        null,
-        null,
-        null,
-        null,
         {
-          statusCode: 503,
+          originalError: null,
+          extensions: {
+            statusCode: 503,
+          }
         },
       ),
     );

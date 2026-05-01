@@ -327,12 +327,9 @@ export function makeGraphQLWSConfig(instance: GrafservBase): ServerOptions {
       return [
         new GraphQLError(
           e.message,
-          null,
-          undefined,
-          undefined,
-          undefined,
-          e,
-          undefined,
+          {
+            originalError: e,
+          },
         ),
       ];
     }

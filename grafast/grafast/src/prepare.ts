@@ -448,15 +448,14 @@ function executePreemptive(
       releaseUnusedIterators(rootBucket, rootBucketIndex, null);
       // Something major went wrong!
       const errors = [
-        new GraphQLError(
-          bucketRootValue.message,
-          operationPlan.rootOutputPlan.locationDetails.node, // node
-          undefined, // source
-          null, // positions
-          null, // path
-          bucketRootValue, // originalError
-          null, // extensions
-        ),
+        new GraphQLError(bucketRootValue.message, {
+          nodes: operationPlan.rootOutputPlan.locationDetails.node,
+          source: undefined,
+          positions: null,
+          path: null,
+          originalError: bucketRootValue,
+          extensions: null,
+        }),
       ];
       const payload = Object.create(null) as ExecutionResult;
       payload.errors = errors;
@@ -656,12 +655,10 @@ export function grafastPrepare(
         ? error
         : new GraphQLError(
             error.message,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            error,
-            error.extensions ?? null,
+            {
+              originalError: error,
+              extensions: error.extensions ?? null,
+            },
           );
     return { errors: [graphqlError] };
   }

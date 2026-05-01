@@ -36,12 +36,14 @@ export function defaultMaskError(
   } else if (error.originalError != null && isSafeError(error.originalError)) {
     return new GraphQLError(
       error.originalError.message,
-      error.nodes,
-      error.source,
-      error.positions,
-      error.path,
-      error.originalError,
-      error.originalError.extensions ?? null,
+      {
+        nodes: error.nodes,
+        source: error.source,
+        positions: error.positions,
+        path: error.path,
+        originalError: error.originalError,
+        extensions: error.originalError.extensions ?? null,
+      },
     );
   } else {
     // Hash so similar errors can easily be grouped
@@ -56,14 +58,16 @@ export function defaultMaskError(
     );
     return new GraphQLError(
       `An error occurred (logged with hash: '${hash}', id: '${errorId}')`,
-      error.nodes,
-      error.source,
-      error.positions,
-      error.path,
-      error.originalError,
-      // Deliberately wipe the extensions
       {
-        errorId,
+        nodes: error.nodes,
+        source: error.source,
+        positions: error.positions,
+        path: error.path,
+        originalError: error.originalError,
+        // Deliberately wipe the extensions
+        extensions: {
+          errorId,
+        },
       },
     );
   }
