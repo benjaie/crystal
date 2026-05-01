@@ -2,7 +2,6 @@ import "../index.ts";
 
 import type { PgCodec } from "@dataplan/pg";
 import type { GraphQLError, GraphQLFormattedError } from "grafast/graphql";
-import { formatError as defaultFormatError } from "grafast/graphql";
 import { DEFAULT_ALLOWED_REQUEST_CONTENT_TYPES } from "grafserv";
 import type { IncomingMessage, ServerResponse } from "http";
 
@@ -20,6 +19,8 @@ export {
   PgV4SimpleSubscriptionsPlugin,
   PgV4SmartTagsPlugin,
 };
+
+const defaultFormatError = (error: GraphQLError) => error.toJSON();
 
 type PromiseOrDirect<T> = T | Promise<T>;
 type DirectOrCallback<Request, T> = T | ((req: Request) => PromiseOrDirect<T>);
