@@ -567,6 +567,27 @@ class CodegenFile {
       (memo, [fieldName, config]) => {
         if (!fieldName.startsWith("__")) {
           const locationHint = `${typeName}.fields[${fieldName}]`;
+          const defaultSpec: {
+            default: t.Expression | null;
+            defaultValue: t.Expression | null;
+          } = { default: null, defaultValue: null };
+          if ("default" in config && config.default !== undefined) {
+            defaultSpec.default = convertToIdentifierViaAST(
+              this,
+              config.default,
+              `${typeName}.${fieldName}.default`,
+              `${locationHint}.default`,
+            );
+          }
+          if (config.defaultValue !== undefined) {
+            // TODO: deal with v17 deprecation of `defaultValue`
+            defaultSpec.defaultValue = convertToIdentifierViaAST(
+              this,
+              config.defaultValue,
+              `${typeName}.${fieldName}.defaultValue`,
+              `${locationHint}.defaultValue`,
+            );
+          }
           const mappedConfig: {
             [key in keyof GraphQLInputFieldConfig as Exclude<
               keyof GraphQLInputFieldConfig,
@@ -575,15 +596,7 @@ class CodegenFile {
           } = {
             description: desc(config.description),
             type: this.typeExpression(config.type),
-            defaultValue:
-              config.defaultValue !== undefined
-                ? convertToIdentifierViaAST(
-                    this,
-                    config.defaultValue,
-                    `${typeName}.${fieldName}.defaultValue`,
-                    `${locationHint}.defaultValue`,
-                  )
-                : null,
+            ...defaultSpec,
             deprecationReason: desc(config.deprecationReason),
             extensions: extensions(
               this,
@@ -610,6 +623,26 @@ class CodegenFile {
       (memo, [argName, config]) => {
         if (!argName.startsWith("__")) {
           const locationHint = `${baseLocationHint}[${argName}]`;
+          const defaultSpec: {
+            default: t.Expression | null;
+            defaultValue: t.Expression | null;
+          } = { default: null, defaultValue: null };
+          if ("default" in config && config.default !== undefined) {
+            defaultSpec.default = convertToIdentifierViaAST(
+              this,
+              config.default,
+              `${nameHint}.${argName}.default`,
+              `${locationHint}.default`,
+            );
+          }
+          if (config.defaultValue !== undefined) {
+            defaultSpec.defaultValue = convertToIdentifierViaAST(
+              this,
+              config.defaultValue,
+              `${nameHint}.${argName}.defaultValue`,
+              `${locationHint}.defaultValue`,
+            );
+          }
           const mappedConfig: {
             [key in keyof GraphQLArgumentConfig as Exclude<
               keyof GraphQLArgumentConfig,
@@ -618,15 +651,7 @@ class CodegenFile {
           } = {
             description: desc(config.description),
             type: this.typeExpression(config.type),
-            defaultValue:
-              config.defaultValue !== undefined
-                ? convertToIdentifierViaAST(
-                    this,
-                    config.defaultValue,
-                    `${nameHint}.${argName}.defaultValue`,
-                    `${locationHint}.defaultValue`,
-                  )
-                : null,
+            ...defaultSpec,
             deprecationReason: desc(config.deprecationReason),
             extensions: extensions(
               this,
