@@ -1,5 +1,14 @@
 # graphile-build-pg
 
+## 5.1.1
+
+### Patch Changes
+
+- [#3105](https://github.com/graphile/crystal/pull/3105)
+  [`0b00895`](https://github.com/graphile/crystal/commit/0b00895e7fcbb905e8232235e7883b9cc8c12548)
+  Thanks [@benjie](https://github.com/benjie)! - Introduce
+  build.getPgCodecByDatabaseName helper.
+
 ## 5.1.0
 
 ### Minor Changes
