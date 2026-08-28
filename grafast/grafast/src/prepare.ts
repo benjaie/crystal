@@ -67,6 +67,7 @@ export interface GrafastOperationOptions {
    * A list of 'explain' types that should be included in `extensions.explain`.
    *
    * - `plan` will cause the plan JSON to be included
+   * - `sql:explain` and its subscopes are handled by `@dataplan/pg`
    * - other values are dependent on the plugins in play
    *
    * If set to `true` then all possible explain types will be exposed.

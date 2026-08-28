@@ -722,6 +722,7 @@ exportAsMany("grafast", {
 });
 
 export { hookArgs } from "./args.ts";
+export { getExplain, hasExplain } from "./explain.ts";
 export { version } from "./version.ts";
 
 declare global {
@@ -958,6 +959,7 @@ declare global {
        * A list of 'explain' types that should be included in `extensions.explain`.
        *
        * - `plan` will cause the plan JSON to be included
+       * - `sql:explain` and its subscopes are handled by `@dataplan/pg`
        * - other values are dependent on the plugins in play
        *
        * If set to `true` then all possible explain types will be exposed.

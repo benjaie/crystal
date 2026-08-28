@@ -38,3 +38,37 @@ test("response body contains expected error object when function provided as gra
   );
   expect(maskError).toHaveBeenCalledTimes(1);
 });
+
+test("only returns requested explain scopes", async () => {
+  server = await makeExampleServer({
+    grafserv: {
+      graphqlPath: "/graphql",
+      dangerouslyAllowAllCORSRequests: true,
+    },
+    grafast: {
+      explain: true,
+    },
+  });
+
+  const request = (explain?: string) =>
+    fetch(server!.url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        accept: "application/graphql-response+json",
+        ...(explain ? { "x-graphql-explain": explain } : null),
+      },
+      body: JSON.stringify({ query: "{ hello }" }),
+    }).then((res) => res.json());
+
+  const withoutExplain = await request();
+  expect(withoutExplain.extensions).toBeUndefined();
+
+  const sqlOnly = await request("sql");
+  expect(sqlOnly.extensions.explain.operations).toEqual([]);
+
+  const planOnly = await request("plan");
+  expect(planOnly.extensions.explain.operations).toEqual([
+    expect.objectContaining({ type: "plan" }),
+  ]);
+});

@@ -11,6 +11,7 @@ import type {
 import {
   asyncIteratorWithCleanup,
   exportAs,
+  hasExplain,
   inspect,
   isAsyncIterable,
   isDev,
@@ -164,6 +165,7 @@ export type PgExecutorMutationOptions = {
   context: PgExecutorContext;
   text: string;
   values: ReadonlyArray<SQLRawValue>;
+  explain?: ExecutionEventEmitter["explain"];
 };
 
 export type PgExecutorSubscribeOptions = {
@@ -209,6 +211,7 @@ export class PgExecutor<const TName extends string = string, TSettings = any> {
     name?: string,
     publish?: PublishFunction,
     isMutation = false,
+    explainScopes?: ExecutionEventEmitter["explain"],
   ): Promise<PgClientResult<TData>> {
     let queryResult: PgClientResult<TData> | null = null,
       error: any = null;
@@ -224,16 +227,28 @@ export class PgExecutor<const TName extends string = string, TSettings = any> {
       error = e;
     }
     const end = process.hrtime.bigint();
-    // TODO: this should be based on the headers of the incoming request
-    const shouldExplain = debugExplain.enabled;
+    const shouldExplain =
+      debugExplain.enabled && hasExplain(explainScopes, "sql:explain");
     const explainAnalyzeSafe =
-      shouldExplain && !isMutation && /^\s*select/i.test(text);
+      shouldExplain &&
+      hasExplain(explainScopes, "sql:explain:analyze") &&
+      !isMutation &&
+      /^\s*select/i.test(text);
     let explain: string | undefined = undefined;
     if (shouldExplain && !error) {
+      const explainOptions = ["COSTS"];
+      if (explainAnalyzeSafe) explainOptions.push("ANALYZE");
+      if (hasExplain(explainScopes, "sql:explain:verbose")) {
+        explainOptions.push("VERBOSE");
+      }
+      if (hasExplain(explainScopes, "sql:explain:buffers")) {
+        explainOptions.push("BUFFERS");
+      }
+      if (hasExplain(explainScopes, "sql:explain:settings")) {
+        explainOptions.push("SETTINGS");
+      }
       const explainResult = await client.query<{ 0: string }>({
-        text: `EXPLAIN (${
-          explainAnalyzeSafe ? "ANALYZE, " : ""
-        }COSTS, VERBOSE, BUFFERS, SETTINGS) ${text}`,
+        text: `EXPLAIN (${explainOptions.join(", ")}) ${text}`,
         values: values as SQLRawValue[],
         arrayMode: true,
       });
@@ -350,12 +365,21 @@ ${duration}
     values: ReadonlyArray<SQLRawValue>,
     name?: string,
     publish?: PublishFunction,
+    explainScopes?: ExecutionEventEmitter["explain"],
   ) {
     // PERF: we could probably make this more efficient by grouping the
     // deferreds further, DataLoader-style, and running one SQL query for
     // everything.
     return await context.withPgClient(context.pgSettings, (client) =>
-      this._executeWithClient<TData>(client, text, values, name, publish),
+      this._executeWithClient<TData>(
+        client,
+        text,
+        values,
+        name,
+        publish,
+        false,
+        explainScopes,
+      ),
     );
   }
 
@@ -406,19 +430,21 @@ ${duration}
     values: GrafastValuesList<ReadonlyArray<TOutput>>;
   }> {
     const { rawSqlValues, identifierIndex, eventEmitter } = common;
+    const explain = eventEmitter?.explain;
 
-    const publishExecute: PublishFunction | undefined = eventEmitter
-      ? (text, name, explain) => {
-          eventEmitter.emit("explainOperation", {
-            operation: {
-              type: "sql",
-              title: `SQL query${name ? ` '${name.slice(0, 7)}...'` : ""}`,
-              query: text,
-              explain,
-            },
-          });
-        }
-      : undefined;
+    const publishExecute: PublishFunction | undefined =
+      eventEmitter && hasExplain(explain, "sql")
+        ? (text, name, explain) => {
+            eventEmitter.emit("explainOperation", {
+              operation: {
+                type: "sql",
+                title: `SQL query${name ? ` '${name.slice(0, 7)}...'` : ""}`,
+                query: text,
+                explain,
+              },
+            });
+          }
+        : undefined;
 
     const valuesCount = values.length;
     const results: Array<PromiseLike<Array<TOutput>> | undefined> = [];
@@ -553,6 +579,7 @@ ${duration}
                     context,
                     text,
                     values: sqlValues,
+                    explain: explain,
                   })
                 : await this._execute<TOutput>(
                     context,
@@ -560,6 +587,7 @@ ${duration}
                     sqlValues,
                     name,
                     publishExecute,
+                    explain,
                   );
               const { rows } = queryResult;
               const groups: { [valueIndex: number]: any[] } =
@@ -937,7 +965,7 @@ ${duration}
   public async executeMutation<TData>(
     options: PgExecutorMutationOptions,
   ): Promise<PgClientResult<TData>> {
-    const { context, text, values } = options;
+    const { context, text, values, explain } = options;
     const { withPgClient, pgSettings } = context;
 
     // We don't explicitly need a transaction for mutations
@@ -949,6 +977,7 @@ ${duration}
         undefined,
         undefined,
         true,
+        explain,
       ),
     );
     // PERF: we could probably make this more efficient rather than blowing away the entire cache!

@@ -3,6 +3,7 @@ import { resolvePreset } from "graphile-config";
 import type { IncomingMessage } from "http";
 
 import { execute as grafastExecute } from "./execute.ts";
+import { getExplain } from "./explain.ts";
 import { stripAnsi } from "./stripAnsi.ts";
 import { subscribe as grafastSubscribe } from "./subscribe.ts";
 
@@ -12,32 +13,6 @@ export interface UseGrafastOptions {
    * explains to allow only those, set it to false to disable explains.
    */
   explainAllowed?: boolean | string[];
-}
-
-function processExplain(
-  explainAllowed: boolean | string[] | undefined,
-  explainHeaders: string[] | string | undefined,
-): string[] | undefined {
-  if (
-    explainAllowed === false ||
-    (Array.isArray(explainAllowed) && explainAllowed.length === 0)
-  ) {
-    return undefined;
-  }
-  const explainHeader = Array.isArray(explainHeaders)
-    ? explainHeaders.join(",")
-    : explainHeaders;
-  if (typeof explainHeader !== "string") {
-    return undefined;
-  }
-  const explainParts = explainHeader.split(",");
-  if (explainAllowed === true || explainAllowed === undefined) {
-    return explainParts;
-  }
-
-  // Assumption: explainAllowed is relatively short (and unique).
-  // PERF: there's probably a faster way to do this...
-  return explainAllowed.filter((p) => explainParts.includes(p));
 }
 
 /**
@@ -51,7 +26,7 @@ export const useGrafast = (options: UseGrafastOptions = {}): EnvelopPlugin => {
       const explainHeaders = (
         (opts.args.contextValue as any)?.req as IncomingMessage | undefined
       )?.headers["x-graphql-explain"];
-      const explain = processExplain(explainAllowed, explainHeaders);
+      const explain = getExplain(explainAllowed, explainHeaders);
       opts.setExecuteFn((args) =>
         grafastExecute(
           args,
@@ -82,7 +57,7 @@ export const useGrafast = (options: UseGrafastOptions = {}): EnvelopPlugin => {
         }
       }
 
-      const explain = processExplain(explainAllowed, explainHeaders);
+      const explain = getExplain(explainAllowed, explainHeaders);
       opts.setSubscribeFn(async (args) =>
         grafastSubscribe(
           args,

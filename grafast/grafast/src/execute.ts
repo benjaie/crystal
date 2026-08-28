@@ -7,6 +7,7 @@ import type {
 import type { PromiseOrValue } from "graphql/jsutils/PromiseOrValue.js";
 
 import { $$eventEmitter, $$extensions } from "./constants.ts";
+import { hasExplain } from "./explain.ts";
 import type {
   ExecuteEvent,
   ExecutionEventEmitter,
@@ -32,12 +33,16 @@ export function withGrafastArgs(
     ...inArgs,
   };
   const options = args.resolvedPreset?.grafast;
-  const explain = options?.explain;
-  const shouldExplain = !!explain;
+  const explain = args.explain ?? options?.explain;
+  const shouldExplain =
+    explain === true || (Array.isArray(explain) && explain.length > 0);
 
   let unlisten: (() => void) | null = null;
   if (shouldExplain) {
-    const eventEmitter: ExecutionEventEmitter = new EventEmitter();
+    const eventEmitter: ExecutionEventEmitter = Object.assign(
+      new EventEmitter(),
+      { explain },
+    );
     const explainOperations: any[] = [];
     args[$$eventEmitter] = eventEmitter;
     args[$$extensions] = {
@@ -48,7 +53,7 @@ export function withGrafastArgs(
     const handleExplainOperation = ({
       operation,
     }: ExecutionEventMap["explainOperation"]) => {
-      if (explain === true || (explain && explain.includes(operation.type))) {
+      if (hasExplain(explain, operation.type)) {
         explainOperations.push(operation);
       }
     };
@@ -60,7 +65,7 @@ export function withGrafastArgs(
 
   // TODO: inline this into args
   const operationOptions: RequireAllKeys<GrafastOperationOptions> = {
-    explain: options?.explain,
+    explain,
     timeouts: options?.timeouts,
     maxPlanningDepth: options?.maxPlanningDepth,
     // TODO: Delete this

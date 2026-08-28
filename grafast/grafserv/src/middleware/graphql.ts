@@ -9,6 +9,7 @@ import type {
 } from "grafast";
 import {
   $$extensions,
+  getExplain,
   GraphQLSpecifiedErrorBehaviors,
   hookArgs,
   isAsyncIterable,
@@ -482,6 +483,11 @@ const _makeGraphQLHandlerInternal = (instance: GrafservBase) => {
       variableValues,
       operationName,
       onError,
+      explain:
+        getExplain(
+          dynamicOptions.explain,
+          request[$$normalizedHeaders]["x-graphql-explain"],
+        ) ?? false,
       resolvedPreset,
       requestContext: grafastCtx,
       middleware: grafastMiddleware,

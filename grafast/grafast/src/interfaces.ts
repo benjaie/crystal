@@ -637,7 +637,11 @@ export type ExecutionEventMap = {
   };
 };
 
-export type ExecutionEventEmitter = TypedEventEmitter<ExecutionEventMap>;
+export interface ExecutionEventEmitter
+  extends TypedEventEmitter<ExecutionEventMap> {
+  /** Explain scopes enabled for this execution. */
+  readonly explain: true | readonly string[];
+}
 
 export interface ExecutionExtraBase {
   /** The `performance.now()` at which your step should stop executing */
@@ -780,6 +784,11 @@ export interface GrafastArgs extends GraphQLArgs {
 
   // These are ours
   extensions?: Record<string, unknown>;
+  /**
+   * Explain scopes for this execution. When specified, this takes precedence
+   * over `preset.grafast.explain`.
+   */
+  explain?: boolean | string[];
   resolvedPreset?: GraphileConfig.ResolvedPreset;
   requestContext?: Partial<Grafast.RequestContext>;
   middleware?: Middleware<GraphileConfig.GrafastMiddleware> | null;
@@ -824,6 +833,11 @@ export interface GrafastExecutionArgs extends ExecutionArgs {
 
   // These are ours
   extensions?: Record<string, unknown>;
+  /**
+   * Explain scopes for this execution. When specified, this takes precedence
+   * over `preset.grafast.explain`.
+   */
+  explain?: boolean | string[];
   resolvedPreset?: GraphileConfig.ResolvedPreset;
   middleware?: Middleware<GraphileConfig.GrafastMiddleware> | null;
   requestContext?: Partial<Grafast.RequestContext>;
