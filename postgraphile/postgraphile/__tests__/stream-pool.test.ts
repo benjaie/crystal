@@ -143,6 +143,44 @@ test("Amber streams four independent large connections through a one-client pool
   );
 });
 
+test.each([
+  [0, [100, 100, 50]],
+  [2, [2, 100, 100, 48]],
+  [150, [150, 100]],
+  [300, [250]],
+] as const)(
+  "sizes the first SQL fetch for initialCount: %s",
+  async (initialCount, limits) => {
+    const args = {
+      schema: built.schema,
+      document: parse(`{
+      allItems(first: 250) { nodes @stream(initialCount: ${initialCount}) { rowId } }
+    }`),
+    };
+    await hookArgs(args, built.resolvedPreset, {});
+    const result = await execute(args, built.resolvedPreset);
+    const payloads: any[] = [];
+    if (Symbol.asyncIterator in result) {
+      for await (const payload of result) payloads.push(payload);
+    } else {
+      payloads.push(result);
+    }
+    expect(payloads.flatMap((p) => p.errors ?? [])).toEqual([]);
+    expect(payloads[0].data.allItems.nodes).toHaveLength(
+      Math.min(initialCount, 250),
+    );
+    expect(nodeIds(payloads)).toEqual(
+      Array.from({ length: 250 }, (_, i) => i + 1),
+    );
+    expect(
+      statements.flatMap((s) => {
+        const match = /\nlimit (\d+);/.exec(s);
+        return match ? [Number(match[1])] : [];
+      }),
+    ).toEqual(limits);
+  },
+);
+
 test("nested database work and deferred streams work with one client", async () => {
   const payloads = await run(`{
     a: allItems(first: 1000) {

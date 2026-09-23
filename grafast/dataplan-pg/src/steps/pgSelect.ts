@@ -353,6 +353,7 @@ interface QueryBuildResult {
     previous: readonly any[] | null,
     limit: number,
   ) => Pick<QueryBuildResult, "text" | "rawSqlValues" | "identifierIndex">;
+  streamInitialCount?: number;
 
   // The column on the result that indicates which group the result belongs to
   identifierIndex: number | null;
@@ -1180,6 +1181,7 @@ export class PgSelectStep<
       identifierIndex,
       name,
       streamPage,
+      streamInitialCount = 0,
       queryValues: rawQueryValues,
       shouldReverseOrder,
       first,
@@ -1345,7 +1347,15 @@ export class PgSelectStep<
           let previous: readonly any[] | null = null;
           let remaining = first ?? Infinity;
           while (remaining > 0) {
-            const batchSize = Math.min(100, remaining);
+            // Avoid computing and transferring rows beyond the initial
+            // payload before it is ready. With initialCount: 0 this lazy
+            // iterator is first consumed during incremental processing.
+            const batchSize = Math.min(
+              previous === null && streamInitialCount > 0
+                ? streamInitialCount
+                : 100,
+              remaining,
+            );
             const query = streamPage(previous, batchSize);
             // Fully release the client before yielding any row to dependent
             // work. There is no transaction or cursor retained between batches.
@@ -3410,6 +3420,7 @@ ${lateralText};`;
     cursorDetails,
     groupDetails,
     streamPage,
+    streamInitialCount: stream?.initialCount,
   };
 }
 

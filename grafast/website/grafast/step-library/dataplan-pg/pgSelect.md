@@ -516,6 +516,10 @@ no PostgreSQL cursor or transaction is retained between batches. Concurrent
 changes to the data can affect later batches, as with separate pagination
 requests.
 
+The first batch fetches up to `initialCount` rows, capped by the requested result
+limit. Subsequent batches fetch up to 100 rows. With `initialCount: 0`, fetching
+starts when the engine consumes the incremental iterator.
+
 Queries that cannot use this strategy, including backward pagination, function
 sources, and aggregates, fetch the requested result in one query. Shared
 connection items and requested `pageInfo` also force materialization. The engine
