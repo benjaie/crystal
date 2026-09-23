@@ -2348,13 +2348,7 @@ function makeOrderUniqueIfPossible<
   if (info.isOrderUnique) return;
   // No need to order a unique record
   if (info.isUnique) return;
-  const {
-    alias,
-    resource: {
-      uniques,
-      codec: { attributes },
-    },
-  } = info;
+  const { uniques } = info.resource;
   const unique = (uniques as PgResourceUnique[])[0];
   // Nothing unique to order by
   if (unique == null) return;
@@ -2363,8 +2357,7 @@ function makeOrderUniqueIfPossible<
 
   for (const c of unique.attributes) {
     info.orders.push({
-      fragment: sql`${alias}.${sql.identifier(c as string)}`,
-      codec: attributes![c].codec,
+      attribute: c as string,
       direction: firstDirection,
     });
   }

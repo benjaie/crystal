@@ -1,4 +1,5 @@
 ## expect(errors).toBeFalsy();
+## expect(queries.filter(({ text }) => text.includes("limit 100")).length).toBeGreaterThan(1);
 #> schema: ["a", "b", "c"]
 #> simpleCollections: "both"
 #> subscriptions: true
