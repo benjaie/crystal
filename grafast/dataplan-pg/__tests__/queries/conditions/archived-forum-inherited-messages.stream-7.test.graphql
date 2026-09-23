@@ -4,6 +4,8 @@
   forums(includeArchived: EXCLUSIVELY) {
     name
     messagesConnection(includeArchived: INHERIT) {
+      # Non-streamed edges need the shared rows up front; deferred pageInfo also
+      # requires materialization. Only GraphQL delivery can still stream.
       nodes @stream {
         body
         author {

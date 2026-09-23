@@ -4,6 +4,8 @@
   forums(includeArchived: EXCLUSIVELY) {
     name
     messagesConnection(includeArchived: INHERIT) {
+      # nodes and edges share one fetch up front instead of duplicating streams.
+      # pageInfo also requires materialization, even though it is deferred.
       nodes @stream {
         body
         author {

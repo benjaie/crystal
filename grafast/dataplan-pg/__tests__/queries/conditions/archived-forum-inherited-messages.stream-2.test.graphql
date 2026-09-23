@@ -4,6 +4,8 @@
   forums(includeArchived: EXCLUSIVELY) {
     name
     messagesConnection(includeArchived: INHERIT) {
+      # nodes and edges share the same rows, and pageInfo needs a complete result.
+      # Fetch once up front; GraphQL delivery can still be incremental.
       nodes @stream {
         body
         author {

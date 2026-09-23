@@ -6,6 +6,8 @@
   forums(includeArchived: EXCLUSIVELY) {
     name
     messagesConnection(includeArchived: INHERIT, last: 2) {
+      # Backward pagination currently fetches the full requested page and reverses
+      # it before delivery, so database streaming is disabled.
       nodes @stream(initialCount: 1) {
         body
         author {

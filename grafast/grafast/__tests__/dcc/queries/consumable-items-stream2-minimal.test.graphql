@@ -42,6 +42,7 @@ query ConsumableItemsNoStream($stream: Boolean!)
     ... on Created {
       __typename
       ... on HasContents {
+        # This operation sets $stream to false, explicitly disabling @stream.
         contents(first: 3) @stream(if: $stream) {
           __typename
           id
