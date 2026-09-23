@@ -1,7 +1,14 @@
+import type { PgOrderSpec, PgSelectQueryBuilder } from "@dataplan/pg";
+import { TYPES } from "@dataplan/pg";
 import { makePgService } from "@dataplan/pg/adaptors/pg";
 import { execute, hookArgs } from "grafast";
 import { parse, validate } from "grafast/graphql";
 import { StreamDeferPlugin } from "graphile-build";
+import {
+  EXPORTABLE,
+  makeAddPgTableOrderByPlugin,
+  orderByAscDesc,
+} from "graphile-utils";
 import { Pool } from "pg";
 
 import {
@@ -43,7 +50,50 @@ beforeAll(async () => {
   `);
   built = await makeSchema({
     extends: [AmberPreset],
-    plugins: [StreamDeferPlugin],
+    plugins: [
+      StreamDeferPlugin,
+      makeAddPgTableOrderByPlugin(
+        { schemaName: "public", tableName: "items" },
+        ({ sql }) => {
+          const expressions = EXPORTABLE(
+            (TYPES, sql) =>
+              (
+                queryBuilder: PgSelectQueryBuilder,
+              ): Omit<PgOrderSpec, "direction">[] => [
+                {
+                  fragment: sql`(${queryBuilder.alias}.rank + 1)`,
+                  codec: TYPES.int,
+                  nullable: true,
+                },
+                {
+                  attribute: "id",
+                  callback: (fragment) => [
+                    sql`(${fragment} % 13)`,
+                    TYPES.int,
+                    false,
+                  ],
+                },
+                {
+                  fragment: sql`(-${queryBuilder.alias}.id)`,
+                  codec: TYPES.int,
+                  nullable: false,
+                },
+              ],
+            [TYPES, sql],
+          );
+          return {
+            ...orderByAscDesc("EXPRESSION_NULLS_FIRST", expressions, {
+              unique: true,
+              nulls: "first",
+            }),
+            ...orderByAscDesc("EXPRESSION_NULLS_LAST", expressions, {
+              unique: true,
+              nulls: "last",
+            }),
+          };
+        },
+      ),
+    ],
     pgServices: [makePgService({ pool, schemas: ["public"], pubsub: false })],
   });
 });
@@ -136,6 +186,30 @@ function nodeIds(payloads: any[]) {
       .map((p) => p.data.rowId),
   ];
 }
+
+test.each([
+  ["ASC", "FIRST"],
+  ["ASC", "LAST"],
+  ["DESC", "FIRST"],
+  ["DESC", "LAST"],
+])(
+  "streams unique expressions ordered %s nulls %s",
+  async (direction, nulls) => {
+    const expected = await pool.query(
+      `select id from public.items order by (rank + 1) ${direction.toLowerCase()} nulls ${nulls.toLowerCase()}, (id % 13) ${direction.toLowerCase()}, (-id) ${direction.toLowerCase()} limit 857 offset 11`,
+    );
+    const payloads = await run(`{
+    allItems(first: 857, offset: 11, orderBy: EXPRESSION_NULLS_${nulls}_${direction}) {
+      nodes @stream(initialCount: 1) { rowId }
+    }
+  }`);
+    expect(nodeIds(payloads)).toEqual(expected.rows.map((r) => r.id));
+    const batches = statements.filter((s) => s.includes("limit 100"));
+    expect(batches).toHaveLength(8);
+    expect(batches.some((s) => s.includes("is not distinct from"))).toBe(true);
+    expect(batches.some((s) => s.includes("% 13) ="))).toBe(true);
+  },
+);
 
 test.each(["ASC", "DESC"])(
   "keyset batches preserve nullable %s ordering and offset",

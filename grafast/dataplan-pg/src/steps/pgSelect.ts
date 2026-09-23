@@ -3149,9 +3149,6 @@ function buildTheQueryCore<
       typeof info.resource.from === "function" ||
       !info.isOrderUnique ||
       info.orders.length === 0 ||
-      info.orders.some(
-        (order) => !("attribute" in order) || order.callback != null,
-      ) ||
       info.joins.length > 0 ||
       info.groups.length > 0 ||
       getUnary(values, info.lastStepId) != null)
