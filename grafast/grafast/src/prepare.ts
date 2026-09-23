@@ -105,6 +105,11 @@ function processRoot(
 ): PromiseOrDirect<void> {
   const { streams, queue } = ctx.root;
 
+  if (ctx.requestContext.abortSignal.aborted) {
+    for (const { stream } of streams) consume(stream.return?.());
+    return;
+  }
+
   if (isDev) {
     // Cannot add to streams/queue now - we're finished. The streams/queue
     // get their own new roots where addition streams/queue can be added.
@@ -215,10 +220,12 @@ const finalize = (
     if (isPromiseLike(promise)) {
       promise.then(
         () => {
+          if (!_alive) return;
           iterator.push({ hasNext: false });
           iterator.return(undefined).then(null, noop);
         },
         (e) => {
+          if (!_alive) return;
           iterator.throw(e).then(null, noop);
         },
       );
@@ -822,6 +829,7 @@ async function processStream(
     const bucketPromise = executeBucket(rootBucket, requestContext);
 
     const output = () => {
+      if (requestContext.abortSignal.aborted) return;
       const promises: PromiseLike<any>[] = [];
       for (let bucketIndex = 0; bucketIndex < size; bucketIndex++) {
         const actualIndex = entries[bucketIndex][1];
@@ -876,6 +884,11 @@ async function processStream(
   };
   const processQueue = () => {
     timeout = null;
+    if (requestContext.abortSignal.aborted) {
+      queue = null;
+      queueComplete();
+      return;
+    }
     assert.ok(
       queue,
       "GrafastInternalError<bcf5cef8-2c60-419e-b942-14fd34b8caa7>: processQueue called with no queue",
@@ -914,8 +927,15 @@ async function processStream(
   try {
     let payloadIndex = spec.startIndex;
     let nextValuePromise: PromiseOrDirect<IteratorResult<any, any>>;
-    while ((nextValuePromise = spec.stream.next())) {
-      const iteratorResult = await nextValuePromise;
+    while (
+      !requestContext.abortSignal.aborted &&
+      (nextValuePromise = spec.stream.next())
+    ) {
+      const iteratorResult = await abortable(
+        requestContext.abortSignal,
+        { done: true, value: undefined } as const,
+        nextValuePromise,
+      );
       if (iteratorResult.done) {
         break;
       }
@@ -928,7 +948,7 @@ async function processStream(
     if (pendingQueues === 0) {
       whenDone.resolve();
     }
-    // TODO: cleanup
+    consume(spec.stream.return?.());
   }
   return whenDone.promise;
 }
@@ -991,6 +1011,7 @@ function processSingleDeferred(
   const bucketPromise = executeBucket(rootBucket, requestContext);
 
   const output = (): void | Promise<void> => {
+    if (requestContext.abortSignal.aborted) return;
     const promises: PromiseLike<any>[] = [];
     for (let bucketIndex = 0; bucketIndex < size; bucketIndex++) {
       const [iterator, spec] = specs[bucketIndex];

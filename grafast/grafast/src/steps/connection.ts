@@ -703,10 +703,12 @@ export class ConnectionStep<
 
   private captureStream() {
     const $streamDetails = currentFieldStreamDetails();
-    if ($streamDetails === null || $streamDetails === true) {
-      this.getHandler().addStreamDetails?.(null);
-
-      this._mightStream = false;
+    if (
+      this._mightStream !== null ||
+      $streamDetails === null ||
+      $streamDetails === true
+    ) {
+      this.disableStreaming();
     } else {
       this.getHandler().addStreamDetails?.($streamDetails);
 
@@ -715,6 +717,12 @@ export class ConnectionStep<
         this._mightStream = true;
       }
     }
+  }
+
+  /** @internal Shared items and page metadata require a materialized collection. */
+  public disableStreaming() {
+    this._mightStream = false;
+    this.getHandler().addStreamDetails?.(null);
   }
 
   public edges(): Step {
@@ -1570,20 +1578,24 @@ class PageInfoStep extends UnbatchedStep<ConnectionResult<any>> {
     >;
     switch (key) {
       case "hasNextPage": {
+        $connection.disableStreaming();
         $connection.setNeedsHasMore();
         return access($connection, "hasNextPage");
       }
       case "hasPreviousPage": {
+        $connection.disableStreaming();
         $connection.setNeedsHasMore();
         return access($connection, "hasPreviousPage");
       }
       case "startCursor": {
+        $connection.disableStreaming();
         // Get first node, get cursor for it
         const isArray = !$connection.mightStream();
         const $first = first($connection._items(), isArray);
         return $connection.cursorPlan($first);
       }
       case "endCursor": {
+        $connection.disableStreaming();
         // Get last node, get cursor for it
         const isArray = !$connection.mightStream();
         const $last = last($connection._items(), isArray);

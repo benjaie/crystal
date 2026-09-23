@@ -1,3 +1,5 @@
+import { isAsyncIterable, isIterable } from "iterall";
+
 import type {
   __ItemStep,
   ConnectionOptimizedStep,
@@ -324,6 +326,8 @@ export class LoadManyStep<
       this.paramDepIdByKey,
       this.loadInfo!,
       this.load,
+      !this.mightHaveStream(),
+      materializeList,
     );
   }
 
@@ -369,6 +373,13 @@ export class LoadManyStep<
     return $clone as typeof $clone &
       ConnectionOptimizedStep<any, any, any, any>;
   }
+}
+
+function materializeList(value: unknown) {
+  if (!Array.isArray(value) && (isAsyncIterable(value) || isIterable(value))) {
+    return Array.fromAsync(value);
+  }
+  return value;
 }
 
 export interface LoadManyLoader<

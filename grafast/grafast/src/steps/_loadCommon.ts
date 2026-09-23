@@ -163,6 +163,8 @@ export function executeLoad<
     attributes: readonly any[];
   },
   load: LoadCallback,
+  cacheResults = true,
+  transformResult?: (value: any) => any,
 ) {
   const { count, extra, values } = details;
   const values0 = values[0] as UnwrapMultistep<TLookup>;
@@ -197,6 +199,12 @@ export function executeLoad<
   };
 
   const results: Array<PromiseOrDirect<TData>> = [];
+  if (!cacheResults) {
+    // Each position owns its result. Deduplicating lookup keys here could
+    // otherwise hand the same one-shot iterator to multiple consumers.
+    const specs = Array.from({ length: count }, (_, i) => values0.at(i));
+    return load(specs, loadInfo);
+  }
   for (let i = 0; i < count; i++) {
     const spec = values0.at(i);
     if (cache.has(spec)) {
@@ -241,7 +249,10 @@ export function executeLoad<
       for (let pendingIndex = 0; pendingIndex < pendingCount; pendingIndex++) {
         const spec = batchSpecs[pendingIndex];
         const targetIndexes = batch.get(spec)!;
-        const loadResult = loadResults[pendingIndex];
+        const rawResult = loadResults[pendingIndex];
+        const loadResult = transformResult
+          ? Promise.resolve(rawResult).then(transformResult)
+          : rawResult;
         cache.set(spec, loadResult);
         for (const targetIndex of targetIndexes) {
           results[targetIndex] = loadResult;

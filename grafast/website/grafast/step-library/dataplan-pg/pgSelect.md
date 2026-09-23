@@ -507,3 +507,17 @@ this, for now, you should use
 [`applyTransforms`](../../standard-steps/applyTransforms.md) to force the
 transform to take place at the current level, such that depending on the
 transformed values is safe.
+
+## Incremental delivery
+
+For eligible uniquely ordered table queries, `@stream` fetches successive keyset
+batches. Each batch releases its database client before its rows are consumed;
+no PostgreSQL cursor or transaction is retained between batches. Concurrent
+changes to the data can affect later batches, as with separate pagination
+requests.
+
+Queries that cannot use this strategy, including backward pagination, function
+sources, and aggregates, fetch the requested result in one query. Shared
+connection items and requested `pageInfo` also force materialization. The engine
+can still deliver the resulting array incrementally, but fetching it is not
+incremental and requires memory for the complete requested result.

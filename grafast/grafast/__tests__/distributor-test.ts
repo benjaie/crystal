@@ -175,8 +175,8 @@ function fibonacci(max: number): ReturnType<typeof fibonacciReal> {
       nextCount++;
       const result = iterator.next(...args);
       Promise.resolve(result).then(
-        () => {
-          if (!done) {
+        (result) => {
+          if (result.done && !done) {
             endCount++;
             done = true;
           }
@@ -358,20 +358,7 @@ it(
     const stream = await grafast({
       schema,
       requestContext,
-      resolvedPreset: resolvePreset({
-        extends: [
-          resolvedPreset,
-          {
-            grafast: {
-              // We want to cache at most 3 records; this will hang waiting for new
-              // records if the skipped steps are not handled
-              distributorTargetBufferSize: 3,
-              // Must be less than the test timeout
-              distributorPauseDuration: 10,
-            },
-          },
-        ],
-      }),
+      resolvedPreset,
       source,
     });
     if ("errors" in stream) {
@@ -457,20 +444,7 @@ it(
     const result = await grafast({
       schema,
       requestContext,
-      resolvedPreset: resolvePreset({
-        extends: [
-          resolvedPreset,
-          {
-            grafast: {
-              // We want to cache at most 3 records; this will hang waiting for new
-              // records if the skipped steps are not handled
-              distributorTargetBufferSize: 3,
-              // Must be less than the test timeout
-              distributorPauseDuration: 10,
-            },
-          },
-        ],
-      }),
+      resolvedPreset,
       source,
     });
 
@@ -497,19 +471,17 @@ it(
       message: "Throw in nodes requested!",
       path: ["connection", "nodes"],
     });
-    // The iterator should never be started, since nothing ever consumes it,
-    // but we should still call `.return()` or `.error()` on it to terminate it
-    // (even though this wouldn't be the case for generator functions, for
-    // iterables the user might do anything).
-    expect(getIteratorCount).to.equal(0);
-    expect(startCount).to.equal(0);
-    expect(nextCount).to.equal(0);
+    // Sharing materializes the source before the consumers execute, even
+    // when all of those consumers subsequently fail.
+    expect(getIteratorCount).to.equal(1);
+    expect(startCount).to.equal(1);
+    expect(nextCount).to.equal(12);
     expect(endCount).to.equal(1);
   }),
 );
 
 it(
-  "when initialCount > limit",
+  "materializes shared items with different initial counts",
   throwOnUnhandledRejections(async () => {
     const source = /* GraphQL */ `
       {
@@ -545,19 +517,7 @@ it(
     const stream = await grafast({
       schema,
       requestContext,
-      resolvedPreset: resolvePreset({
-        extends: [
-          resolvedPreset,
-          {
-            grafast: {
-              // For this test to be meaningful, this must be < 11
-              distributorTargetBufferSize: 8,
-              // Must be less than the test timeout
-              distributorPauseDuration: 10,
-            },
-          },
-        ],
-      }),
+      resolvedPreset,
       source,
     });
     if ("errors" in stream) {
@@ -591,8 +551,8 @@ it(
     }));
     expect(payloads[0].data).to.deep.equal({
       connection: {
-        // Stream ignored - fetched in initial payload
-        edges: expectedEdges,
+        // Materialized data can still be delivered incrementally.
+        edges: expectedEdges.slice(0, 9),
         pageInfo: {},
         nodes: expectedNodes.slice(0, 2),
       },
@@ -617,7 +577,7 @@ it(
 );
 
 it(
-  "when initialCount > limit (simplified)",
+  "materializes items when deferred pageInfo is requested",
   throwOnUnhandledRejections(async () => {
     const source = /* GraphQL */ `
       {
@@ -640,19 +600,7 @@ it(
     const stream = await grafast({
       schema,
       requestContext,
-      resolvedPreset: resolvePreset({
-        extends: [
-          resolvedPreset,
-          {
-            grafast: {
-              // For this test to be meaningful, this must be < 11
-              distributorTargetBufferSize: 8,
-              // Must be longer than the test timeout
-              distributorPauseDuration: 5001,
-            },
-          },
-        ],
-      }),
+      resolvedPreset,
       source,
     });
     if ("errors" in stream) {
@@ -686,8 +634,8 @@ it(
     }));
     expect(payloads[0].data).to.deep.equal({
       connection: {
-        // Stream ignored - fetched in initial payload
-        edges: expectedEdges,
+        // Materialized data can still be delivered incrementally.
+        edges: expectedEdges.slice(0, 9),
         pageInfo: {},
       },
     });

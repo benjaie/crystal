@@ -43,12 +43,6 @@ import {
   isPromiseLike,
   sudo,
 } from "../utils.ts";
-import type { DistributorOptions } from "./distributor.ts";
-import {
-  distributor,
-  isDistributor,
-  resolveDistributorOptions,
-} from "./distributor.ts";
 import type { LayerPlan } from "./LayerPlan.ts";
 import type { MetaByMetaKey } from "./OperationPlan.ts";
 
@@ -105,10 +99,6 @@ export function executeBucket(
   bucket: Bucket,
   requestContext: RequestTools,
 ): PromiseOrDirect<void> {
-  const distributorOptions = resolveDistributorOptions(
-    requestContext.args.resolvedPreset?.grafast,
-  );
-
   /**
    * Execute the step directly; since there's no errors we can pass the
    * dependencies through verbatim.
@@ -328,7 +318,7 @@ export function executeBucket(
           (valueIsAsyncIterable || valueIsIterable)
         ) {
           // PERF: we've already calculated this once; can we reference that again here?
-          stream = evaluateStream(bucket, finishedStep, distributorOptions);
+          stream = evaluateStream(bucket, finishedStep);
         }
 
         if (!stream && !valueIsAsyncIterable && Array.isArray(rawValue)) {
@@ -370,41 +360,20 @@ export function executeBucket(
           finishedStep._stepOptions.walkIterable &&
           (valueIsAsyncIterable || valueIsIterable);
 
-        /**
-         * If 'cloneStreams' is set, we clone iff it's an iterable and we're
-         * not walking it ourselves.
-         */
-        const shouldUseDistributor =
-          finishedStep.cloneStreams &&
+        // A one-shot iterable cannot be shared between independent consumers.
+        // Materialize it before any dependent runs, rather than retaining an
+        // unbounded replay buffer for consumers that advance at different rates.
+        const mustMaterialize =
           (valueIsIterable || valueIsAsyncIterable) &&
           !Array.isArray(rawValue) &&
-          // A single `__ItemStep` is fine, but more than that and we need a distributor
-          finishedStep.dependents.length > 1;
+          ((finishedStep.cloneStreams && finishedStep.dependents.length > 1) ||
+            hasRepeatedConsumer(finishedStep));
 
-        if (shouldUseDistributor) {
-          if (finishedStep._stepOptions.walkIterable) {
-            const error = new Error(
-              `GrafastInternalError<ea0665f6-1b5c-4f7f-bcf0-92ddc112dcf3>: ${finishedStep} needs to be walked (it is used for a list field or subscription), but should use a distributor (it's dependend on by other steps too). We should be using a wrapping 'cloneStream' step for this, but we don't seem to be doing so.`,
-            );
-            bucket.setResult(
-              finishedStep,
-              resultIndex,
-              error,
-              flags | FLAG_ERROR,
-            );
-          } else {
-            const value = distributor(
-              rawValue as AsyncIterable<any> | Iterable<any>,
-              finishedStep.dependents.map((d) => d.step),
-              requestContext.abortSignal,
-              distributorOptions,
-            );
-            // TODO: add distributor to cleanup
-            bucket.setResult(finishedStep, resultIndex, value, flags);
-          }
-        } else if (willConsumeAsIterator) {
+        if (willConsumeAsIterator || mustMaterialize) {
           const value = rawValue;
-          const initialCount = stream?.initialCount ?? Infinity;
+          const initialCount = mustMaterialize
+            ? Infinity
+            : (stream?.initialCount ?? Infinity);
 
           let iterator: Iterator<any, any, any> | AsyncIterator<any, any, any>;
           try {
@@ -559,7 +528,7 @@ export function executeBucket(
           stopTime,
           meta,
           eventEmitter,
-          stream: evaluateStream(bucket, step, distributorOptions),
+          stream: evaluateStream(bucket, step),
           _bucket: bucket,
           _requestContext: requestContext,
         };
@@ -696,9 +665,6 @@ export function executeBucket(
                     continue stepLoop;
                   }
                   if ($dep.cloneStreams) {
-                    // if (isDistributor(depVal)) {
-                    //   deps.push(depVal.iterableFor(step.id));
-                    // }
                     const err = new Error(
                       `It's not safe for an unbatched isSyncAndSafe step (${step}) to consume a step that has cloneStreams=true (${$dep})`,
                     );
@@ -759,9 +725,6 @@ export function executeBucket(
           }
         }
       }
-      // Note: we don't need to release the distributors for sync steps because
-      // we specifically forbid isSyncAndSafe steps from having distributors as
-      // deps.
       return next();
     };
 
@@ -832,7 +795,7 @@ export function executeBucket(
       count,
       values,
       extra,
-      stream: evaluateStream(bucket, step, distributorOptions),
+      stream: evaluateStream(bucket, step),
     };
     if (!step.isSyncAndSafe && middleware != null) {
       return middleware.run(
@@ -1058,7 +1021,7 @@ export function executeBucket(
         stopTime,
         meta,
         eventEmitter,
-        stream: evaluateStream(bucket, step, distributorOptions),
+        stream: evaluateStream(bucket, step),
         _bucket: bucket,
         _requestContext: requestContext,
       };
@@ -1086,42 +1049,7 @@ export function executeBucket(
           );
         }
 
-        let executionValue: ExecutionValue;
-        if ($dep.cloneStreams) {
-          // Need to check if the EV contains distributors
-          if (rawExecutionValue.isBatch) {
-            const firstDistributorIndex =
-              rawExecutionValue.entries.findIndex(isDistributor);
-            if (firstDistributorIndex >= 0) {
-              const entries = [];
-              for (let i = 0; i < size; i++) {
-                const val = rawExecutionValue.entries[i];
-                if (i < firstDistributorIndex || !isDistributor(val)) {
-                  entries.push(val);
-                } else {
-                  entries.push(val.iterableFor(step.id));
-                }
-              }
-              executionValue = batchExecutionValue(
-                entries,
-                rawExecutionValue._flags,
-              );
-            } else {
-              executionValue = rawExecutionValue;
-            }
-          } else {
-            if (isDistributor(rawExecutionValue.value)) {
-              executionValue = unaryExecutionValue(
-                rawExecutionValue.value.iterableFor(step.id),
-                rawExecutionValue._entryFlags,
-              );
-            } else {
-              executionValue = rawExecutionValue;
-            }
-          }
-        } else {
-          executionValue = rawExecutionValue;
-        }
+        const executionValue = rawExecutionValue;
 
         _rawDependencies.push(executionValue);
         _rawForbiddenFlags.push(forbiddenFlags);
@@ -1740,13 +1668,33 @@ function executeStepFromEvent(event: ExecuteStepEvent) {
   return event.step.execute(event.executeDetails);
 }
 
+// One dependent step can still consume a value repeatedly if it runs for
+// multiple child list items. The item's own layer consumes the list once;
+// intervening list layers represent additional consumers.
+function hasRepeatedConsumer(step: Step): boolean {
+  return step.dependents.some(({ step: dependent }) =>
+    dependent.layerPlan.ancestry
+      .slice(
+        step.layerPlan.depth + 1,
+        dependent.layerPlan.depth + (dependent instanceof __ItemStep ? 0 : 1),
+      )
+      .some((layer) =>
+        [
+          "listItem",
+          "subscription",
+          "combined",
+          "polymorphicPartition",
+        ].includes(layer.reason.type),
+      ),
+  );
+}
+
 function evaluateStream(
   bucket: Bucket,
   step: Step,
-  distributorOptions: DistributorOptions,
 ): ExecutionDetailsStream | null {
   const stream = step._stepOptions.stream;
-  if (stream === null) return null;
+  if (stream === null || hasRepeatedConsumer(step)) return null;
 
   const shouldStream =
     stream === true || stream.ifStepId == null
@@ -1758,11 +1706,5 @@ function evaluateStream(
     stream === true || stream.initialCountStepId == null
       ? 0
       : (bucket.store.get(stream.initialCountStepId)?.unaryValue() ?? 0);
-  if (initialCount >= distributorOptions.distributorTargetBufferSize) {
-    // Streaming this would cause a delay, so let's just fetch it all up front.
-    // (Really a user should have a validation cap on the maximum size of an
-    // incremental initialCount.)
-    return null;
-  }
   return { initialCount };
 }

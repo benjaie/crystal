@@ -287,35 +287,16 @@ export /* abstract */ class Step<TData = any> {
   public hasSideEffects: boolean;
 
   /**
-   * Set this to `true` if this step might return an iterable or async iterable
-   * that cannot be consumed more than once. Grafast will wrap such values in a
-   * "distributor" to allow multiple downstream steps to independently[^1]
-   * consume clones of the stream. Grafast will not wrap arrays in this way as
-   * doing so is unnecessary.
+   * Set this to `true` if this step can yield a one-shot iterable. When more
+   * than one step depends on it, or a consumer repeats across child list
+   * items, Grafast materializes it before executing its dependents. A single
+   * consumer can stream it.
    *
-   * [^1]: To avoid excessive memory consumption, if a clone gets
-   * `distributorTargetBufferSize` items further ahead than another clone, it
-   * will be temporarily paused (for up to `distributorPauseDuration`
-   * milliseconds) to give the slowest clone a chance to catch up.
-   *
-   * WARNING: Cloning an async iterable only clones its iterable behavior;
-   * other methods and properties are not preserved. For example, if you return
-   * a `Map` with `cloneStreams: true`, downstream consumers will not have
-   * access to `.get(key)`, `.size`, or similar methods/properties.
-   *
-   * WARNING: This transform always produces _async_ iterables, even if the
-   * original was synchronous. This enables pausing of fast consumers whilst
-   * slower consumers catch up, minimizing memory pressure.
+   * Despite the historical name, iterators are never cloned. Properties and
+   * methods other than the iterable's items are not preserved when it is
+   * materialized.
    */
   public cloneStreams: boolean;
-
-  /**
-   * True if one of our dependencies has cloneStreams set. Only populated
-   * during `operationPlan.finalize()`.
-   *
-   * @internal
-   **/
-  public _dependsOnDistributor = false;
 
   /**
    * DO NOT USE! (Specifically exists so that very VERY special steps could

@@ -50,7 +50,7 @@ export class PgCursorStep extends UnbatchedStep<any> {
       if (!hasNonNull && orderVal != null) {
         hasNonNull = true;
       }
-      cursorTuple.push(codec.fromPg(orderVal));
+      cursorTuple.push(orderVal == null ? null : codec.fromPg(orderVal));
     }
     if (!hasNonNull) return null;
     return Buffer.from(JSON.stringify(cursorTuple), "utf8").toString("base64");
