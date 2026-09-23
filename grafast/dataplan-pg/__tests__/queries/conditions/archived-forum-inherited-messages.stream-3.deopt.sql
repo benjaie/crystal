@@ -13,7 +13,8 @@ order by __forums__."id" asc;
 
 select
   __messages__."body" as "0",
-  __messages__."author_id" as "1"
+  __messages__."author_id" as "1",
+  __messages__."id" as "2"
 from app_public.messages as __messages__
 where
   (
@@ -21,7 +22,8 @@ where
   ) and (
     (__messages__.archived_at is null) = ($2::"timestamptz" is null)
   )
-order by __messages__."id" asc;
+order by __messages__."id" asc
+limit 100;
 
 select
   __users__."username" as "0",
