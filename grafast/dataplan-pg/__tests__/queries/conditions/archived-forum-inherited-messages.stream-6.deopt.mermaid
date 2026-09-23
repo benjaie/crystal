@@ -45,12 +45,12 @@ graph TD
     PgSelectRows14[["PgSelectRows[14∈0] ➊"]]:::plan
     PgSelect8 --> PgSelectRows14
     Lambda28{{"Lambda[28∈0] ➊<br />ᐸincludeArchivedConditionᐳ<br />Dependents: 2<br />More deps:<br />- Constantᐸ[HIDDEN]ᐳ[83]"}}:::plan
-    Lambda32{{"Lambda[32∈0] ➊<br />ᐸresolveStreamDetailsᐳ<br />Dependents: 4<br />More deps:<br />- Constantᐸ[HIDDEN]ᐳ[81]"}}:::plan
+    Lambda32{{"Lambda[32∈0] ➊<br />ᐸresolveStreamDetailsᐳ<br />Dependents: 2<br />More deps:<br />- Constantᐸ[HIDDEN]ᐳ[81]"}}:::plan
     __Item15[/"__Item[15∈1]<br />ᐸ14ᐳ"\]:::itemplan
     PgSelectRows14 ==> __Item15
     PgSelectSingle16{{"PgSelectSingle[16∈1]<br />ᐸforumsᐳ"}}:::plan
     __Item15 --> PgSelectSingle16
-    PgSelect20[["PgSelect[20∈2]<br />ᐸmessages+1ᐳ<br />More deps:<br />- Object[11]<br />- Lambda[28]<br />- Lambda[32]<br />- Lambda[32]"]]:::plan
+    PgSelect20[["PgSelect[20∈2]<br />ᐸmessages+1ᐳ<br />More deps:<br />- Object[11]<br />- Lambda[28]<br />- Lambda[32]"]]:::plan
     PgClassExpression19{{"PgClassExpression[19∈2]<br />ᐸ__forums__.”id”ᐳ"}}:::plan
     PgClassExpression25{{"PgClassExpression[25∈2]<br />ᐸ__forums__...chived_at”ᐳ"}}:::plan
     PgClassExpression19 & PgClassExpression25 --> PgSelect20
@@ -68,7 +68,7 @@ graph TD
     ConnectionItems33 --> __CloneStream41
     Access55{{"Access[55∈3]<br />ᐸ20.cursorDetailsᐳ"}}:::plan
     PgSelect20 --> Access55
-    PgSelect43[["PgSelect[43∈6]<br />ᐸmessages(aggregate)ᐳ<br />More deps:<br />- Object[11]<br />- Lambda[28]<br />- Lambda[32]<br />- Lambda[32]"]]:::plan
+    PgSelect43[["PgSelect[43∈6]<br />ᐸmessages(aggregate)ᐳ<br />More deps:<br />- Object[11]<br />- Lambda[28]<br />- Lambda[32]"]]:::plan
     PgClassExpression19 & PgClassExpression25 --> PgSelect43
     PageInfo42{{"PageInfo[42∈6]"}}:::plan
     Connection24 --> PageInfo42
