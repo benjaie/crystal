@@ -351,7 +351,8 @@ export const PgIntrospectionPlugin: GraphileConfig.Plugin = {
         if (!pgService) {
           throw new Error(`Database '${serviceName}' not found`);
         }
-        const { pgSettingsKey, withPgClientKey } = pgService;
+        const { executorContextKey, pgSettingsKey, withPgClientKey } =
+          pgService;
         /* TODO: consider replacing the `withPgClient` with:
            ```
            withPgClient: assertNotNull(
@@ -360,7 +361,7 @@ export const PgIntrospectionPlugin: GraphileConfig.Plugin = {
            ),
            ```
         */
-        const contextCallback =
+        const defaultContextCallback =
           pgSettingsKey != null
             ? EXPORTABLE(
                 (context, object, pgSettingsKey, withPgClientKey) => () => {
@@ -384,6 +385,18 @@ export const PgIntrospectionPlugin: GraphileConfig.Plugin = {
                 [constant, context, object, withPgClientKey],
                 "contextCallback",
               );
+        const contextCallback = executorContextKey
+          ? EXPORTABLE(
+              (coalesce, context, defaultContextCallback, executorContextKey) =>
+                () =>
+                  coalesce(
+                    context().get(executorContextKey),
+                    defaultContextCallback(),
+                  ) as Step<PgExecutorContext<any>>,
+              [coalesce, context, defaultContextCallback, executorContextKey],
+              "contextCallback",
+            )
+          : defaultContextCallback;
         const executor = EXPORTABLE(
           (PgExecutor, contextCallback, serviceName) =>
             new PgExecutor({ name: serviceName, context: contextCallback }),

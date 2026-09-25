@@ -482,6 +482,16 @@ declare global {
         WithPgClient<GraphileConfig.PgAdaptors[TAdaptor]["client"]>
       >;
 
+      /**
+       * Optional context key for a PgExecutorContext shared across executions.
+       * Its pgSettings and withPgClient are authoritative when present. The
+       * caller must supply a new object when fresh reads are required.
+       */
+      executorContextKey?: KeysOfType<
+        Grafast.Context & object,
+        PgExecutorContext | null | undefined
+      >;
+
       /** Return settings to set in the session */
       pgSettings?:
         | ((
