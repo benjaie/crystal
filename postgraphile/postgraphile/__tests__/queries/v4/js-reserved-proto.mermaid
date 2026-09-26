@@ -8,25 +8,25 @@ graph TD
     classDef bucket fill:#f6f6f6,color:#000,stroke-width:2px,text-align:left
 
     subgraph "Buckets for queries/v4/js-reserved-proto"
-    Bucket0("Bucket 0 (root)<br /><br />1: <br />ᐳ: 8, 9, 39, 40, 10<br />2: PgSelect[7], PgSelect[15], PgSelect[22]<br />3: 12, 18, 24<br />ᐳ: 11, 13, 17, 19<br />4: ConnectionItems[28]"):::bucket
+    Bucket0("Bucket 0 (root)<br /><br />1: <br />ᐳ: 8, 9, 38, 39, 10<br />2: PgSelect[7], PgSelect[15], PgSelect[22]<br />3: 12, 18, 24<br />ᐳ: 11, 13, 17, 19<br />4: ConnectionItems[28]"):::bucket
     Bucket1("Bucket 1 (nullableBoundary)<br />Deps: 13<br /><br />ROOT PgSelectSingleᐸprojectᐳ[13]"):::bucket
     Bucket2("Bucket 2 (nullableBoundary)<br />Deps: 19<br /><br />ROOT PgSelectSingleᐸprojectᐳ[19]"):::bucket
-    Bucket3("Bucket 3 (nullableBoundary)<br />Deps: 28, 24<br /><br />ROOT Connectionᐸ22ᐳ[24]"):::bucket
-    Bucket5("Bucket 5 (listItem)<br /><br />ROOT __Item{5}ᐸ33ᐳ[34]"):::bucket
-    Bucket6("Bucket 6 (nullableBoundary)<br />Deps: 35<br /><br />ROOT PgSelectSingle{5}ᐸprojectᐳ[35]"):::bucket
+    Bucket3("Bucket 3 (nullableBoundary)<br />Deps: 24, 28<br /><br />ROOT Connectionᐸ22ᐳ[24]"):::bucket
+    Bucket5("Bucket 5 (listItem)<br /><br />ROOT __Item{5}ᐸ28ᐳ[33]"):::bucket
+    Bucket6("Bucket 6 (nullableBoundary)<br />Deps: 34<br /><br />ROOT PgSelectSingle{5}ᐸprojectᐳ[34]"):::bucket
     end
     Bucket0 --> Bucket1 & Bucket2 & Bucket3
     Bucket3 --> Bucket5
     Bucket5 --> Bucket6
 
     %% plan dependencies
-    PgSelect7[["PgSelect[7∈0] ➊<br />ᐸprojectᐳ<br />More deps:<br />- Constantᐸ'DynaTAC'ᐳ[39]"]]:::plan
+    PgSelect7[["PgSelect[7∈0] ➊<br />ᐸprojectᐳ<br />More deps:<br />- Constantᐸ'DynaTAC'ᐳ[38]"]]:::plan
     Object10{{"Object[10∈0] ➊<br />ᐸ{pgSettings,withPgClient}ᐳ"}}:::plan
     Object10 --> PgSelect7
     Access8{{"Access[8∈0] ➊<br />ᐸ2.pgSettingsᐳ"}}:::plan
     Access9{{"Access[9∈0] ➊<br />ᐸ2.withPgClientᐳ"}}:::plan
     Access8 & Access9 --> Object10
-    PgSelect15[["PgSelect[15∈0] ➊<br />ᐸprojectᐳ<br />More deps:<br />- Constantᐸ2ᐳ[40]"]]:::plan
+    PgSelect15[["PgSelect[15∈0] ➊<br />ᐸprojectᐳ<br />More deps:<br />- Constantᐸ2ᐳ[39]"]]:::plan
     Object10 --> PgSelect15
     __Value2["__Value[2∈0] ➊<br />ᐸcontextᐳ"]:::plan
     __Value2 --> Access8
@@ -57,18 +57,16 @@ graph TD
     PgSelectSingle19 --> PgClassExpression27
     PgClassExpression32{{"PgClassExpression[32∈2] ➊<br />ᐸ__project__.”__proto__”ᐳ"}}:::plan
     PgClassExpression27 o--o PgClassExpression32
-    __CloneStream33[["__CloneStream[33∈3] ➊"]]:::plan
-    ConnectionItems28 --> __CloneStream33
-    __Item34[/"__Item[34∈5]<br />ᐸ33ᐳ"\]:::itemplan
-    __CloneStream33 ==> __Item34
-    PgSelectSingle35{{"PgSelectSingle[35∈5]<br />ᐸprojectᐳ"}}:::plan
-    __Item34 --> PgSelectSingle35
-    PgClassExpression36{{"PgClassExpression[36∈6]<br />ᐸ__project__.”__proto__”ᐳ"}}:::plan
-    PgSelectSingle35 --> PgClassExpression36
-    PgClassExpression37{{"PgClassExpression[37∈6]<br />ᐸ__project__.”brand”ᐳ"}}:::plan
+    __Item33[/"__Item[33∈5]<br />ᐸ28ᐳ"\]:::itemplan
+    ConnectionItems28 ==> __Item33
+    PgSelectSingle34{{"PgSelectSingle[34∈5]<br />ᐸprojectᐳ"}}:::plan
+    __Item33 --> PgSelectSingle34
+    PgClassExpression35{{"PgClassExpression[35∈6]<br />ᐸ__project__.”__proto__”ᐳ"}}:::plan
+    PgSelectSingle34 --> PgClassExpression35
+    PgClassExpression36{{"PgClassExpression[36∈6]<br />ᐸ__project__.”brand”ᐳ"}}:::plan
+    PgClassExpression35 o--o PgClassExpression36
+    PgClassExpression37{{"PgClassExpression[37∈6]<br />ᐸ__project__.”id”ᐳ"}}:::plan
     PgClassExpression36 o--o PgClassExpression37
-    PgClassExpression38{{"PgClassExpression[38∈6]<br />ᐸ__project__.”id”ᐳ"}}:::plan
-    PgClassExpression37 o--o PgClassExpression38
 
     %% define steps
     classDef bucket0 stroke:#696969
@@ -78,9 +76,9 @@ graph TD
     classDef bucket2 stroke:#7f007f
     class Bucket2,PgClassExpression27,PgClassExpression32 bucket2
     classDef bucket3 stroke:#ffa500
-    class Bucket3,__CloneStream33 bucket3
+    class Bucket3 bucket3
     classDef bucket5 stroke:#7fff00
-    class Bucket5,__Item34,PgSelectSingle35 bucket5
+    class Bucket5,__Item33,PgSelectSingle34 bucket5
     classDef bucket6 stroke:#ff1493
-    class Bucket6,PgClassExpression36,PgClassExpression37,PgClassExpression38 bucket6
+    class Bucket6,PgClassExpression35,PgClassExpression36,PgClassExpression37 bucket6
 

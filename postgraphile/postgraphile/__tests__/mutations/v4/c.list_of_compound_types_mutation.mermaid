@@ -10,10 +10,10 @@ graph TD
     subgraph "Buckets for mutations/v4/c.list_of_compound_types_mutation"
     Bucket0("Bucket 0 (root)"):::bucket
     Bucket1("Bucket 1 (mutationField)<br />Deps: 14, 15, 17<br /><br />1: PgSelect[11]<br />2: PgSelectRows[18]<br />ᐳ: Object[16]"):::bucket
-    Bucket2("Bucket 2 (nullableBoundary)<br />Deps: 18, 16, 11<br /><br />ROOT Object{1}ᐸ{result}ᐳ[16]"):::bucket
-    Bucket3("Bucket 3 (listItem)<br />Deps: 11<br /><br />ROOT __Item{3}ᐸ19ᐳ[20]"):::bucket
-    Bucket4("Bucket 4 (nullableBoundary)<br />Deps: 21<br /><br />ROOT PgSelectSingle{3}ᐸlist_of_compound_types_mutationᐳ[21]"):::bucket
-    Bucket5("Bucket 5 (nullableBoundary)<br />Deps: 28<br /><br />ROOT PgClassExpression{4}ᐸ__list_of_...tion__.”g”ᐳ[28]"):::bucket
+    Bucket2("Bucket 2 (nullableBoundary)<br />Deps: 16, 11, 18<br /><br />ROOT Object{1}ᐸ{result}ᐳ[16]"):::bucket
+    Bucket3("Bucket 3 (listItem)<br />Deps: 11<br /><br />ROOT __Item{3}ᐸ18ᐳ[19]"):::bucket
+    Bucket4("Bucket 4 (nullableBoundary)<br />Deps: 20<br /><br />ROOT PgSelectSingle{3}ᐸlist_of_compound_types_mutationᐳ[20]"):::bucket
+    Bucket5("Bucket 5 (nullableBoundary)<br />Deps: 27<br /><br />ROOT PgClassExpression{4}ᐸ__list_of_...tion__.”g”ᐳ[27]"):::bucket
     end
     Bucket0 --> Bucket1
     Bucket1 --> Bucket2
@@ -46,34 +46,32 @@ graph TD
     PgSelect11 --> Object16
     PgSelectRows18[["PgSelectRows[18∈1] ➊"]]:::plan
     PgSelect11 --> PgSelectRows18
-    __CloneStream19[["__CloneStream[19∈2] ➊"]]:::plan
-    PgSelectRows18 --> __CloneStream19
-    __Item20[/"__Item[20∈3]<br />ᐸ19ᐳ"\]:::itemplan
-    __CloneStream19 ==> __Item20
-    PgSelectSingle21{{"PgSelectSingle[21∈3]<br />ᐸlist_of_compound_types_mutationᐳ"}}:::plan
-    __Item20 --> PgSelectSingle21
-    PgClassExpression22{{"PgClassExpression[22∈4]<br />ᐸ__list_of_...tion__.”a”ᐳ"}}:::plan
-    PgSelectSingle21 --> PgClassExpression22
-    PgClassExpression23{{"PgClassExpression[23∈4]<br />ᐸ__list_of_...tion__.”b”ᐳ"}}:::plan
+    __Item19[/"__Item[19∈3]<br />ᐸ18ᐳ"\]:::itemplan
+    PgSelectRows18 ==> __Item19
+    PgSelectSingle20{{"PgSelectSingle[20∈3]<br />ᐸlist_of_compound_types_mutationᐳ"}}:::plan
+    __Item19 --> PgSelectSingle20
+    PgClassExpression21{{"PgClassExpression[21∈4]<br />ᐸ__list_of_...tion__.”a”ᐳ"}}:::plan
+    PgSelectSingle20 --> PgClassExpression21
+    PgClassExpression22{{"PgClassExpression[22∈4]<br />ᐸ__list_of_...tion__.”b”ᐳ"}}:::plan
+    PgClassExpression21 o--o PgClassExpression22
+    PgClassExpression23{{"PgClassExpression[23∈4]<br />ᐸ__list_of_...tion__.”c”ᐳ"}}:::plan
     PgClassExpression22 o--o PgClassExpression23
-    PgClassExpression24{{"PgClassExpression[24∈4]<br />ᐸ__list_of_...tion__.”c”ᐳ"}}:::plan
+    PgClassExpression24{{"PgClassExpression[24∈4]<br />ᐸ__list_of_...tion__.”d”ᐳ"}}:::plan
     PgClassExpression23 o--o PgClassExpression24
-    PgClassExpression25{{"PgClassExpression[25∈4]<br />ᐸ__list_of_...tion__.”d”ᐳ"}}:::plan
+    PgClassExpression25{{"PgClassExpression[25∈4]<br />ᐸ__list_of_...tion__.”e”ᐳ"}}:::plan
     PgClassExpression24 o--o PgClassExpression25
-    PgClassExpression26{{"PgClassExpression[26∈4]<br />ᐸ__list_of_...tion__.”e”ᐳ"}}:::plan
+    PgClassExpression26{{"PgClassExpression[26∈4]<br />ᐸ__list_of_...tion__.”f”ᐳ"}}:::plan
     PgClassExpression25 o--o PgClassExpression26
-    PgClassExpression27{{"PgClassExpression[27∈4]<br />ᐸ__list_of_...tion__.”f”ᐳ"}}:::plan
-    PgClassExpression26 o--o PgClassExpression27
-    PgClassExpression28{{"PgClassExpression[28∈4]<br />ᐸ__list_of_...tion__.”g”ᐳ"}}:::plan
-    PgSelectSingle21 --> PgClassExpression28
-    PgClassExpression29{{"PgClassExpression[29∈4]<br />ᐸ__list_of_....”foo_bar”ᐳ"}}:::plan
-    PgClassExpression27 o--o PgClassExpression29
-    Access30{{"Access[30∈5]<br />ᐸ28.secondsᐳ"}}:::plan
-    PgClassExpression28 --> Access30
-    Access31{{"Access[31∈5]<br />ᐸ28.minutesᐳ"}}:::plan
+    PgClassExpression27{{"PgClassExpression[27∈4]<br />ᐸ__list_of_...tion__.”g”ᐳ"}}:::plan
+    PgSelectSingle20 --> PgClassExpression27
+    PgClassExpression28{{"PgClassExpression[28∈4]<br />ᐸ__list_of_....”foo_bar”ᐳ"}}:::plan
+    PgClassExpression26 o--o PgClassExpression28
+    Access29{{"Access[29∈5]<br />ᐸ27.secondsᐳ"}}:::plan
+    PgClassExpression27 --> Access29
+    Access30{{"Access[30∈5]<br />ᐸ27.minutesᐳ"}}:::plan
+    Access29 o--o Access30
+    Access31{{"Access[31∈5]<br />ᐸ27.hoursᐳ"}}:::plan
     Access30 o--o Access31
-    Access32{{"Access[32∈5]<br />ᐸ28.hoursᐳ"}}:::plan
-    Access31 o--o Access32
 
     %% define steps
     classDef bucket0 stroke:#696969
@@ -81,11 +79,11 @@ graph TD
     classDef bucket1 stroke:#00bfff
     class Bucket1,PgSelect11,Object16,PgSelectRows18 bucket1
     classDef bucket2 stroke:#7f007f
-    class Bucket2,__CloneStream19 bucket2
+    class Bucket2 bucket2
     classDef bucket3 stroke:#ffa500
-    class Bucket3,__Item20,PgSelectSingle21 bucket3
+    class Bucket3,__Item19,PgSelectSingle20 bucket3
     classDef bucket4 stroke:#0000ff
-    class Bucket4,PgClassExpression22,PgClassExpression23,PgClassExpression24,PgClassExpression25,PgClassExpression26,PgClassExpression27,PgClassExpression28,PgClassExpression29 bucket4
+    class Bucket4,PgClassExpression21,PgClassExpression22,PgClassExpression23,PgClassExpression24,PgClassExpression25,PgClassExpression26,PgClassExpression27,PgClassExpression28 bucket4
     classDef bucket5 stroke:#7fff00
-    class Bucket5,Access30,Access31,Access32 bucket5
+    class Bucket5,Access29,Access30,Access31 bucket5
 

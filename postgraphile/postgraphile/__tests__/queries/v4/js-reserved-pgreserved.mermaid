@@ -8,12 +8,12 @@ graph TD
     classDef bucket fill:#f6f6f6,color:#000,stroke-width:2px,text-align:left
 
     subgraph "Buckets for queries/v4/js-reserved-pgreserved"
-    Bucket0("Bucket 0 (root)<br /><br />1: <br />ᐳ: 8, 9, 54, 55, 56, 57, 10<br />2: 7, 12, 18, 24, 30<br />3: 15, 21, 27, 33, 35<br />ᐳ: 14, 16, 20, 22, 26, 28, 32, 34"):::bucket
+    Bucket0("Bucket 0 (root)<br /><br />1: <br />ᐳ: 8, 9, 53, 54, 55, 56, 10<br />2: 7, 12, 18, 24, 30<br />3: 15, 21, 27, 33, 35<br />ᐳ: 14, 16, 20, 22, 26, 28, 32, 34"):::bucket
     Bucket1("Bucket 1 (nullableBoundary)<br />Deps: 16<br /><br />ROOT PgSelectSingleᐸreservedᐳ[16]"):::bucket
     Bucket2("Bucket 2 (nullableBoundary)<br />Deps: 22<br /><br />ROOT PgSelectSingleᐸreservedᐳ[22]"):::bucket
     Bucket3("Bucket 3 (nullableBoundary)<br />Deps: 28<br /><br />ROOT PgSelectSingleᐸreservedᐳ[28]"):::bucket
     Bucket4("Bucket 4 (nullableBoundary)<br />Deps: 34<br /><br />ROOT PgSelectSingleᐸreservedᐳ[34]"):::bucket
-    Bucket5("Bucket 5 (listItem)<br /><br />ROOT __Item{5}ᐸ35ᐳ[37]"):::bucket
+    Bucket5("Bucket 5 (listItem)<br /><br />ROOT __Item{5}ᐸ35ᐳ[36]"):::bucket
     end
     Bucket0 --> Bucket1 & Bucket2 & Bucket3 & Bucket4 & Bucket5
 
@@ -22,13 +22,13 @@ graph TD
     Access8{{"Access[8∈0] ➊<br />ᐸ2.pgSettingsᐳ"}}:::plan
     Access9{{"Access[9∈0] ➊<br />ᐸ2.withPgClientᐳ"}}:::plan
     Access8 & Access9 --> Object10
-    PgSelect12[["PgSelect[12∈0] ➊<br />ᐸreservedᐳ<br />More deps:<br />- Constantᐸ'2 Unlimited'ᐳ[54]"]]:::plan
+    PgSelect12[["PgSelect[12∈0] ➊<br />ᐸreservedᐳ<br />More deps:<br />- Constantᐸ'2 Unlimited'ᐳ[53]"]]:::plan
     Object10 --> PgSelect12
-    PgSelect18[["PgSelect[18∈0] ➊<br />ᐸreservedᐳ<br />More deps:<br />- Constantᐸ'1973'ᐳ[55]"]]:::plan
+    PgSelect18[["PgSelect[18∈0] ➊<br />ᐸreservedᐳ<br />More deps:<br />- Constantᐸ'1973'ᐳ[54]"]]:::plan
     Object10 --> PgSelect18
-    PgSelect24[["PgSelect[24∈0] ➊<br />ᐸreservedᐳ<br />More deps:<br />- Constantᐸ4ᐳ[56]"]]:::plan
+    PgSelect24[["PgSelect[24∈0] ➊<br />ᐸreservedᐳ<br />More deps:<br />- Constantᐸ4ᐳ[55]"]]:::plan
     Object10 --> PgSelect24
-    PgSelect30[["PgSelect[30∈0] ➊<br />ᐸreservedᐳ<br />More deps:<br />- Constantᐸ'No Limit'ᐳ[57]"]]:::plan
+    PgSelect30[["PgSelect[30∈0] ➊<br />ᐸreservedᐳ<br />More deps:<br />- Constantᐸ'No Limit'ᐳ[56]"]]:::plan
     Object10 --> PgSelect30
     PgSelect7[["PgSelect[7∈0] ➊<br />ᐸreservedᐳ"]]:::plan
     Object10 --> PgSelect7
@@ -61,52 +61,52 @@ graph TD
     First32 --> PgSelectSingle34
     PgSelectRows35[["PgSelectRows[35∈0] ➊"]]:::plan
     PgSelect7 --> PgSelectRows35
-    PgClassExpression39{{"PgClassExpression[39∈1] ➊<br />ᐸ__reserved__.”do”ᐳ"}}:::plan
-    PgSelectSingle16 --> PgClassExpression39
-    PgClassExpression43{{"PgClassExpression[43∈1] ➊<br />ᐸ__reserved__.”id”ᐳ"}}:::plan
-    PgClassExpression39 o--o PgClassExpression43
-    PgClassExpression47{{"PgClassExpression[47∈1] ➊<br />ᐸ__reserved__.”null”ᐳ"}}:::plan
-    PgClassExpression43 o--o PgClassExpression47
-    PgClassExpression40{{"PgClassExpression[40∈2] ➊<br />ᐸ__reserved__.”case”ᐳ"}}:::plan
-    PgSelectSingle22 --> PgClassExpression40
-    PgClassExpression44{{"PgClassExpression[44∈2] ➊<br />ᐸ__reserved__.”id”ᐳ"}}:::plan
-    PgClassExpression40 o--o PgClassExpression44
-    PgClassExpression48{{"PgClassExpression[48∈2] ➊<br />ᐸ__reserved__.”null”ᐳ"}}:::plan
-    PgClassExpression44 o--o PgClassExpression48
-    PgClassExpression41{{"PgClassExpression[41∈3] ➊<br />ᐸ__reserved__.”case”ᐳ"}}:::plan
-    PgSelectSingle28 --> PgClassExpression41
-    PgClassExpression45{{"PgClassExpression[45∈3] ➊<br />ᐸ__reserved__.”do”ᐳ"}}:::plan
-    PgClassExpression41 o--o PgClassExpression45
-    PgClassExpression49{{"PgClassExpression[49∈3] ➊<br />ᐸ__reserved__.”null”ᐳ"}}:::plan
-    PgClassExpression45 o--o PgClassExpression49
-    PgClassExpression42{{"PgClassExpression[42∈4] ➊<br />ᐸ__reserved__.”case”ᐳ"}}:::plan
-    PgSelectSingle34 --> PgClassExpression42
-    PgClassExpression46{{"PgClassExpression[46∈4] ➊<br />ᐸ__reserved__.”do”ᐳ"}}:::plan
+    PgClassExpression38{{"PgClassExpression[38∈1] ➊<br />ᐸ__reserved__.”do”ᐳ"}}:::plan
+    PgSelectSingle16 --> PgClassExpression38
+    PgClassExpression42{{"PgClassExpression[42∈1] ➊<br />ᐸ__reserved__.”id”ᐳ"}}:::plan
+    PgClassExpression38 o--o PgClassExpression42
+    PgClassExpression46{{"PgClassExpression[46∈1] ➊<br />ᐸ__reserved__.”null”ᐳ"}}:::plan
     PgClassExpression42 o--o PgClassExpression46
-    __Item37[/"__Item[37∈5]<br />ᐸ35ᐳ"\]:::itemplan
-    PgSelectRows35 ==> __Item37
-    PgSelectSingle38{{"PgSelectSingle[38∈5]<br />ᐸreservedᐳ"}}:::plan
-    __Item37 --> PgSelectSingle38
-    PgClassExpression50{{"PgClassExpression[50∈5]<br />ᐸ__reserved__.”case”ᐳ"}}:::plan
-    PgSelectSingle38 --> PgClassExpression50
-    PgClassExpression51{{"PgClassExpression[51∈5]<br />ᐸ__reserved__.”do”ᐳ"}}:::plan
+    PgClassExpression39{{"PgClassExpression[39∈2] ➊<br />ᐸ__reserved__.”case”ᐳ"}}:::plan
+    PgSelectSingle22 --> PgClassExpression39
+    PgClassExpression43{{"PgClassExpression[43∈2] ➊<br />ᐸ__reserved__.”id”ᐳ"}}:::plan
+    PgClassExpression39 o--o PgClassExpression43
+    PgClassExpression47{{"PgClassExpression[47∈2] ➊<br />ᐸ__reserved__.”null”ᐳ"}}:::plan
+    PgClassExpression43 o--o PgClassExpression47
+    PgClassExpression40{{"PgClassExpression[40∈3] ➊<br />ᐸ__reserved__.”case”ᐳ"}}:::plan
+    PgSelectSingle28 --> PgClassExpression40
+    PgClassExpression44{{"PgClassExpression[44∈3] ➊<br />ᐸ__reserved__.”do”ᐳ"}}:::plan
+    PgClassExpression40 o--o PgClassExpression44
+    PgClassExpression48{{"PgClassExpression[48∈3] ➊<br />ᐸ__reserved__.”null”ᐳ"}}:::plan
+    PgClassExpression44 o--o PgClassExpression48
+    PgClassExpression41{{"PgClassExpression[41∈4] ➊<br />ᐸ__reserved__.”case”ᐳ"}}:::plan
+    PgSelectSingle34 --> PgClassExpression41
+    PgClassExpression45{{"PgClassExpression[45∈4] ➊<br />ᐸ__reserved__.”do”ᐳ"}}:::plan
+    PgClassExpression41 o--o PgClassExpression45
+    __Item36[/"__Item[36∈5]<br />ᐸ35ᐳ"\]:::itemplan
+    PgSelectRows35 ==> __Item36
+    PgSelectSingle37{{"PgSelectSingle[37∈5]<br />ᐸreservedᐳ"}}:::plan
+    __Item36 --> PgSelectSingle37
+    PgClassExpression49{{"PgClassExpression[49∈5]<br />ᐸ__reserved__.”case”ᐳ"}}:::plan
+    PgSelectSingle37 --> PgClassExpression49
+    PgClassExpression50{{"PgClassExpression[50∈5]<br />ᐸ__reserved__.”do”ᐳ"}}:::plan
+    PgClassExpression49 o--o PgClassExpression50
+    PgClassExpression51{{"PgClassExpression[51∈5]<br />ᐸ__reserved__.”id”ᐳ"}}:::plan
     PgClassExpression50 o--o PgClassExpression51
-    PgClassExpression52{{"PgClassExpression[52∈5]<br />ᐸ__reserved__.”id”ᐳ"}}:::plan
+    PgClassExpression52{{"PgClassExpression[52∈5]<br />ᐸ__reserved__.”null”ᐳ"}}:::plan
     PgClassExpression51 o--o PgClassExpression52
-    PgClassExpression53{{"PgClassExpression[53∈5]<br />ᐸ__reserved__.”null”ᐳ"}}:::plan
-    PgClassExpression52 o--o PgClassExpression53
 
     %% define steps
     classDef bucket0 stroke:#696969
     class Bucket0,__Value2,PgSelect7,Access8,Access9,Object10,PgSelect12,First14,PgSelectRows15,PgSelectSingle16,PgSelect18,First20,PgSelectRows21,PgSelectSingle22,PgSelect24,First26,PgSelectRows27,PgSelectSingle28,PgSelect30,First32,PgSelectRows33,PgSelectSingle34,PgSelectRows35 bucket0
     classDef bucket1 stroke:#00bfff
-    class Bucket1,PgClassExpression39,PgClassExpression43,PgClassExpression47 bucket1
+    class Bucket1,PgClassExpression38,PgClassExpression42,PgClassExpression46 bucket1
     classDef bucket2 stroke:#7f007f
-    class Bucket2,PgClassExpression40,PgClassExpression44,PgClassExpression48 bucket2
+    class Bucket2,PgClassExpression39,PgClassExpression43,PgClassExpression47 bucket2
     classDef bucket3 stroke:#ffa500
-    class Bucket3,PgClassExpression41,PgClassExpression45,PgClassExpression49 bucket3
+    class Bucket3,PgClassExpression40,PgClassExpression44,PgClassExpression48 bucket3
     classDef bucket4 stroke:#0000ff
-    class Bucket4,PgClassExpression42,PgClassExpression46 bucket4
+    class Bucket4,PgClassExpression41,PgClassExpression45 bucket4
     classDef bucket5 stroke:#7fff00
-    class Bucket5,__Item37,PgSelectSingle38,PgClassExpression50,PgClassExpression51,PgClassExpression52,PgClassExpression53 bucket5
+    class Bucket5,__Item36,PgSelectSingle37,PgClassExpression49,PgClassExpression50,PgClassExpression51,PgClassExpression52 bucket5
 
