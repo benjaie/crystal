@@ -9,8 +9,8 @@ graph TD
 
     subgraph "Buckets for queries/v4/dynamic-json"
     Bucket0("Bucket 0 (root)<br /><br />1: <br />ᐳ: 8, 9, 48, 56, 64, 72, 80, 88, 96, 118, 119, 120, 121, 122, 10, 11, 19, 27, 35, 43, 51, 59, 67, 75, 83, 91, 99<br />2: 7, 17, 25, 33, 41, 49, 57, 65, 73, 81, 89, 97, 106<br />3: 13, 21, 29, 37, 45, 53, 61, 69, 77, 85, 93, 101, 108<br />ᐳ: 12, 14, 15, 20, 22, 23, 28, 30, 31, 36, 38, 39, 44, 46, 47, 52, 54, 55, 60, 62, 63, 68, 70, 71, 76, 78, 79, 84, 86, 87, 92, 94, 95, 100, 102, 103<br />4: ConnectionItems[110]"):::bucket
-    Bucket1("Bucket 1 (nullableBoundary)<br />Deps: 108, 110<br /><br />ROOT Connectionᐸ106ᐳ[108]"):::bucket
-    Bucket3("Bucket 3 (listItem)<br /><br />ROOT __Item{3}ᐸ110ᐳ[114]"):::bucket
+    Bucket1("Bucket 1 (nullableBoundary)<br />Deps: 110, 108<br /><br />ROOT Connectionᐸ106ᐳ[108]"):::bucket
+    Bucket3("Bucket 3 (listItem)<br /><br />ROOT __Item{3}ᐸ113ᐳ[114]"):::bucket
     Bucket4("Bucket 4 (nullableBoundary)<br />Deps: 115<br /><br />ROOT PgSelectSingle{3}ᐸtypesᐳ[115]"):::bucket
     end
     Bucket0 --> Bucket1
@@ -153,8 +153,10 @@ graph TD
     PgSelect106 --> Connection108
     ConnectionItems110[["ConnectionItems[110∈0] ➊"]]:::plan
     Connection108 --> ConnectionItems110
-    __Item114[/"__Item[114∈3]<br />ᐸ110ᐳ"\]:::itemplan
-    ConnectionItems110 ==> __Item114
+    __CloneStream113[["__CloneStream[113∈1] ➊"]]:::plan
+    ConnectionItems110 --> __CloneStream113
+    __Item114[/"__Item[114∈3]<br />ᐸ113ᐳ"\]:::itemplan
+    __CloneStream113 ==> __Item114
     PgSelectSingle115{{"PgSelectSingle[115∈3]<br />ᐸtypesᐳ"}}:::plan
     __Item114 --> PgSelectSingle115
     PgClassExpression116{{"PgClassExpression[116∈4]<br />ᐸ__types__.”json”ᐳ"}}:::plan
@@ -166,7 +168,7 @@ graph TD
     classDef bucket0 stroke:#696969
     class Bucket0,__Value2,PgSelect7,Access8,Access9,Object10,PgFromExpression11,First12,PgSelectRows13,PgSelectSingle14,PgSelect17,PgFromExpression19,First20,PgSelectRows21,PgSelectSingle22,PgSelect25,PgFromExpression27,First28,PgSelectRows29,PgSelectSingle30,PgSelect33,PgFromExpression35,First36,PgSelectRows37,PgSelectSingle38,PgSelect41,PgFromExpression43,First44,PgSelectRows45,PgSelectSingle46,__InputDynamicScalar48,PgSelect49,PgFromExpression51,First52,PgSelectRows53,PgSelectSingle54,__InputDynamicScalar56,PgSelect57,PgFromExpression59,First60,PgSelectRows61,PgSelectSingle62,__InputDynamicScalar64,PgSelect65,PgFromExpression67,First68,PgSelectRows69,PgSelectSingle70,__InputDynamicScalar72,PgSelect73,PgFromExpression75,First76,PgSelectRows77,PgSelectSingle78,__InputDynamicScalar80,PgSelect81,PgFromExpression83,First84,PgSelectRows85,PgSelectSingle86,__InputDynamicScalar88,PgSelect89,PgFromExpression91,First92,PgSelectRows93,PgSelectSingle94,__InputDynamicScalar96,PgSelect97,PgFromExpression99,First100,PgSelectRows101,PgSelectSingle102,PgSelect106,Connection108,ConnectionItems110 bucket0
     classDef bucket1 stroke:#00bfff
-    class Bucket1 bucket1
+    class Bucket1,__CloneStream113 bucket1
     classDef bucket3 stroke:#ffa500
     class Bucket3,__Item114,PgSelectSingle115 bucket3
     classDef bucket4 stroke:#0000ff

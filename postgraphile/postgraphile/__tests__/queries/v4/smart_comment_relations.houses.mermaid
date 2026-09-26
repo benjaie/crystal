@@ -9,10 +9,10 @@ graph TD
 
     subgraph "Buckets for queries/v4/smart_comment_relations.houses"
     Bucket0("Bucket 0 (root)<br /><br />1: 282, 290, 298, 314, 326, 334<br />ᐳ: 9, 10, 41, 83, 87, 91, 350, 351, 352, 11, 22, 23, 25<br />2: 16, 27, 286, 294, 302, 318, 330, 338<br />3: 19, 30, 306, 322, 342<br />ᐳ: 18, 20, 29, 31<br />4: 310, 346<br />5: PgSelect[8]<br />ᐳ: 287, 311, 323, 347<br />6: Connection[12]<br />7: ConnectionItems[32]"):::bucket
-    Bucket1("Bucket 1 (nullableBoundary)<br />Deps: 12, 32, 41, 287, 311, 323, 347, 83, 87, 91<br /><br />ROOT Connectionᐸ8ᐳ[12]"):::bucket
+    Bucket1("Bucket 1 (nullableBoundary)<br />Deps: 32, 12, 41, 287, 311, 323, 347, 83, 87, 91<br /><br />ROOT Connectionᐸ8ᐳ[12]"):::bucket
     Bucket2("Bucket 2 (nullableBoundary)<br />Deps: 20, 41<br /><br />ROOT PgSelectSingleᐸhousesᐳ[20]"):::bucket
     Bucket3("Bucket 3 (nullableBoundary)<br />Deps: 31, 41<br /><br />ROOT PgSelectSingleᐸhousesᐳ[31]"):::bucket
-    Bucket5("Bucket 5 (listItem)<br />Deps: 41, 287, 311, 323, 347, 83, 87, 91<br /><br />ROOT __Item{5}ᐸ32ᐳ[51]"):::bucket
+    Bucket5("Bucket 5 (listItem)<br />Deps: 41, 287, 311, 323, 347, 83, 87, 91<br /><br />ROOT __Item{5}ᐸ50ᐳ[51]"):::bucket
     Bucket6("Bucket 6 (nullableBoundary)<br />Deps: 52, 41, 287, 51, 311, 323, 347, 83, 87, 91<br /><br />ROOT PgSelectSingle{5}ᐸhousesᐳ[52]<br />1: <br />ᐳ: 53, 54, 57, 58, 59, 60, 288, 312, 324, 348, 55, 56, 289, 313, 325, 349<br />2: 66, 71, 76, 81<br />ᐳ: 65, 67, 70, 72, 75, 77, 80, 82"):::bucket
     Bucket7("Bucket 7 (nullableBoundary)<br />Deps: 67, 83, 289, 65, 87<br /><br />ROOT PgSelectSingle{6}ᐸstreetsᐳ[67]<br />1: <br />ᐳ: 84, 97, 283, 85, 86, 284, 285<br />2: Connection[106]<br />3: ConnectionItems[143]"):::bucket
     Bucket8("Bucket 8 (nullableBoundary)<br />Deps: 72, 87, 349, 70, 83, 91<br /><br />ROOT PgSelectSingle{6}ᐸbuildingsᐳ[72]<br />1: <br />ᐳ: 88, 98, 108, 117, 331, 343, 89, 90, 332, 333, 344, 345<br />2: PgSelectRows[135], PgSelectRows[141]<br />ᐳ: 134, 136, 140, 142"):::bucket
@@ -133,6 +133,8 @@ graph TD
     PgSelectInlineApply338 --> PgSelectInlineApply342
     Access347{{"Access[347∈0] ➊<br />ᐸ8.m.subqueryDetailsFor68ᐳ"}}:::plan
     PgSelect8 --> Access347
+    __CloneStream50[["__CloneStream[50∈1] ➊"]]:::plan
+    ConnectionItems32 --> __CloneStream50
     List44{{"List[44∈2] ➊<br />ᐸ41,42,43ᐳ<br />More deps:<br />- Constantᐸ'houses'ᐳ[41]"}}:::plan
     PgClassExpression42{{"PgClassExpression[42∈2] ➊<br />ᐸ__houses__.”street_id”ᐳ"}}:::plan
     PgClassExpression43{{"PgClassExpression[43∈2] ➊<br />ᐸ__houses__...operty_id”ᐳ"}}:::plan
@@ -161,8 +163,8 @@ graph TD
     PgSelectSingle31 --> PgClassExpression47
     Lambda49{{"Lambda[49∈3] ➊<br />ᐸbase64JSONEncodeᐳ"}}:::plan
     List48 --> Lambda49
-    __Item51[/"__Item[51∈5]<br />ᐸ32ᐳ"\]:::itemplan
-    ConnectionItems32 ==> __Item51
+    __Item51[/"__Item[51∈5]<br />ᐸ50ᐳ"\]:::itemplan
+    __CloneStream50 ==> __Item51
     PgSelectSingle52{{"PgSelectSingle[52∈5]<br />ᐸhousesᐳ"}}:::plan
     __Item51 --> PgSelectSingle52
     List55{{"List[55∈6]<br />ᐸ41,53,54ᐳ<br />More deps:<br />- Constantᐸ'houses'ᐳ[41]"}}:::plan
@@ -538,7 +540,7 @@ graph TD
     classDef bucket0 stroke:#696969
     class Bucket0,__Value2,PgSelect8,Access9,Access10,Object11,Connection12,PgSelect16,First18,PgSelectRows19,PgSelectSingle20,Lambda22,Access23,Access25,PgSelect27,First29,PgSelectRows30,PgSelectSingle31,ConnectionItems32,PgSelectInlineApply282,PgSelectInlineApply286,Access287,PgSelectInlineApply290,PgSelectInlineApply294,PgSelectInlineApply298,PgSelectInlineApply302,PgSelectInlineApply306,PgSelectInlineApply310,Access311,PgSelectInlineApply314,PgSelectInlineApply318,PgSelectInlineApply322,Access323,PgSelectInlineApply326,PgSelectInlineApply330,PgSelectInlineApply334,PgSelectInlineApply338,PgSelectInlineApply342,PgSelectInlineApply346,Access347 bucket0
     classDef bucket1 stroke:#00bfff
-    class Bucket1 bucket1
+    class Bucket1,__CloneStream50 bucket1
     classDef bucket2 stroke:#7f007f
     class Bucket2,PgClassExpression35,PgClassExpression37,PgClassExpression39,PgClassExpression42,PgClassExpression43,List44,Lambda45 bucket2
     classDef bucket3 stroke:#ffa500

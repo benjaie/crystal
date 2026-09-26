@@ -9,10 +9,10 @@ graph TD
 
     subgraph "Buckets for queries/polymorphic/allRelationalTopics.orderBy"
     Bucket0("Bucket 0 (root)<br /><br />1: 67, 71<br />ᐳ: Access[9], Access[10], Object[11]<br />2: PgSelect[8], PgSelect[15]<br />ᐳ: Access[68], Access[72]<br />3: Connection[12], Connection[17]<br />4: 19, 22"):::bucket
-    Bucket1("Bucket 1 (nullableBoundary)<br />Deps: 12, 19, 68<br /><br />ROOT Connectionᐸ8ᐳ[12]"):::bucket
-    Bucket2("Bucket 2 (nullableBoundary)<br />Deps: 17, 22, 72<br /><br />ROOT Connectionᐸ15ᐳ[17]"):::bucket
-    Bucket5("Bucket 5 (listItem)<br />Deps: 68<br /><br />ROOT __Item{5}ᐸ19ᐳ[27]"):::bucket
-    Bucket6("Bucket 6 (listItem)<br />Deps: 72<br /><br />ROOT __Item{6}ᐸ22ᐳ[29]"):::bucket
+    Bucket1("Bucket 1 (nullableBoundary)<br />Deps: 19, 12, 68<br /><br />ROOT Connectionᐸ8ᐳ[12]"):::bucket
+    Bucket2("Bucket 2 (nullableBoundary)<br />Deps: 22, 17, 72<br /><br />ROOT Connectionᐸ15ᐳ[17]"):::bucket
+    Bucket5("Bucket 5 (listItem)<br />Deps: 68<br /><br />ROOT __Item{5}ᐸ25ᐳ[27]"):::bucket
+    Bucket6("Bucket 6 (listItem)<br />Deps: 72<br /><br />ROOT __Item{6}ᐸ26ᐳ[29]"):::bucket
     Bucket7("Bucket 7 (nullableBoundary)<br />Deps: 68, 28<br /><br />ROOT PgSelectSingle{5}ᐸrelational_topicsᐳ[28]<br />1: <br />ᐳ: List[69], Lambda[70]<br />2: PgSelectRows[37]<br />ᐳ: 36, 38, 39, 54, 60, 66"):::bucket
     Bucket8("Bucket 8 (nullableBoundary)<br />Deps: 72, 30<br /><br />ROOT PgSelectSingle{6}ᐸrelational_topicsᐳ[30]<br />1: <br />ᐳ: List[73], Lambda[74]<br />2: PgSelectRows[46]<br />ᐳ: 45, 47, 48"):::bucket
     end
@@ -48,12 +48,16 @@ graph TD
     PgSelect8 --> Access68
     Access72{{"Access[72∈0] ➊<br />ᐸ15.m.joinDetailsFor41ᐳ"}}:::plan
     PgSelect15 --> Access72
-    __Item27[/"__Item[27∈5]<br />ᐸ19ᐳ"\]:::itemplan
-    ConnectionItems19 ==> __Item27
+    __CloneStream25[["__CloneStream[25∈1] ➊"]]:::plan
+    ConnectionItems19 --> __CloneStream25
+    __CloneStream26[["__CloneStream[26∈2] ➊"]]:::plan
+    ConnectionItems22 --> __CloneStream26
+    __Item27[/"__Item[27∈5]<br />ᐸ25ᐳ"\]:::itemplan
+    __CloneStream25 ==> __Item27
     PgSelectSingle28{{"PgSelectSingle[28∈5]<br />ᐸrelational_topicsᐳ"}}:::plan
     __Item27 --> PgSelectSingle28
-    __Item29[/"__Item[29∈6]<br />ᐸ22ᐳ"\]:::itemplan
-    ConnectionItems22 ==> __Item29
+    __Item29[/"__Item[29∈6]<br />ᐸ26ᐳ"\]:::itemplan
+    __CloneStream26 ==> __Item29
     PgSelectSingle30{{"PgSelectSingle[30∈6]<br />ᐸrelational_topicsᐳ"}}:::plan
     __Item29 --> PgSelectSingle30
     List69{{"List[69∈7]<br />ᐸ68,28ᐳ"}}:::plan
@@ -91,9 +95,9 @@ graph TD
     classDef bucket0 stroke:#696969
     class Bucket0,__Value2,PgSelect8,Access9,Access10,Object11,Connection12,PgSelect15,Connection17,ConnectionItems19,ConnectionItems22,PgSelectInlineApply67,Access68,PgSelectInlineApply71,Access72 bucket0
     classDef bucket1 stroke:#00bfff
-    class Bucket1 bucket1
+    class Bucket1,__CloneStream25 bucket1
     classDef bucket2 stroke:#7f007f
-    class Bucket2 bucket2
+    class Bucket2,__CloneStream26 bucket2
     classDef bucket5 stroke:#7fff00
     class Bucket5,__Item27,PgSelectSingle28 bucket5
     classDef bucket6 stroke:#ff1493

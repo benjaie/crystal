@@ -9,8 +9,8 @@ graph TD
 
     subgraph "Buckets for queries/v4/node"
     Bucket0("Bucket 0 (root)<br /><br />1: <br />ᐳ: 9, 10, 101, 1679, 1689, 1702, 1706, 1721, 1723, 1727, 1731, 1735, 1742, 1750, 1754, 1758, 1762, 1766, 1776, 1780, 1784, 1788, 1792, 2279, 2282, 2285, 2288, 2291, 2294, 2297, 2300, 11, 25, 26, 33, 34, 41, 42, 49, 50, 52, 59, 60, 62, 69, 70, 72, 81, 82, 89, 90, 98, 99, 295, 296, 492, 493, 689, 690, 886, 887, 1083, 1084, 1280, 1281, 1477, 1478<br />2: 8, 15, 28, 36, 44, 54, 64, 74, 84, 92<br />3: 12, 17, 31, 39, 47, 57, 67, 77, 87, 95<br />ᐳ: 30, 32, 38, 40, 46, 48, 56, 58, 66, 68, 76, 78, 86, 88, 94, 96<br />4: 1673, 1676"):::bucket
-    Bucket1("Bucket 1 (nullableBoundary)<br />Deps: 12, 1673, 1679<br /><br />ROOT Connectionᐸ8ᐳ[12]"):::bucket
-    Bucket2("Bucket 2 (nullableBoundary)<br />Deps: 17, 1676, 1689<br /><br />ROOT Connectionᐸ15ᐳ[17]"):::bucket
+    Bucket1("Bucket 1 (nullableBoundary)<br />Deps: 1673, 12, 1679<br /><br />ROOT Connectionᐸ8ᐳ[12]"):::bucket
+    Bucket2("Bucket 2 (nullableBoundary)<br />Deps: 1676, 17, 1689<br /><br />ROOT Connectionᐸ15ᐳ[17]"):::bucket
     Bucket3("Bucket 3 (nullableBoundary)<br />Deps: 32, 1679<br /><br />ROOT PgSelectSingleᐸpersonᐳ[32]"):::bucket
     Bucket4("Bucket 4 (nullableBoundary)<br />Deps: 40, 1679<br /><br />ROOT PgSelectSingleᐸpersonᐳ[40]"):::bucket
     Bucket5("Bucket 5 (nullableBoundary)<br />Deps: 48, 1679<br /><br />ROOT PgSelectSingleᐸpersonᐳ[48]"):::bucket
@@ -187,8 +187,8 @@ graph TD
     Bucket176("Bucket 176 (polymorphicPartition)<br />|Issue756<br />Deps: 11, 2298, 1784<br />ᐳIssue756<br /><br />1: PgSelect[1646]<br />2: PgSelectRows[1651]<br />ᐳ: 1650, 1652, 2200, 2201, 2202"):::bucket
     Bucket177("Bucket 177 (polymorphicPartition)<br />|MyTable<br />Deps: 11, 2298, 1788<br />ᐳMyTable<br /><br />1: PgSelect[1656]<br />2: PgSelectRows[1661]<br />ᐳ: 1660, 1662, 2203, 2204, 2205"):::bucket
     Bucket178("Bucket 178 (polymorphicPartition)<br />|NullTestRecord<br />Deps: 11, 2298, 1792<br />ᐳNullTestRecord<br /><br />1: PgSelect[1666]<br />2: PgSelectRows[1671]<br />ᐳ: 1670, 1672, 2206, 2207, 2208"):::bucket
-    Bucket181("Bucket 181 (listItem)<br />Deps: 1679<br /><br />ROOT __Item{181}ᐸ1673ᐳ[2265]"):::bucket
-    Bucket182("Bucket 182 (listItem)<br />Deps: 1689<br /><br />ROOT __Item{182}ᐸ1676ᐳ[2267]"):::bucket
+    Bucket181("Bucket 181 (listItem)<br />Deps: 1679<br /><br />ROOT __Item{181}ᐸ1719ᐳ[2265]"):::bucket
+    Bucket182("Bucket 182 (listItem)<br />Deps: 1689<br /><br />ROOT __Item{182}ᐸ1720ᐳ[2267]"):::bucket
     Bucket183("Bucket 183 (nullableBoundary)<br />Deps: 2266, 1679<br /><br />ROOT PgSelectSingle{181}ᐸpersonᐳ[2266]"):::bucket
     Bucket184("Bucket 184 (nullableBoundary)<br />Deps: 2268, 1689<br /><br />ROOT PgSelectSingle{182}ᐸcompound_keyᐳ[2268]"):::bucket
     end
@@ -329,6 +329,10 @@ graph TD
     Connection12 --> ConnectionItems1673
     ConnectionItems1676[["ConnectionItems[1676∈0] ➊"]]:::plan
     Connection17 --> ConnectionItems1676
+    __CloneStream1719[["__CloneStream[1719∈1] ➊"]]:::plan
+    ConnectionItems1673 --> __CloneStream1719
+    __CloneStream1720[["__CloneStream[1720∈2] ➊"]]:::plan
+    ConnectionItems1676 --> __CloneStream1720
     List1681{{"List[1681∈3] ➊<br />ᐸ1679,1680ᐳ<br />More deps:<br />- Constantᐸ'people'ᐳ[1679]"}}:::plan
     PgClassExpression1680{{"PgClassExpression[1680∈3] ➊<br />ᐸ__person__.”id”ᐳ"}}:::plan
     PgClassExpression1680 --> List1681
@@ -2689,12 +2693,12 @@ graph TD
     PgSelectSingle1672 --> PgClassExpression2206
     Lambda2208{{"Lambda[2208∈178] ➊^<br />ᐸbase64JSONEncodeᐳ"}}:::plan
     List2207 --> Lambda2208
-    __Item2265[/"__Item[2265∈181]<br />ᐸ1673ᐳ"\]:::itemplan
-    ConnectionItems1673 ==> __Item2265
+    __Item2265[/"__Item[2265∈181]<br />ᐸ1719ᐳ"\]:::itemplan
+    __CloneStream1719 ==> __Item2265
     PgSelectSingle2266{{"PgSelectSingle[2266∈181]<br />ᐸpersonᐳ"}}:::plan
     __Item2265 --> PgSelectSingle2266
-    __Item2267[/"__Item[2267∈182]<br />ᐸ1676ᐳ"\]:::itemplan
-    ConnectionItems1676 ==> __Item2267
+    __Item2267[/"__Item[2267∈182]<br />ᐸ1720ᐳ"\]:::itemplan
+    __CloneStream1720 ==> __Item2267
     PgSelectSingle2268{{"PgSelectSingle[2268∈182]<br />ᐸcompound_keyᐳ"}}:::plan
     __Item2267 --> PgSelectSingle2268
     List2270{{"List[2270∈183]<br />ᐸ1679,2269ᐳ<br />More deps:<br />- Constantᐸ'people'ᐳ[1679]"}}:::plan
@@ -2718,9 +2722,9 @@ graph TD
     classDef bucket0 stroke:#696969
     class Bucket0,__Value2,PgSelect8,Access9,Access10,Object11,Connection12,PgSelect15,Connection17,Lambda25,Access26,PgSelect28,First30,PgSelectRows31,PgSelectSingle32,Lambda33,Access34,PgSelect36,First38,PgSelectRows39,PgSelectSingle40,Lambda41,Access42,PgSelect44,First46,PgSelectRows47,PgSelectSingle48,Lambda49,Access50,Access52,PgSelect54,First56,PgSelectRows57,PgSelectSingle58,Lambda59,Access60,Access62,PgSelect64,First66,PgSelectRows67,PgSelectSingle68,Lambda69,Access70,Access72,PgSelect74,First76,PgSelectRows77,PgSelectSingle78,Lambda81,Access82,PgSelect84,First86,PgSelectRows87,PgSelectSingle88,Lambda89,Access90,PgSelect92,First94,PgSelectRows95,PgSelectSingle96,Lambda98,Lambda295,Lambda492,Lambda689,Lambda886,Lambda1083,Lambda1280,Lambda1477,ConnectionItems1673,ConnectionItems1676 bucket0
     classDef bucket1 stroke:#00bfff
-    class Bucket1 bucket1
+    class Bucket1,__CloneStream1719 bucket1
     classDef bucket2 stroke:#7f007f
-    class Bucket2 bucket2
+    class Bucket2,__CloneStream1720 bucket2
     classDef bucket3 stroke:#ffa500
     class Bucket3,PgClassExpression1680,List1681,Lambda1682,PgClassExpression1710 bucket3
     classDef bucket4 stroke:#0000ff

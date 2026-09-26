@@ -10,9 +10,9 @@ graph TD
     subgraph "Buckets for queries/v4/connections-totalCount"
     Bucket0("Bucket 0 (root)<br /><br />1: PgSelectInlineApply[52]<br />ᐳ: 9, 10, 43, 50, 11<br />2: PgSelect[8], PgSelect[22], PgSelect[30]<br />ᐳ: Access[53]<br />3: 17, 24, 32<br />ᐳ: 23, 25, 26, 31, 33, 34<br />4: ConnectionItems[27]"):::bucket
     Bucket1("Bucket 1 (nullableBoundary)<br />Deps: 50, 26<br /><br />ROOT Constantᐸ[HIDDEN]ᐳ[50]"):::bucket
-    Bucket2("Bucket 2 (nullableBoundary)<br />Deps: 17, 27, 53, 50<br /><br />ROOT Connectionᐸ8ᐳ[17]"):::bucket
+    Bucket2("Bucket 2 (nullableBoundary)<br />Deps: 27, 17, 53, 50<br /><br />ROOT Connectionᐸ8ᐳ[17]"):::bucket
     Bucket3("Bucket 3 (nullableBoundary)<br />Deps: 50, 34<br /><br />ROOT Constantᐸ[HIDDEN]ᐳ[50]"):::bucket
-    Bucket5("Bucket 5 (listItem)<br />Deps: 53, 50<br /><br />ROOT __Item{5}ᐸ27ᐳ[36]"):::bucket
+    Bucket5("Bucket 5 (listItem)<br />Deps: 53, 50<br /><br />ROOT __Item{5}ᐸ35ᐳ[36]"):::bucket
     Bucket6("Bucket 6 (nullableBoundary)<br />Deps: 53, 36, 37, 50<br /><br />ROOT PgSelectSingle{5}ᐸpersonᐳ[37]<br />1: <br />ᐳ: List[54], Lambda[55]<br />2: PgSelectRows[47]<br />ᐳ: 46, 48, 49"):::bucket
     end
     Bucket0 --> Bucket1 & Bucket2 & Bucket3
@@ -53,8 +53,10 @@ graph TD
     First31 --> PgSelectSingle33
     Access53{{"Access[53∈0] ➊<br />ᐸ8.m.subqueryDetailsFor45ᐳ"}}:::plan
     PgSelect8 --> Access53
-    __Item36[/"__Item[36∈5]<br />ᐸ27ᐳ"\]:::itemplan
-    ConnectionItems27 ==> __Item36
+    __CloneStream35[["__CloneStream[35∈2] ➊"]]:::plan
+    ConnectionItems27 --> __CloneStream35
+    __Item36[/"__Item[36∈5]<br />ᐸ35ᐳ"\]:::itemplan
+    __CloneStream35 ==> __Item36
     PgSelectSingle37{{"PgSelectSingle[37∈5]<br />ᐸpersonᐳ"}}:::plan
     __Item36 --> PgSelectSingle37
     List54{{"List[54∈6]<br />ᐸ53,36ᐳ"}}:::plan
@@ -76,7 +78,7 @@ graph TD
     classDef bucket1 stroke:#00bfff
     class Bucket1 bucket1
     classDef bucket2 stroke:#7f007f
-    class Bucket2 bucket2
+    class Bucket2,__CloneStream35 bucket2
     classDef bucket3 stroke:#ffa500
     class Bucket3 bucket3
     classDef bucket5 stroke:#7fff00

@@ -10,19 +10,19 @@ graph TD
     subgraph "Buckets for queries/v4/partitions"
     Bucket0("Bucket 0 (root)<br /><br />1: 217, 221, 225, 229, 233, 237, 241<br />ᐳ: 9, 10, 101, 107, 111, 117, 121, 127, 11<br />2: 8, 15, 20, 25, 30, 35, 40, 65<br />ᐳ: 93, 218, 222, 226, 230, 234, 238, 242<br />3: 12, 17, 22, 27, 32, 37, 42, 67<br />ᐳ: 66, 68, 69<br />4: 44, 47, 50, 53, 56, 59, 62<br />5: First[92], Last[95]<br />ᐳ: PgCursor[94], PgCursor[96]"):::bucket
     Bucket1("Bucket 1 (nullableBoundary)<br />Deps: 12, 44, 93, 218, 69, 94, 96<br /><br />ROOT Connectionᐸ8ᐳ[12]"):::bucket
-    Bucket2("Bucket 2 (nullableBoundary)<br />Deps: 17, 47, 101, 222, 107<br /><br />ROOT Connectionᐸ15ᐳ[17]"):::bucket
-    Bucket3("Bucket 3 (nullableBoundary)<br />Deps: 22, 50, 107, 226<br /><br />ROOT Connectionᐸ20ᐳ[22]"):::bucket
-    Bucket4("Bucket 4 (nullableBoundary)<br />Deps: 27, 53, 111, 230, 117<br /><br />ROOT Connectionᐸ25ᐳ[27]"):::bucket
-    Bucket5("Bucket 5 (nullableBoundary)<br />Deps: 32, 56, 117, 234<br /><br />ROOT Connectionᐸ30ᐳ[32]"):::bucket
-    Bucket6("Bucket 6 (nullableBoundary)<br />Deps: 37, 59, 121, 238, 127<br /><br />ROOT Connectionᐸ35ᐳ[37]"):::bucket
-    Bucket7("Bucket 7 (nullableBoundary)<br />Deps: 42, 62, 127, 242<br /><br />ROOT Connectionᐸ40ᐳ[42]"):::bucket
+    Bucket2("Bucket 2 (nullableBoundary)<br />Deps: 47, 17, 101, 222, 107<br /><br />ROOT Connectionᐸ15ᐳ[17]"):::bucket
+    Bucket3("Bucket 3 (nullableBoundary)<br />Deps: 50, 22, 107, 226<br /><br />ROOT Connectionᐸ20ᐳ[22]"):::bucket
+    Bucket4("Bucket 4 (nullableBoundary)<br />Deps: 53, 27, 111, 230, 117<br /><br />ROOT Connectionᐸ25ᐳ[27]"):::bucket
+    Bucket5("Bucket 5 (nullableBoundary)<br />Deps: 56, 32, 117, 234<br /><br />ROOT Connectionᐸ30ᐳ[32]"):::bucket
+    Bucket6("Bucket 6 (nullableBoundary)<br />Deps: 59, 37, 121, 238, 127<br /><br />ROOT Connectionᐸ35ᐳ[37]"):::bucket
+    Bucket7("Bucket 7 (nullableBoundary)<br />Deps: 62, 42, 127, 242<br /><br />ROOT Connectionᐸ40ᐳ[42]"):::bucket
     Bucket15("Bucket 15 (listItem)<br />Deps: 93, 218<br /><br />ROOT __Item{15}ᐸ71ᐳ[78]"):::bucket
-    Bucket16("Bucket 16 (listItem)<br />Deps: 101, 222, 107<br /><br />ROOT __Item{16}ᐸ47ᐳ[80]"):::bucket
-    Bucket17("Bucket 17 (listItem)<br />Deps: 107, 226<br /><br />ROOT __Item{17}ᐸ50ᐳ[82]"):::bucket
-    Bucket18("Bucket 18 (listItem)<br />Deps: 111, 230, 117<br /><br />ROOT __Item{18}ᐸ53ᐳ[84]"):::bucket
-    Bucket19("Bucket 19 (listItem)<br />Deps: 117, 234<br /><br />ROOT __Item{19}ᐸ56ᐳ[86]"):::bucket
-    Bucket20("Bucket 20 (listItem)<br />Deps: 121, 238, 127<br /><br />ROOT __Item{20}ᐸ59ᐳ[88]"):::bucket
-    Bucket21("Bucket 21 (listItem)<br />Deps: 127, 242<br /><br />ROOT __Item{21}ᐸ62ᐳ[90]"):::bucket
+    Bucket16("Bucket 16 (listItem)<br />Deps: 101, 222, 107<br /><br />ROOT __Item{16}ᐸ72ᐳ[80]"):::bucket
+    Bucket17("Bucket 17 (listItem)<br />Deps: 107, 226<br /><br />ROOT __Item{17}ᐸ73ᐳ[82]"):::bucket
+    Bucket18("Bucket 18 (listItem)<br />Deps: 111, 230, 117<br /><br />ROOT __Item{18}ᐸ74ᐳ[84]"):::bucket
+    Bucket19("Bucket 19 (listItem)<br />Deps: 117, 234<br /><br />ROOT __Item{19}ᐸ75ᐳ[86]"):::bucket
+    Bucket20("Bucket 20 (listItem)<br />Deps: 121, 238, 127<br /><br />ROOT __Item{20}ᐸ76ᐳ[88]"):::bucket
+    Bucket21("Bucket 21 (listItem)<br />Deps: 127, 242<br /><br />ROOT __Item{21}ᐸ77ᐳ[90]"):::bucket
     Bucket22("Bucket 22 (nullableBoundary)<br />Deps: 78, 79, 218, 100<br /><br />ROOT Edge{15}[79]"):::bucket
     Bucket23("Bucket 23 (nullableBoundary)<br />Deps: 81, 101, 222, 107<br /><br />ROOT PgSelectSingle{16}ᐸlocation_tagsᐳ[81]<br />1: <br />ᐳ: 102, 103, 104, 223, 105, 106, 224<br />2: PgSelectRows[158]<br />ᐳ: First[157], PgSelectSingle[159]"):::bucket
     Bucket24("Bucket 24 (nullableBoundary)<br />Deps: 83, 107, 226, 82<br /><br />ROOT PgSelectSingle{17}ᐸlocationsᐳ[83]<br />1: <br />ᐳ: 108, 227, 109, 110, 228<br />2: Connection[139]<br />3: ConnectionItems[175]"):::bucket
@@ -155,34 +155,46 @@ graph TD
     __CloneStream71[["__CloneStream[71∈1] ➊<br />More deps:<br />- ConnectionItems[44]"]]:::plan
     Lambda97[["Lambda[97∈1] ➊<br />More deps:<br />- Connection[12]"]]:::unbatchedplan
     Lambda98[["Lambda[98∈1] ➊<br />More deps:<br />- Connection[12]"]]:::unbatchedplan
+    __CloneStream72[["__CloneStream[72∈2] ➊"]]:::plan
+    ConnectionItems47 --> __CloneStream72
+    __CloneStream73[["__CloneStream[73∈3] ➊"]]:::plan
+    ConnectionItems50 --> __CloneStream73
+    __CloneStream74[["__CloneStream[74∈4] ➊"]]:::plan
+    ConnectionItems53 --> __CloneStream74
+    __CloneStream75[["__CloneStream[75∈5] ➊"]]:::plan
+    ConnectionItems56 --> __CloneStream75
+    __CloneStream76[["__CloneStream[76∈6] ➊"]]:::plan
+    ConnectionItems59 --> __CloneStream76
+    __CloneStream77[["__CloneStream[77∈7] ➊"]]:::plan
+    ConnectionItems62 --> __CloneStream77
     Edge79{{"Edge[79∈15]"}}:::plan
     __Item78[/"__Item[78∈15]<br />ᐸ71ᐳ"\]:::itemplan
     PgCursor100{{"PgCursor[100∈15]<br />More deps:<br />- Access[93]"}}:::plan
     __Item78 & PgCursor100 --> Edge79
     __Item78 --> PgCursor100
     __CloneStream71 ==> __Item78
-    __Item80[/"__Item[80∈16]<br />ᐸ47ᐳ"\]:::itemplan
-    ConnectionItems47 ==> __Item80
+    __Item80[/"__Item[80∈16]<br />ᐸ72ᐳ"\]:::itemplan
+    __CloneStream72 ==> __Item80
     PgSelectSingle81{{"PgSelectSingle[81∈16]<br />ᐸlocation_tagsᐳ"}}:::plan
     __Item80 --> PgSelectSingle81
-    __Item82[/"__Item[82∈17]<br />ᐸ50ᐳ"\]:::itemplan
-    ConnectionItems50 ==> __Item82
+    __Item82[/"__Item[82∈17]<br />ᐸ73ᐳ"\]:::itemplan
+    __CloneStream73 ==> __Item82
     PgSelectSingle83{{"PgSelectSingle[83∈17]<br />ᐸlocationsᐳ"}}:::plan
     __Item82 --> PgSelectSingle83
-    __Item84[/"__Item[84∈18]<br />ᐸ53ᐳ"\]:::itemplan
-    ConnectionItems53 ==> __Item84
+    __Item84[/"__Item[84∈18]<br />ᐸ74ᐳ"\]:::itemplan
+    __CloneStream74 ==> __Item84
     PgSelectSingle85{{"PgSelectSingle[85∈18]<br />ᐸphoto_tagsᐳ"}}:::plan
     __Item84 --> PgSelectSingle85
-    __Item86[/"__Item[86∈19]<br />ᐸ56ᐳ"\]:::itemplan
-    ConnectionItems56 ==> __Item86
+    __Item86[/"__Item[86∈19]<br />ᐸ75ᐳ"\]:::itemplan
+    __CloneStream75 ==> __Item86
     PgSelectSingle87{{"PgSelectSingle[87∈19]<br />ᐸphotosᐳ"}}:::plan
     __Item86 --> PgSelectSingle87
-    __Item88[/"__Item[88∈20]<br />ᐸ59ᐳ"\]:::itemplan
-    ConnectionItems59 ==> __Item88
+    __Item88[/"__Item[88∈20]<br />ᐸ76ᐳ"\]:::itemplan
+    __CloneStream76 ==> __Item88
     PgSelectSingle89{{"PgSelectSingle[89∈20]<br />ᐸprofile_tagsᐳ"}}:::plan
     __Item88 --> PgSelectSingle89
-    __Item90[/"__Item[90∈21]<br />ᐸ62ᐳ"\]:::itemplan
-    ConnectionItems62 ==> __Item90
+    __Item90[/"__Item[90∈21]<br />ᐸ77ᐳ"\]:::itemplan
+    __CloneStream77 ==> __Item90
     PgSelectSingle91{{"PgSelectSingle[91∈21]<br />ᐸprofilesᐳ"}}:::plan
     __Item90 --> PgSelectSingle91
     PgSelectSingle131{{"PgSelectSingle[131∈22]<br />ᐸmeasurementsᐳ"}}:::plan
@@ -352,17 +364,17 @@ graph TD
     classDef bucket1 stroke:#00bfff
     class Bucket1,PageInfo70,__CloneStream71,Lambda97,Lambda98 bucket1
     classDef bucket2 stroke:#7f007f
-    class Bucket2 bucket2
+    class Bucket2,__CloneStream72 bucket2
     classDef bucket3 stroke:#ffa500
-    class Bucket3 bucket3
+    class Bucket3,__CloneStream73 bucket3
     classDef bucket4 stroke:#0000ff
-    class Bucket4 bucket4
+    class Bucket4,__CloneStream74 bucket4
     classDef bucket5 stroke:#7fff00
-    class Bucket5 bucket5
+    class Bucket5,__CloneStream75 bucket5
     classDef bucket6 stroke:#ff1493
-    class Bucket6 bucket6
+    class Bucket6,__CloneStream76 bucket6
     classDef bucket7 stroke:#808000
-    class Bucket7 bucket7
+    class Bucket7,__CloneStream77 bucket7
     classDef bucket15 stroke:#ff00ff
     class Bucket15,__Item78,Edge79,PgCursor100 bucket15
     classDef bucket16 stroke:#f5deb3

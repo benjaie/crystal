@@ -9,18 +9,18 @@ graph TD
 
     subgraph "Buckets for queries/v4/enum_tables.queries"
     Bucket0("Bucket 0 (root)<br /><br />1: <br />ᐳ: 6, 9, 10, 108, 109, 11, 35, 41, 43, 48<br />2: 8, 15, 20, 25, 30, 38, 45<br />3: 12, 17, 22, 28, 33, 40, 47<br />ᐳ: 27, 29, 32, 34<br />4: 50, 53, 56, 61, 64"):::bucket
-    Bucket1("Bucket 1 (nullableBoundary)<br />Deps: 12, 50<br /><br />ROOT Connectionᐸ8ᐳ[12]"):::bucket
-    Bucket2("Bucket 2 (nullableBoundary)<br />Deps: 17, 53<br /><br />ROOT Connectionᐸ15ᐳ[17]"):::bucket
-    Bucket3("Bucket 3 (nullableBoundary)<br />Deps: 22, 56<br /><br />ROOT Connectionᐸ20ᐳ[22]"):::bucket
+    Bucket1("Bucket 1 (nullableBoundary)<br />Deps: 50, 12<br /><br />ROOT Connectionᐸ8ᐳ[12]"):::bucket
+    Bucket2("Bucket 2 (nullableBoundary)<br />Deps: 53, 17<br /><br />ROOT Connectionᐸ15ᐳ[17]"):::bucket
+    Bucket3("Bucket 3 (nullableBoundary)<br />Deps: 56, 22<br /><br />ROOT Connectionᐸ20ᐳ[22]"):::bucket
     Bucket4("Bucket 4 (nullableBoundary)<br />Deps: 29<br /><br />ROOT PgSelectSingleᐸletter_descriptionsᐳ[29]"):::bucket
     Bucket5("Bucket 5 (nullableBoundary)<br />Deps: 34<br /><br />ROOT PgSelectSingleᐸletter_descriptionsᐳ[34]"):::bucket
-    Bucket6("Bucket 6 (nullableBoundary)<br />Deps: 40, 61<br /><br />ROOT Connectionᐸ38ᐳ[40]"):::bucket
-    Bucket7("Bucket 7 (nullableBoundary)<br />Deps: 47, 64<br /><br />ROOT Connectionᐸ45ᐳ[47]"):::bucket
-    Bucket13("Bucket 13 (listItem)<br /><br />ROOT __Item{13}ᐸ50ᐳ[78]"):::bucket
-    Bucket14("Bucket 14 (listItem)<br /><br />ROOT __Item{14}ᐸ53ᐳ[80]"):::bucket
-    Bucket15("Bucket 15 (listItem)<br /><br />ROOT __Item{15}ᐸ56ᐳ[82]"):::bucket
-    Bucket16("Bucket 16 (listItem)<br /><br />ROOT __Item{16}ᐸ61ᐳ[84]"):::bucket
-    Bucket17("Bucket 17 (listItem)<br /><br />ROOT __Item{17}ᐸ64ᐳ[86]"):::bucket
+    Bucket6("Bucket 6 (nullableBoundary)<br />Deps: 61, 40<br /><br />ROOT Connectionᐸ38ᐳ[40]"):::bucket
+    Bucket7("Bucket 7 (nullableBoundary)<br />Deps: 64, 47<br /><br />ROOT Connectionᐸ45ᐳ[47]"):::bucket
+    Bucket13("Bucket 13 (listItem)<br /><br />ROOT __Item{13}ᐸ73ᐳ[78]"):::bucket
+    Bucket14("Bucket 14 (listItem)<br /><br />ROOT __Item{14}ᐸ74ᐳ[80]"):::bucket
+    Bucket15("Bucket 15 (listItem)<br /><br />ROOT __Item{15}ᐸ75ᐳ[82]"):::bucket
+    Bucket16("Bucket 16 (listItem)<br /><br />ROOT __Item{16}ᐸ76ᐳ[84]"):::bucket
+    Bucket17("Bucket 17 (listItem)<br /><br />ROOT __Item{17}ᐸ77ᐳ[86]"):::bucket
     Bucket18("Bucket 18 (nullableBoundary)<br />Deps: 79<br /><br />ROOT PgSelectSingle{13}ᐸletter_descriptionsᐳ[79]"):::bucket
     Bucket19("Bucket 19 (nullableBoundary)<br />Deps: 81<br /><br />ROOT PgSelectSingle{14}ᐸletter_descriptionsᐳ[81]"):::bucket
     Bucket20("Bucket 20 (nullableBoundary)<br />Deps: 83<br /><br />ROOT PgSelectSingle{15}ᐸletter_descriptionsᐳ[83]"):::bucket
@@ -99,6 +99,12 @@ graph TD
     Connection40 --> ConnectionItems61
     ConnectionItems64[["ConnectionItems[64∈0] ➊"]]:::plan
     Connection47 --> ConnectionItems64
+    __CloneStream73[["__CloneStream[73∈1] ➊"]]:::plan
+    ConnectionItems50 --> __CloneStream73
+    __CloneStream74[["__CloneStream[74∈2] ➊"]]:::plan
+    ConnectionItems53 --> __CloneStream74
+    __CloneStream75[["__CloneStream[75∈3] ➊"]]:::plan
+    ConnectionItems56 --> __CloneStream75
     PgClassExpression59{{"PgClassExpression[59∈4] ➊<br />ᐸ__letter_d...ons__.”id”ᐳ"}}:::plan
     PgSelectSingle29 --> PgClassExpression59
     PgClassExpression67{{"PgClassExpression[67∈4] ➊<br />ᐸ__letter_d..._.”letter”ᐳ"}}:::plan
@@ -115,24 +121,28 @@ graph TD
     PgClassExpression68 o--o PgClassExpression70
     PgClassExpression72{{"PgClassExpression[72∈5] ➊<br />ᐸ__letter_d...scription”ᐳ"}}:::plan
     PgClassExpression70 o--o PgClassExpression72
-    __Item78[/"__Item[78∈13]<br />ᐸ50ᐳ"\]:::itemplan
-    ConnectionItems50 ==> __Item78
+    __CloneStream76[["__CloneStream[76∈6] ➊"]]:::plan
+    ConnectionItems61 --> __CloneStream76
+    __CloneStream77[["__CloneStream[77∈7] ➊"]]:::plan
+    ConnectionItems64 --> __CloneStream77
+    __Item78[/"__Item[78∈13]<br />ᐸ73ᐳ"\]:::itemplan
+    __CloneStream73 ==> __Item78
     PgSelectSingle79{{"PgSelectSingle[79∈13]<br />ᐸletter_descriptionsᐳ"}}:::plan
     __Item78 --> PgSelectSingle79
-    __Item80[/"__Item[80∈14]<br />ᐸ53ᐳ"\]:::itemplan
-    ConnectionItems53 ==> __Item80
+    __Item80[/"__Item[80∈14]<br />ᐸ74ᐳ"\]:::itemplan
+    __CloneStream74 ==> __Item80
     PgSelectSingle81{{"PgSelectSingle[81∈14]<br />ᐸletter_descriptionsᐳ"}}:::plan
     __Item80 --> PgSelectSingle81
-    __Item82[/"__Item[82∈15]<br />ᐸ56ᐳ"\]:::itemplan
-    ConnectionItems56 ==> __Item82
+    __Item82[/"__Item[82∈15]<br />ᐸ75ᐳ"\]:::itemplan
+    __CloneStream75 ==> __Item82
     PgSelectSingle83{{"PgSelectSingle[83∈15]<br />ᐸletter_descriptionsᐳ"}}:::plan
     __Item82 --> PgSelectSingle83
-    __Item84[/"__Item[84∈16]<br />ᐸ61ᐳ"\]:::itemplan
-    ConnectionItems61 ==> __Item84
+    __Item84[/"__Item[84∈16]<br />ᐸ76ᐳ"\]:::itemplan
+    __CloneStream76 ==> __Item84
     PgSelectSingle85{{"PgSelectSingle[85∈16]<br />ᐸletter_descriptionsᐳ"}}:::plan
     __Item84 --> PgSelectSingle85
-    __Item86[/"__Item[86∈17]<br />ᐸ64ᐳ"\]:::itemplan
-    ConnectionItems64 ==> __Item86
+    __Item86[/"__Item[86∈17]<br />ᐸ77ᐳ"\]:::itemplan
+    __CloneStream77 ==> __Item86
     PgSelectSingle87{{"PgSelectSingle[87∈17]<br />ᐸletter_descriptionsᐳ"}}:::plan
     __Item86 --> PgSelectSingle87
     PgClassExpression88{{"PgClassExpression[88∈18]<br />ᐸ__letter_d...ons__.”id”ᐳ"}}:::plan
@@ -180,19 +190,19 @@ graph TD
     classDef bucket0 stroke:#696969
     class Bucket0,__Value2,PgSelect8,Access9,Access10,Object11,Connection12,PgSelect15,Connection17,PgSelect20,Connection22,PgSelect25,First27,PgSelectRows28,PgSelectSingle29,PgSelect30,First32,PgSelectRows33,PgSelectSingle34,__InputObject35,PgSelect38,Connection40,ApplyInput41,__InputObject43,PgSelect45,Connection47,ApplyInput48,ConnectionItems50,ConnectionItems53,ConnectionItems56,ConnectionItems61,ConnectionItems64 bucket0
     classDef bucket1 stroke:#00bfff
-    class Bucket1 bucket1
+    class Bucket1,__CloneStream73 bucket1
     classDef bucket2 stroke:#7f007f
-    class Bucket2 bucket2
+    class Bucket2,__CloneStream74 bucket2
     classDef bucket3 stroke:#ffa500
-    class Bucket3 bucket3
+    class Bucket3,__CloneStream75 bucket3
     classDef bucket4 stroke:#0000ff
     class Bucket4,PgClassExpression59,PgClassExpression67,PgClassExpression69,PgClassExpression71 bucket4
     classDef bucket5 stroke:#7fff00
     class Bucket5,PgClassExpression60,PgClassExpression68,PgClassExpression70,PgClassExpression72 bucket5
     classDef bucket6 stroke:#ff1493
-    class Bucket6 bucket6
+    class Bucket6,__CloneStream76 bucket6
     classDef bucket7 stroke:#808000
-    class Bucket7 bucket7
+    class Bucket7,__CloneStream77 bucket7
     classDef bucket13 stroke:#3cb371
     class Bucket13,__Item78,PgSelectSingle79 bucket13
     classDef bucket14 stroke:#a52a2a

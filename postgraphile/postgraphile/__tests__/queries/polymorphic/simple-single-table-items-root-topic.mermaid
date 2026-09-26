@@ -9,7 +9,7 @@ graph TD
 
     subgraph "Buckets for queries/polymorphic/simple-single-table-items-root-topic"
     Bucket0("Bucket 0 (root)<br /><br />1: 378, 382<br />ᐳ: 9, 10, 251, 276, 317, 320, 325, 328, 392, 11, 15, 16, 24, 25<br />2: PgSelect[8], PgSelect[18]<br />ᐳ: Access[379], Access[383]<br />3: Connection[12], PgSelectRows[21]<br />ᐳ: First[20], PgSelectSingle[22]<br />4: ConnectionItems[272]"):::bucket
-    Bucket1("Bucket 1 (nullableBoundary)<br />Deps: 12, 379, 272, 317, 320, 276, 325, 328<br /><br />ROOT Connectionᐸ8ᐳ[12]"):::bucket
+    Bucket1("Bucket 1 (nullableBoundary)<br />Deps: 272, 12, 379, 317, 320, 276, 325, 328<br /><br />ROOT Connectionᐸ8ᐳ[12]"):::bucket
     Bucket2("Bucket 2 (nullableBoundary)<br />Deps: 22, 276, 383<br /><br />ROOT PgSelectSingleᐸsingle_table_itemsᐳ[22]<br />1: <br />ᐳ: 275, 279, 280, 384, 277, 278, 385<br />2: PgSelectRows[286]<br />ᐳ: First[285], PgSelectSingle[287]"):::bucket
     Bucket3("Bucket 3 (polymorphic)<br />__typename: Lambda[25]<br />Deps: 24, 25, 11, 276, 251"):::bucket
     Bucket4("Bucket 4 (polymorphicPartition)<br />|SingleTableTopic<br />|SingleTablePost<br />|SingleTableDivider<br />|SingleTableChecklist<br />|SingleTableChecklistItem<br />Deps: 11, 390, 276<br />ᐳSingleTableTopic<br />ᐳSingleTablePost<br />ᐳSingleTableDivider<br />ᐳSingleTableChecklist<br />ᐳSingleTableChecklistItem<br /><br />1: PgSelectInlineApply[386]<br />2: PgSelect[29]<br />ᐳ: Access[387]<br />3: PgSelectRows[34]<br />ᐳ: 33, 35, 289, 290, 291, 292, 293, 388, 389<br />4: PgSelectRows[299]<br />ᐳ: First[298], PgSelectSingle[300]"):::bucket
@@ -33,7 +33,7 @@ graph TD
     Bucket22("Bucket 22 (polymorphicPartition)<br />|FirstPartyVulnerability<br />Deps: 11, 390<br />ᐳFirstPartyVulnerability<br /><br />1: PgSelect[255]<br />2: PgSelectRows[260]<br />ᐳ: First[259], PgSelectSingle[261]"):::bucket
     Bucket23("Bucket 23 (polymorphicPartition)<br />|ThirdPartyVulnerability<br />Deps: 11, 390<br />ᐳThirdPartyVulnerability<br /><br />1: PgSelect[265]<br />2: PgSelectRows[270]<br />ᐳ: First[269], PgSelectSingle[271]"):::bucket
     Bucket25("Bucket 25 (nullableBoundary)<br />Deps: 287<br /><br />ROOT PgSelectSingle{2}ᐸsingle_table_itemsᐳ[287]"):::bucket
-    Bucket26("Bucket 26 (listItem)<br />Deps: 379, 317, 320, 276, 325, 328<br /><br />ROOT __Item{26}ᐸ272ᐳ[301]<br />1: <br />ᐳ: 302, 305, 308, 309, 336, 380, 381<br />2: PgSelectRows[346]<br />ᐳ: First[345], PgSelectSingle[347]"):::bucket
+    Bucket26("Bucket 26 (listItem)<br />Deps: 379, 317, 320, 276, 325, 328<br /><br />ROOT __Item{26}ᐸ288ᐳ[301]<br />1: <br />ᐳ: 302, 305, 308, 309, 336, 380, 381<br />2: PgSelectRows[346]<br />ᐳ: First[345], PgSelectSingle[347]"):::bucket
     Bucket27("Bucket 27 (nullableBoundary)<br />Deps: 300<br /><br />ROOT PgSelectSingle{4}ᐸsingle_table_itemsᐳ[300]"):::bucket
     Bucket28("Bucket 28 (polymorphic)<br />__typename: Lambda[309]<br />Deps: 317, 305, 320, 276, 325, 328, 309, 347, 302, 308, 336"):::bucket
     Bucket29("Bucket 29 (nullableBoundary)<br />Deps: 347<br /><br />ROOT PgSelectSingle{26}ᐸsingle_table_itemsᐳ[347]"):::bucket
@@ -79,6 +79,8 @@ graph TD
     PgSelect8 --> Access379
     Access383{{"Access[383∈0] ➊<br />ᐸ18.m.joinDetailsFor281ᐳ"}}:::plan
     PgSelect18 --> Access383
+    __CloneStream288[["__CloneStream[288∈1] ➊"]]:::plan
+    ConnectionItems272 --> __CloneStream288
     List277{{"List[277∈2] ➊<br />ᐸ276,275ᐳ<br />More deps:<br />- Constantᐸ'SingleTableDivider'ᐳ[276]"}}:::plan
     PgClassExpression275{{"PgClassExpression[275∈2] ➊<br />ᐸ__single_t...ems__.”id”ᐳ"}}:::plan
     PgClassExpression275 --> List277
@@ -286,8 +288,8 @@ graph TD
     List380{{"List[380∈26]<br />ᐸ379,302ᐳ"}}:::plan
     PgSelectSingle302{{"PgSelectSingle[302∈26]<br />ᐸsingle_table_itemsᐳ"}}:::plan
     Access379 & PgSelectSingle302 --> List380
-    __Item301[/"__Item[301∈26]<br />ᐸ272ᐳ"\]:::itemplan
-    ConnectionItems272 ==> __Item301
+    __Item301[/"__Item[301∈26]<br />ᐸ288ᐳ"\]:::itemplan
+    __CloneStream288 ==> __Item301
     __Item301 --> PgSelectSingle302
     PgClassExpression305{{"PgClassExpression[305∈26]<br />ᐸ__single_t...ems__.”id”ᐳ"}}:::plan
     PgSelectSingle302 --> PgClassExpression305
@@ -338,7 +340,7 @@ graph TD
     classDef bucket0 stroke:#696969
     class Bucket0,__Value2,PgSelect8,Access9,Access10,Object11,Connection12,Lambda15,Access16,PgSelect18,First20,PgSelectRows21,PgSelectSingle22,Lambda24,ConnectionItems272,PgSelectInlineApply378,Access379,PgSelectInlineApply382,Access383 bucket0
     classDef bucket1 stroke:#00bfff
-    class Bucket1 bucket1
+    class Bucket1,__CloneStream288 bucket1
     classDef bucket2 stroke:#7f007f
     class Bucket2,PgClassExpression275,List277,Lambda278,PgClassExpression279,PgClassExpression280,First285,PgSelectRows286,PgSelectSingle287,List384,Lambda385 bucket2
     classDef bucket3 stroke:#ffa500

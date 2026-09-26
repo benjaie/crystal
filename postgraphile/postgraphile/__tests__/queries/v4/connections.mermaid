@@ -16,14 +16,14 @@ graph TD
     Bucket5("Bucket 5 (nullableBoundary)<br />Deps: 33, 352, 509, 227, 510, 574<br /><br />ROOT Connectionᐸ31ᐳ[33]"):::bucket
     Bucket6("Bucket 6 (nullableBoundary)<br />Deps: 39, 355, 512, 252, 513, 576<br /><br />ROOT Connectionᐸ37ᐳ[39]"):::bucket
     Bucket7("Bucket 7 (nullableBoundary)<br />Deps: 45, 358, 515, 252, 516, 578<br /><br />ROOT Connectionᐸ43ᐳ[45]"):::bucket
-    Bucket8("Bucket 8 (nullableBoundary)<br />Deps: 51, 657, 192<br /><br />ROOT Connectionᐸ49ᐳ[51]"):::bucket
-    Bucket9("Bucket 9 (nullableBoundary)<br />Deps: 56, 659, 195<br /><br />ROOT Connectionᐸ54ᐳ[56]"):::bucket
+    Bucket8("Bucket 8 (nullableBoundary)<br />Deps: 192, 51, 657<br /><br />ROOT Connectionᐸ49ᐳ[51]"):::bucket
+    Bucket9("Bucket 9 (nullableBoundary)<br />Deps: 195, 56, 659<br /><br />ROOT Connectionᐸ54ᐳ[56]"):::bucket
     Bucket10("Bucket 10 (nullableBoundary)<br />Deps: 62, 361, 518, 262, 519, 580<br /><br />ROOT Connectionᐸ60ᐳ[62]"):::bucket
     Bucket11("Bucket 11 (nullableBoundary)<br />Deps: 69, 364, 521, 267, 522, 582<br /><br />ROOT Connectionᐸ67ᐳ[69]"):::bucket
     Bucket12("Bucket 12 (nullableBoundary)<br />Deps: 77, 367, 524, 272, 525, 584<br /><br />ROOT Connectionᐸ75ᐳ[77]"):::bucket
     Bucket13("Bucket 13 (nullableBoundary)<br />Deps: 84, 370, 527, 277, 528, 586<br /><br />ROOT Connectionᐸ82ᐳ[84]"):::bucket
     Bucket14("Bucket 14 (nullableBoundary)<br />Deps: 90, 373, 530, 282, 531, 588<br /><br />ROOT Connectionᐸ88ᐳ[90]"):::bucket
-    Bucket15("Bucket 15 (nullableBoundary)<br />Deps: 96, 203<br /><br />ROOT Connectionᐸ94ᐳ[96]"):::bucket
+    Bucket15("Bucket 15 (nullableBoundary)<br />Deps: 203, 96<br /><br />ROOT Connectionᐸ94ᐳ[96]"):::bucket
     Bucket16("Bucket 16 (nullableBoundary)<br />Deps: 104, 376, 533, 287, 534, 590<br /><br />ROOT Connectionᐸ102ᐳ[104]"):::bucket
     Bucket17("Bucket 17 (nullableBoundary)<br />Deps: 110, 379, 536, 292, 537, 592<br /><br />ROOT Connectionᐸ108ᐳ[110]"):::bucket
     Bucket18("Bucket 18 (nullableBoundary)<br />Deps: 116, 382, 539, 292, 540, 594<br /><br />ROOT Connectionᐸ114ᐳ[116]"):::bucket
@@ -36,12 +36,12 @@ graph TD
     Bucket25("Bucket 25 (nullableBoundary)<br />Deps: 164, 400, 557, 329, 558, 606<br /><br />ROOT Connectionᐸ162ᐳ[164]"):::bucket
     Bucket26("Bucket 26 (nullableBoundary)<br />Deps: 171, 403, 560, 334, 561, 608<br /><br />ROOT Connectionᐸ169ᐳ[171]"):::bucket
     Bucket27("Bucket 27 (nullableBoundary)<br />Deps: 177, 406, 563, 339, 564, 610<br /><br />ROOT Connectionᐸ175ᐳ[177]"):::bucket
-    Bucket28("Bucket 28 (nullableBoundary)<br />Deps: 183, 220<br /><br />ROOT Connectionᐸ181ᐳ[183]"):::bucket
-    Bucket58("Bucket 58 (listItem)<br />Deps: 657<br /><br />ROOT __Item{58}ᐸ192ᐳ[438]"):::bucket
-    Bucket59("Bucket 59 (listItem)<br />Deps: 659<br /><br />ROOT __Item{59}ᐸ195ᐳ[440]"):::bucket
-    Bucket60("Bucket 60 (listItem)<br /><br />ROOT __Item{60}ᐸ203ᐳ[442]"):::bucket
+    Bucket28("Bucket 28 (nullableBoundary)<br />Deps: 220, 183<br /><br />ROOT Connectionᐸ181ᐳ[183]"):::bucket
+    Bucket58("Bucket 58 (listItem)<br />Deps: 657<br /><br />ROOT __Item{58}ᐸ409ᐳ[438]"):::bucket
+    Bucket59("Bucket 59 (listItem)<br />Deps: 659<br /><br />ROOT __Item{59}ᐸ410ᐳ[440]"):::bucket
+    Bucket60("Bucket 60 (listItem)<br /><br />ROOT __Item{60}ᐸ411ᐳ[442]"):::bucket
     Bucket61("Bucket 61 (listItem)<br />Deps: 892<br /><br />ROOT __Item{61}ᐸ412ᐳ[444]"):::bucket
-    Bucket62("Bucket 62 (listItem)<br /><br />ROOT __Item{62}ᐸ220ᐳ[446]"):::bucket
+    Bucket62("Bucket 62 (listItem)<br /><br />ROOT __Item{62}ᐸ413ᐳ[446]"):::bucket
     Bucket63("Bucket 63 (listItem)<br />Deps: 739<br /><br />ROOT __Item{63}ᐸ414ᐳ[448]"):::bucket
     Bucket64("Bucket 64 (listItem)<br />Deps: 497<br /><br />ROOT __Item{64}ᐸ415ᐳ[450]"):::bucket
     Bucket65("Bucket 65 (listItem)<br />Deps: 500<br /><br />ROOT __Item{65}ᐸ416ᐳ[452]"):::bucket
@@ -663,6 +663,10 @@ graph TD
     __CloneStream421[["__CloneStream[421∈7] ➊<br />More deps:<br />- ConnectionItems[358]"]]:::plan
     Lambda617[["Lambda[617∈7] ➊<br />More deps:<br />- Connection[45]"]]:::unbatchedplan
     Lambda640[["Lambda[640∈7] ➊<br />More deps:<br />- Connection[45]"]]:::unbatchedplan
+    __CloneStream409[["__CloneStream[409∈8] ➊"]]:::plan
+    ConnectionItems192 --> __CloneStream409
+    __CloneStream410[["__CloneStream[410∈9] ➊"]]:::plan
+    ConnectionItems195 --> __CloneStream410
     PageInfo198{{"PageInfo[198∈10] ➊<br />More deps:<br />- Connection[62]"}}:::plan
     __CloneStream422[["__CloneStream[422∈10] ➊<br />More deps:<br />- ConnectionItems[361]"]]:::plan
     Lambda618[["Lambda[618∈10] ➊<br />More deps:<br />- Connection[62]"]]:::unbatchedplan
@@ -683,6 +687,8 @@ graph TD
     __CloneStream426[["__CloneStream[426∈14] ➊<br />More deps:<br />- ConnectionItems[373]"]]:::plan
     Lambda622[["Lambda[622∈14] ➊<br />More deps:<br />- Connection[90]"]]:::unbatchedplan
     Lambda645[["Lambda[645∈14] ➊<br />More deps:<br />- Connection[90]"]]:::unbatchedplan
+    __CloneStream411[["__CloneStream[411∈15] ➊"]]:::plan
+    ConnectionItems203 --> __CloneStream411
     PageInfo206{{"PageInfo[206∈16] ➊<br />More deps:<br />- Connection[104]"}}:::plan
     __CloneStream427[["__CloneStream[427∈16] ➊<br />More deps:<br />- ConnectionItems[376]"]]:::plan
     Lambda623[["Lambda[623∈16] ➊<br />More deps:<br />- Connection[104]"]]:::unbatchedplan
@@ -731,28 +737,30 @@ graph TD
     __CloneStream437[["__CloneStream[437∈27] ➊<br />More deps:<br />- ConnectionItems[406]"]]:::plan
     Lambda633[["Lambda[633∈27] ➊<br />More deps:<br />- Connection[177]"]]:::unbatchedplan
     Lambda656[["Lambda[656∈27] ➊<br />More deps:<br />- Connection[177]"]]:::unbatchedplan
+    __CloneStream413[["__CloneStream[413∈28] ➊"]]:::plan
+    ConnectionItems220 --> __CloneStream413
     Edge439{{"Edge[439∈58]"}}:::plan
-    __Item438[/"__Item[438∈58]<br />ᐸ192ᐳ"\]:::itemplan
+    __Item438[/"__Item[438∈58]<br />ᐸ409ᐳ"\]:::itemplan
     PgCursor658{{"PgCursor[658∈58]"}}:::plan
     __Item438 & PgCursor658 --> Edge439
     __Item438 & Access657 --> PgCursor658
-    ConnectionItems192 ==> __Item438
+    __CloneStream409 ==> __Item438
     Edge441{{"Edge[441∈59]"}}:::plan
-    __Item440[/"__Item[440∈59]<br />ᐸ195ᐳ"\]:::itemplan
+    __Item440[/"__Item[440∈59]<br />ᐸ410ᐳ"\]:::itemplan
     PgCursor660{{"PgCursor[660∈59]"}}:::plan
     __Item440 & PgCursor660 --> Edge441
     __Item440 & Access659 --> PgCursor660
-    ConnectionItems195 ==> __Item440
-    __Item442[/"__Item[442∈60]<br />ᐸ203ᐳ"\]:::itemplan
-    ConnectionItems203 ==> __Item442
+    __CloneStream410 ==> __Item440
+    __Item442[/"__Item[442∈60]<br />ᐸ411ᐳ"\]:::itemplan
+    __CloneStream411 ==> __Item442
     PgSelectSingle443{{"PgSelectSingle[443∈60]<br />ᐸedge_caseᐳ"}}:::plan
     __Item442 --> PgSelectSingle443
     __Item444[/"__Item[444∈61]<br />ᐸ412ᐳ"\]:::itemplan
     __CloneStream412 ==> __Item444
     Edge445{{"Edge[445∈61]"}}:::plan
     __Item444 --> Edge445
-    __Item446[/"__Item[446∈62]<br />ᐸ220ᐳ"\]:::itemplan
-    ConnectionItems220 ==> __Item446
+    __Item446[/"__Item[446∈62]<br />ᐸ413ᐳ"\]:::itemplan
+    __CloneStream413 ==> __Item446
     PgSelectSingle447{{"PgSelectSingle[447∈62]<br />ᐸnull_test_recordᐳ"}}:::plan
     __Item446 --> PgSelectSingle447
     __Item448[/"__Item[448∈63]<br />ᐸ414ᐳ"\]:::itemplan
@@ -1264,9 +1272,9 @@ graph TD
     classDef bucket7 stroke:#808000
     class Bucket7,PageInfo191,__CloneStream421,Lambda617,Lambda640 bucket7
     classDef bucket8 stroke:#dda0dd
-    class Bucket8 bucket8
+    class Bucket8,__CloneStream409 bucket8
     classDef bucket9 stroke:#ff0000
-    class Bucket9 bucket9
+    class Bucket9,__CloneStream410 bucket9
     classDef bucket10 stroke:#ffff00
     class Bucket10,PageInfo198,__CloneStream422,Lambda618,Lambda641 bucket10
     classDef bucket11 stroke:#00ffff
@@ -1278,7 +1286,7 @@ graph TD
     classDef bucket14 stroke:#a52a2a
     class Bucket14,PageInfo202,__CloneStream426,Lambda622,Lambda645 bucket14
     classDef bucket15 stroke:#ff00ff
-    class Bucket15 bucket15
+    class Bucket15,__CloneStream411 bucket15
     classDef bucket16 stroke:#f5deb3
     class Bucket16,PageInfo206,__CloneStream427,Lambda623,Lambda646 bucket16
     classDef bucket17 stroke:#696969
@@ -1304,7 +1312,7 @@ graph TD
     classDef bucket27 stroke:#ffff00
     class Bucket27,PageInfo219,__CloneStream437,Lambda633,Lambda656 bucket27
     classDef bucket28 stroke:#00ffff
-    class Bucket28 bucket28
+    class Bucket28,__CloneStream413 bucket28
     classDef bucket58 stroke:#808000
     class Bucket58,__Item438,Edge439,PgCursor658 bucket58
     classDef bucket59 stroke:#dda0dd

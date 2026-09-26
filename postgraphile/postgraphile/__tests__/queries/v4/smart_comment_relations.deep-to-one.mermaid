@@ -9,8 +9,8 @@ graph TD
 
     subgraph "Buckets for queries/v4/smart_comment_relations.deep-to-one"
     Bucket0("Bucket 0 (root)<br /><br />1: 218, 222, 226, 230, 242, 250, 254, 270, 282, 290, 294<br />ᐳ: 10, 11, 21, 306, 12<br />2: 234, 246, 258, 274, 286, 298<br />3: 238, 262, 302<br />4: PgSelectInlineApply[266]<br />5: PgSelectInlineApply[278]<br />6: PgSelect[9]<br />ᐳ: 219, 279, 287, 303<br />7: Connection[13]<br />8: ConnectionItems[15]"):::bucket
-    Bucket1("Bucket 1 (nullableBoundary)<br />Deps: 13, 15, 21, 219, 279, 287, 303<br /><br />ROOT Connectionᐸ9ᐳ[13]"):::bucket
-    Bucket3("Bucket 3 (listItem)<br />Deps: 21, 219, 279, 287, 303<br /><br />ROOT __Item{3}ᐸ15ᐳ[19]"):::bucket
+    Bucket1("Bucket 1 (nullableBoundary)<br />Deps: 15, 13, 21, 219, 279, 287, 303<br /><br />ROOT Connectionᐸ9ᐳ[13]"):::bucket
+    Bucket3("Bucket 3 (listItem)<br />Deps: 21, 219, 279, 287, 303<br /><br />ROOT __Item{3}ᐸ18ᐳ[19]"):::bucket
     Bucket4("Bucket 4 (nullableBoundary)<br />Deps: 20, 21, 219, 279, 19, 287, 303<br /><br />ROOT PgSelectSingle{3}ᐸhousesᐳ[20]<br />1: <br />ᐳ: 22, 23, 220, 280, 288, 304, 24, 25, 221, 281, 289, 305<br />2: 32, 37, 42, 47<br />ᐳ: 31, 33, 36, 38, 41, 43, 46, 48"):::bucket
     Bucket5("Bucket 5 (nullableBoundary)<br />Deps: 33, 305, 31<br /><br />ROOT PgSelectSingle{4}ᐸbuildingsᐳ[33]<br />1: <br />ᐳ: 49, 53, 291, 299, 292, 293, 300, 301<br />2: PgSelectRows[69], PgSelectRows[89]<br />ᐳ: 68, 70, 88, 90"):::bucket
     Bucket6("Bucket 6 (nullableBoundary)<br />Deps: 38, 289<br /><br />ROOT PgSelectSingle{4}ᐸpropertiesᐳ[38]<br />1: <br />ᐳ: 50, 54, 283, 284, 285<br />2: PgSelectRows[77]<br />ᐳ: First[76], PgSelectSingle[78]"):::bucket
@@ -106,8 +106,10 @@ graph TD
     PgSelectInlineApply294 --> PgSelectInlineApply298
     Access303{{"Access[303∈0] ➊<br />ᐸ9.m.subqueryDetailsFor27ᐳ"}}:::plan
     PgSelect9 --> Access303
-    __Item19[/"__Item[19∈3]<br />ᐸ15ᐳ"\]:::itemplan
-    ConnectionItems15 ==> __Item19
+    __CloneStream18[["__CloneStream[18∈1] ➊"]]:::plan
+    ConnectionItems15 --> __CloneStream18
+    __Item19[/"__Item[19∈3]<br />ᐸ18ᐳ"\]:::itemplan
+    __CloneStream18 ==> __Item19
     PgSelectSingle20{{"PgSelectSingle[20∈3]<br />ᐸhousesᐳ"}}:::plan
     __Item19 --> PgSelectSingle20
     List24{{"List[24∈4]<br />ᐸ21,22,23ᐳ<br />More deps:<br />- Constantᐸ'houses'ᐳ[21]"}}:::plan
@@ -467,7 +469,7 @@ graph TD
     classDef bucket0 stroke:#696969
     class Bucket0,__Value2,PgSelect9,Access10,Access11,Object12,Connection13,ConnectionItems15,PgSelectInlineApply218,Access219,PgSelectInlineApply222,PgSelectInlineApply226,PgSelectInlineApply230,PgSelectInlineApply234,PgSelectInlineApply238,PgSelectInlineApply242,PgSelectInlineApply246,PgSelectInlineApply250,PgSelectInlineApply254,PgSelectInlineApply258,PgSelectInlineApply262,PgSelectInlineApply266,PgSelectInlineApply270,PgSelectInlineApply274,PgSelectInlineApply278,Access279,PgSelectInlineApply282,PgSelectInlineApply286,Access287,PgSelectInlineApply290,PgSelectInlineApply294,PgSelectInlineApply298,PgSelectInlineApply302,Access303 bucket0
     classDef bucket1 stroke:#00bfff
-    class Bucket1 bucket1
+    class Bucket1,__CloneStream18 bucket1
     classDef bucket3 stroke:#ffa500
     class Bucket3,__Item19,PgSelectSingle20 bucket3
     classDef bucket4 stroke:#0000ff

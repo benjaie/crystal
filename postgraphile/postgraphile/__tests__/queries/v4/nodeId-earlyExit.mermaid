@@ -9,12 +9,12 @@ graph TD
 
     subgraph "Buckets for queries/v4/nodeId-earlyExit"
     Bucket0("Bucket 0 (root)<br /><br />1: <br />ᐳ: 8, 13, 14, 59, 63, 69, 70, 71, 72, 9, 15, 17, 20, 21, 28, 34, 37, 38<br />2: 12, 23, 31, 40<br />3: 16, 26, 33, 43<br />ᐳ: 25, 27, 42, 44<br />4: 45, 49"):::bucket
-    Bucket1("Bucket 1 (nullableBoundary)<br />Deps: 16, 45, 59<br /><br />ROOT Connectionᐸ12ᐳ[16]"):::bucket
+    Bucket1("Bucket 1 (nullableBoundary)<br />Deps: 45, 16, 59<br /><br />ROOT Connectionᐸ12ᐳ[16]"):::bucket
     Bucket2("Bucket 2 (nullableBoundary)<br />Deps: 27<br /><br />ROOT PgSelectSingleᐸpersonᐳ[27]"):::bucket
-    Bucket3("Bucket 3 (nullableBoundary)<br />Deps: 33, 49, 63<br /><br />ROOT Connectionᐸ31ᐳ[33]"):::bucket
+    Bucket3("Bucket 3 (nullableBoundary)<br />Deps: 49, 33, 63<br /><br />ROOT Connectionᐸ31ᐳ[33]"):::bucket
     Bucket4("Bucket 4 (nullableBoundary)<br />Deps: 44<br /><br />ROOT PgSelectSingleᐸpersonᐳ[44]"):::bucket
-    Bucket7("Bucket 7 (listItem)<br />Deps: 59<br /><br />ROOT __Item{7}ᐸ45ᐳ[55]"):::bucket
-    Bucket8("Bucket 8 (listItem)<br />Deps: 63<br /><br />ROOT __Item{8}ᐸ49ᐳ[57]"):::bucket
+    Bucket7("Bucket 7 (listItem)<br />Deps: 59<br /><br />ROOT __Item{7}ᐸ53ᐳ[55]"):::bucket
+    Bucket8("Bucket 8 (listItem)<br />Deps: 63<br /><br />ROOT __Item{8}ᐸ54ᐳ[57]"):::bucket
     Bucket9("Bucket 9 (nullableBoundary)<br />Deps: 56, 59<br /><br />ROOT PgSelectSingle{7}ᐸpersonᐳ[56]"):::bucket
     Bucket10("Bucket 10 (nullableBoundary)<br />Deps: 58, 63<br /><br />ROOT PgSelectSingle{8}ᐸpostᐳ[58]"):::bucket
     end
@@ -74,16 +74,20 @@ graph TD
     Connection16 --> ConnectionItems45
     ConnectionItems49[["ConnectionItems[49∈0] ➊"]]:::plan
     Connection33 --> ConnectionItems49
+    __CloneStream53[["__CloneStream[53∈1] ➊"]]:::plan
+    ConnectionItems45 --> __CloneStream53
     PgClassExpression48{{"PgClassExpression[48∈2] ➊<br />ᐸ__person__...full_name”ᐳ"}}:::plan
     PgSelectSingle27 --> PgClassExpression48
+    __CloneStream54[["__CloneStream[54∈3] ➊"]]:::plan
+    ConnectionItems49 --> __CloneStream54
     PgClassExpression52{{"PgClassExpression[52∈4] ➊<br />ᐸ__person__...full_name”ᐳ"}}:::plan
     PgSelectSingle44 --> PgClassExpression52
-    __Item55[/"__Item[55∈7]<br />ᐸ45ᐳ"\]:::itemplan
-    ConnectionItems45 ==> __Item55
+    __Item55[/"__Item[55∈7]<br />ᐸ53ᐳ"\]:::itemplan
+    __CloneStream53 ==> __Item55
     PgSelectSingle56{{"PgSelectSingle[56∈7]<br />ᐸpersonᐳ"}}:::plan
     __Item55 --> PgSelectSingle56
-    __Item57[/"__Item[57∈8]<br />ᐸ49ᐳ"\]:::itemplan
-    ConnectionItems49 ==> __Item57
+    __Item57[/"__Item[57∈8]<br />ᐸ54ᐳ"\]:::itemplan
+    __CloneStream54 ==> __Item57
     PgSelectSingle58{{"PgSelectSingle[58∈8]<br />ᐸpostᐳ"}}:::plan
     __Item57 --> PgSelectSingle58
     List61{{"List[61∈9]<br />ᐸ59,60ᐳ<br />More deps:<br />- Constantᐸ'people'ᐳ[59]"}}:::plan
@@ -107,11 +111,11 @@ graph TD
     classDef bucket0 stroke:#696969
     class Bucket0,__Value2,__InputObject9,PgSelect12,Access13,Access14,Object15,Connection16,ApplyInput17,Lambda20,Access21,PgSelect23,First25,PgSelectRows26,PgSelectSingle27,__InputObject28,PgSelect31,Connection33,ApplyInput34,Lambda37,Access38,PgSelect40,First42,PgSelectRows43,PgSelectSingle44,ConnectionItems45,ConnectionItems49 bucket0
     classDef bucket1 stroke:#00bfff
-    class Bucket1 bucket1
+    class Bucket1,__CloneStream53 bucket1
     classDef bucket2 stroke:#7f007f
     class Bucket2,PgClassExpression48 bucket2
     classDef bucket3 stroke:#ffa500
-    class Bucket3 bucket3
+    class Bucket3,__CloneStream54 bucket3
     classDef bucket4 stroke:#0000ff
     class Bucket4,PgClassExpression52 bucket4
     classDef bucket7 stroke:#808000

@@ -9,14 +9,14 @@ graph TD
 
     subgraph "Buckets for queries/relay/defaultNodeIdCodec.conditionNodeId"
     Bucket0("Bucket 0 (root)<br /><br />1: 117, 121, 125, 129<br />ᐳ: 6, 8, 12, 13, 19, 28, 36, 104, 7, 14, 16, 18, 25, 27, 33, 35, 42<br />2: 11, 22, 30, 39<br />ᐳ: 118, 122, 126, 130<br />3: 15, 24, 32, 41<br />4: 44, 47, 50, 53"):::bucket
-    Bucket1("Bucket 1 (nullableBoundary)<br />Deps: 15, 44, 118, 104<br /><br />ROOT Connectionᐸ11ᐳ[15]"):::bucket
-    Bucket2("Bucket 2 (nullableBoundary)<br />Deps: 24, 47, 122, 104<br /><br />ROOT Connectionᐸ22ᐳ[24]"):::bucket
-    Bucket3("Bucket 3 (nullableBoundary)<br />Deps: 32, 50, 130, 104<br /><br />ROOT Connectionᐸ30ᐳ[32]"):::bucket
-    Bucket4("Bucket 4 (nullableBoundary)<br />Deps: 41, 53, 126, 104<br /><br />ROOT Connectionᐸ39ᐳ[41]"):::bucket
-    Bucket9("Bucket 9 (listItem)<br />Deps: 118, 104<br /><br />ROOT __Item{9}ᐸ44ᐳ[60]"):::bucket
-    Bucket10("Bucket 10 (listItem)<br />Deps: 122, 104<br /><br />ROOT __Item{10}ᐸ47ᐳ[62]"):::bucket
-    Bucket11("Bucket 11 (listItem)<br />Deps: 130, 104<br /><br />ROOT __Item{11}ᐸ50ᐳ[64]"):::bucket
-    Bucket12("Bucket 12 (listItem)<br />Deps: 126, 104<br /><br />ROOT __Item{12}ᐸ53ᐳ[66]"):::bucket
+    Bucket1("Bucket 1 (nullableBoundary)<br />Deps: 44, 15, 118, 104<br /><br />ROOT Connectionᐸ11ᐳ[15]"):::bucket
+    Bucket2("Bucket 2 (nullableBoundary)<br />Deps: 47, 24, 122, 104<br /><br />ROOT Connectionᐸ22ᐳ[24]"):::bucket
+    Bucket3("Bucket 3 (nullableBoundary)<br />Deps: 50, 32, 130, 104<br /><br />ROOT Connectionᐸ30ᐳ[32]"):::bucket
+    Bucket4("Bucket 4 (nullableBoundary)<br />Deps: 53, 41, 126, 104<br /><br />ROOT Connectionᐸ39ᐳ[41]"):::bucket
+    Bucket9("Bucket 9 (listItem)<br />Deps: 118, 104<br /><br />ROOT __Item{9}ᐸ56ᐳ[60]"):::bucket
+    Bucket10("Bucket 10 (listItem)<br />Deps: 122, 104<br /><br />ROOT __Item{10}ᐸ57ᐳ[62]"):::bucket
+    Bucket11("Bucket 11 (listItem)<br />Deps: 130, 104<br /><br />ROOT __Item{11}ᐸ58ᐳ[64]"):::bucket
+    Bucket12("Bucket 12 (listItem)<br />Deps: 126, 104<br /><br />ROOT __Item{12}ᐸ59ᐳ[66]"):::bucket
     Bucket13("Bucket 13 (nullableBoundary)<br />Deps: 61, 118, 104<br /><br />ROOT PgSelectSingle{9}ᐸpostᐳ[61]<br />1: <br />ᐳ: 100, 119, 120<br />2: PgSelectRows[74]<br />ᐳ: First[73], PgSelectSingle[75]"):::bucket
     Bucket14("Bucket 14 (nullableBoundary)<br />Deps: 63, 122, 104<br /><br />ROOT PgSelectSingle{10}ᐸpostᐳ[63]<br />1: <br />ᐳ: 101, 123, 124<br />2: PgSelectRows[82]<br />ᐳ: First[81], PgSelectSingle[83]"):::bucket
     Bucket15("Bucket 15 (nullableBoundary)<br />Deps: 65, 130, 104<br /><br />ROOT PgSelectSingle{11}ᐸpostᐳ[65]<br />1: <br />ᐳ: 102, 131, 132<br />2: PgSelectRows[90]<br />ᐳ: First[89], PgSelectSingle[91]"):::bucket
@@ -106,20 +106,28 @@ graph TD
     PgSelect39 --> Access126
     Access130{{"Access[130∈0] ➊<br />ᐸ30.m.joinDetailsFor85ᐳ"}}:::plan
     PgSelect30 --> Access130
-    __Item60[/"__Item[60∈9]<br />ᐸ44ᐳ"\]:::itemplan
-    ConnectionItems44 ==> __Item60
+    __CloneStream56[["__CloneStream[56∈1] ➊"]]:::plan
+    ConnectionItems44 --> __CloneStream56
+    __CloneStream57[["__CloneStream[57∈2] ➊"]]:::plan
+    ConnectionItems47 --> __CloneStream57
+    __CloneStream58[["__CloneStream[58∈3] ➊"]]:::plan
+    ConnectionItems50 --> __CloneStream58
+    __CloneStream59[["__CloneStream[59∈4] ➊"]]:::plan
+    ConnectionItems53 --> __CloneStream59
+    __Item60[/"__Item[60∈9]<br />ᐸ56ᐳ"\]:::itemplan
+    __CloneStream56 ==> __Item60
     PgSelectSingle61{{"PgSelectSingle[61∈9]<br />ᐸpostᐳ"}}:::plan
     __Item60 --> PgSelectSingle61
-    __Item62[/"__Item[62∈10]<br />ᐸ47ᐳ"\]:::itemplan
-    ConnectionItems47 ==> __Item62
+    __Item62[/"__Item[62∈10]<br />ᐸ57ᐳ"\]:::itemplan
+    __CloneStream57 ==> __Item62
     PgSelectSingle63{{"PgSelectSingle[63∈10]<br />ᐸpostᐳ"}}:::plan
     __Item62 --> PgSelectSingle63
-    __Item64[/"__Item[64∈11]<br />ᐸ50ᐳ"\]:::itemplan
-    ConnectionItems50 ==> __Item64
+    __Item64[/"__Item[64∈11]<br />ᐸ58ᐳ"\]:::itemplan
+    __CloneStream58 ==> __Item64
     PgSelectSingle65{{"PgSelectSingle[65∈11]<br />ᐸpostᐳ"}}:::plan
     __Item64 --> PgSelectSingle65
-    __Item66[/"__Item[66∈12]<br />ᐸ53ᐳ"\]:::itemplan
-    ConnectionItems53 ==> __Item66
+    __Item66[/"__Item[66∈12]<br />ᐸ59ᐳ"\]:::itemplan
+    __CloneStream59 ==> __Item66
     PgSelectSingle67{{"PgSelectSingle[67∈12]<br />ᐸpostᐳ"}}:::plan
     __Item66 --> PgSelectSingle67
     List119{{"List[119∈13]<br />ᐸ118,61ᐳ"}}:::plan
@@ -199,13 +207,13 @@ graph TD
     classDef bucket0 stroke:#696969
     class Bucket0,__Value0,__Value2,__InputObject7,Access8,PgSelect11,Access12,Access13,Object14,Connection15,ApplyInput16,__InputObject18,Access19,PgSelect22,Connection24,ApplyInput25,__InputObject27,PgSelect30,Connection32,ApplyInput33,__InputObject35,Access36,PgSelect39,Connection41,ApplyInput42,ConnectionItems44,ConnectionItems47,ConnectionItems50,ConnectionItems53,PgSelectInlineApply117,Access118,PgSelectInlineApply121,Access122,PgSelectInlineApply125,Access126,PgSelectInlineApply129,Access130 bucket0
     classDef bucket1 stroke:#00bfff
-    class Bucket1 bucket1
+    class Bucket1,__CloneStream56 bucket1
     classDef bucket2 stroke:#7f007f
-    class Bucket2 bucket2
+    class Bucket2,__CloneStream57 bucket2
     classDef bucket3 stroke:#ffa500
-    class Bucket3 bucket3
+    class Bucket3,__CloneStream58 bucket3
     classDef bucket4 stroke:#0000ff
-    class Bucket4 bucket4
+    class Bucket4,__CloneStream59 bucket4
     classDef bucket9 stroke:#ff0000
     class Bucket9,__Item60,PgSelectSingle61 bucket9
     classDef bucket10 stroke:#ffff00

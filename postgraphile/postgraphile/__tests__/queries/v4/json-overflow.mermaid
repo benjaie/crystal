@@ -9,8 +9,8 @@ graph TD
 
     subgraph "Buckets for queries/v4/json-overflow"
     Bucket0("Bucket 0 (root)<br /><br />1: <br />ᐳ: 7, 10, 11, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 343, 344, 345, 346, 347, 348, 349, 350, 351, 352, 353, 354, 355, 356, 357, 358, 359, 360, 361, 362, 363, 364, 365, 366, 367, 368, 369, 370, 371, 372, 373, 374, 375, 376, 377, 378, 379, 380, 381, 382, 383, 384, 385, 386, 387, 388, 389, 390, 391, 392, 393, 394, 395, 396, 397, 398, 399, 400, 401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418, 419, 420, 421, 422, 423, 424, 425, 426, 427, 428, 429, 430, 431, 432, 433, 12, 23, 26, 29, 32, 35, 38, 41, 44, 47, 50, 53, 56, 59, 62, 65, 68, 71, 74, 77, 80, 83, 86, 89, 92, 95, 98, 101, 104, 107, 110, 113, 116, 119, 122, 125, 128, 131, 134, 137, 140, 143, 146, 149, 152, 155, 158, 161, 164, 167, 170, 173, 176, 179, 182, 185, 188, 191, 194, 197, 200, 203, 206, 209, 212, 215, 218, 221, 224, 227, 230, 233, 236, 239, 242, 245, 248, 251, 254, 257, 260, 263, 266, 269, 272, 275, 278, 281, 284, 287, 290, 293, 296, 299, 302, 305, 308, 311, 314, 317, 320, 323, 326, 329<br />2: PgSelect[9]<br />3: Connection[13]<br />4: ConnectionItems[15]"):::bucket
-    Bucket1("Bucket 1 (nullableBoundary)<br />Deps: 13, 15<br /><br />ROOT Connectionᐸ9ᐳ[13]"):::bucket
-    Bucket3("Bucket 3 (listItem)<br /><br />ROOT __Item{3}ᐸ15ᐳ[19]"):::bucket
+    Bucket1("Bucket 1 (nullableBoundary)<br />Deps: 15, 13<br /><br />ROOT Connectionᐸ9ᐳ[13]"):::bucket
+    Bucket3("Bucket 3 (listItem)<br /><br />ROOT __Item{3}ᐸ18ᐳ[19]"):::bucket
     Bucket4("Bucket 4 (nullableBoundary)<br />Deps: 20<br /><br />ROOT PgSelectSingle{3}ᐸpostᐳ[20]"):::bucket
     end
     Bucket0 --> Bucket1
@@ -134,8 +134,10 @@ graph TD
     __Value2 --> Access11
     ConnectionItems15[["ConnectionItems[15∈0] ➊"]]:::plan
     Connection13 --> ConnectionItems15
-    __Item19[/"__Item[19∈3]<br />ᐸ15ᐳ"\]:::itemplan
-    ConnectionItems15 ==> __Item19
+    __CloneStream18[["__CloneStream[18∈1] ➊"]]:::plan
+    ConnectionItems15 --> __CloneStream18
+    __Item19[/"__Item[19∈3]<br />ᐸ18ᐳ"\]:::itemplan
+    __CloneStream18 ==> __Item19
     PgSelectSingle20{{"PgSelectSingle[20∈3]<br />ᐸpostᐳ"}}:::plan
     __Item19 --> PgSelectSingle20
     PgClassExpression21{{"PgClassExpression[21∈4]<br />ᐸ__post__.”headline”ᐳ"}}:::plan
@@ -351,7 +353,7 @@ graph TD
     classDef bucket0 stroke:#696969
     class Bucket0,__Value2,PgSelect9,Access10,Access11,Object12,Connection13,ConnectionItems15,PgFromExpression23,PgFromExpression26,PgFromExpression29,PgFromExpression32,PgFromExpression35,PgFromExpression38,PgFromExpression41,PgFromExpression44,PgFromExpression47,PgFromExpression50,PgFromExpression53,PgFromExpression56,PgFromExpression59,PgFromExpression62,PgFromExpression65,PgFromExpression68,PgFromExpression71,PgFromExpression74,PgFromExpression77,PgFromExpression80,PgFromExpression83,PgFromExpression86,PgFromExpression89,PgFromExpression92,PgFromExpression95,PgFromExpression98,PgFromExpression101,PgFromExpression104,PgFromExpression107,PgFromExpression110,PgFromExpression113,PgFromExpression116,PgFromExpression119,PgFromExpression122,PgFromExpression125,PgFromExpression128,PgFromExpression131,PgFromExpression134,PgFromExpression137,PgFromExpression140,PgFromExpression143,PgFromExpression146,PgFromExpression149,PgFromExpression152,PgFromExpression155,PgFromExpression158,PgFromExpression161,PgFromExpression164,PgFromExpression167,PgFromExpression170,PgFromExpression173,PgFromExpression176,PgFromExpression179,PgFromExpression182,PgFromExpression185,PgFromExpression188,PgFromExpression191,PgFromExpression194,PgFromExpression197,PgFromExpression200,PgFromExpression203,PgFromExpression206,PgFromExpression209,PgFromExpression212,PgFromExpression215,PgFromExpression218,PgFromExpression221,PgFromExpression224,PgFromExpression227,PgFromExpression230,PgFromExpression233,PgFromExpression236,PgFromExpression239,PgFromExpression242,PgFromExpression245,PgFromExpression248,PgFromExpression251,PgFromExpression254,PgFromExpression257,PgFromExpression260,PgFromExpression263,PgFromExpression266,PgFromExpression269,PgFromExpression272,PgFromExpression275,PgFromExpression278,PgFromExpression281,PgFromExpression284,PgFromExpression287,PgFromExpression290,PgFromExpression293,PgFromExpression296,PgFromExpression299,PgFromExpression302,PgFromExpression305,PgFromExpression308,PgFromExpression311,PgFromExpression314,PgFromExpression317,PgFromExpression320,PgFromExpression323,PgFromExpression326,PgFromExpression329 bucket0
     classDef bucket1 stroke:#00bfff
-    class Bucket1 bucket1
+    class Bucket1,__CloneStream18 bucket1
     classDef bucket3 stroke:#ffa500
     class Bucket3,__Item19,PgSelectSingle20 bucket3
     classDef bucket4 stroke:#0000ff
