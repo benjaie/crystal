@@ -15,15 +15,15 @@ graph TD
     Bucket4("Bucket 4 (mutationField)<br />Deps: 1234, 95, 2<br /><br />1: Access[92]<br />2: Access[93]<br />3: Object[94]<br />4: PgUpdateSingle[91]<br />5: <br />ᐳ: Object[96]"):::bucket
     Bucket5("Bucket 5 (mutationField)<br />Deps: 123, 2<br /><br />1: Access[120]<br />2: Access[121]<br />3: Object[122]<br />4: PgInsertSingle[119]<br />5: <br />ᐳ: Object[124]"):::bucket
     Bucket6("Bucket 6 (nullableBoundary)<br />Deps: 17, 16, 12<br /><br />ROOT Object{1}ᐸ{result}ᐳ[17]"):::bucket
-    Bucket7("Bucket 7 (nullableBoundary)<br />Deps: 24, 20, 125, 23<br /><br />ROOT Object{2}ᐸ{result}ᐳ[24]"):::bucket
-    Bucket8("Bucket 8 (nullableBoundary)<br />Deps: 31, 27, 127, 30<br /><br />ROOT Object{3}ᐸ{result}ᐳ[31]"):::bucket
+    Bucket7("Bucket 7 (nullableBoundary)<br />Deps: 125, 24, 20, 23<br /><br />ROOT Object{2}ᐸ{result}ᐳ[24]"):::bucket
+    Bucket8("Bucket 8 (nullableBoundary)<br />Deps: 127, 31, 27, 30<br /><br />ROOT Object{3}ᐸ{result}ᐳ[31]"):::bucket
     Bucket9("Bucket 9 (nullableBoundary)<br />Deps: 96, 91, 94<br /><br />ROOT Object{4}ᐸ{result}ᐳ[96]"):::bucket
     Bucket10("Bucket 10 (nullableBoundary)<br />Deps: 124, 119, 122<br /><br />ROOT Object{5}ᐸ{result}ᐳ[124]"):::bucket
     Bucket11("Bucket 11 (nullableBoundary)<br />Deps: 16, 12, 1154, 1158, 1162, 1166<br /><br />ROOT PgSelectSingle{1}ᐸtype_function_mutationᐳ[16]<br />1: <br />ᐳ: 133, 138, 141, 144, 147, 150, 153, 156, 159, 162, 165, 168, 171, 174, 177, 180, 183, 186, 189, 192, 195, 198, 201, 204, 207, 210, 213, 216, 240, 258, 276, 294, 297, 300, 303, 306, 309, 312, 315, 318, 321, 324, 327, 330, 333, 336, 339, 342, 379, 382, 573, 576, 579, 582, 633, 648, 651, 654, 657, 702, 714, 729, 738, 747, 925, 928, 931, 943, 946, 949, 961, 964, 967, 979, 982, 985<br />2: 217, 241, 259, 277, 345, 362<br />ᐳ: 1155, 1159, 1163, 1167<br />3: 222, 244, 262, 280, 348, 365<br />ᐳ: 221, 223, 243, 245, 261, 263, 279, 281, 347, 349, 364, 366, 585, 660, 717, 720, 732, 741, 750, 756, 1156, 1157, 1160, 1161<br />4: PgSelectRows[592], PgSelectRows[667]<br />ᐳ: 591, 593, 666, 668"):::bucket
     Bucket12("Bucket 12 (nullableBoundary)<br />Deps: 91, 94, 1202, 1206, 1210, 1214<br /><br />ROOT PgUpdateSingle{4}ᐸtypes(id;)ᐳ[91]<br />1: <br />ᐳ: 135, 134, 139, 142, 145, 148, 151, 154, 157, 160, 163, 166, 169, 172, 175, 178, 181, 184, 187, 190, 193, 196, 199, 202, 205, 208, 211, 214, 224, 246, 264, 282, 295, 298, 301, 304, 307, 310, 313, 316, 319, 322, 325, 328, 331, 334, 337, 340, 343, 380, 383, 574, 577, 580, 583, 634, 649, 652, 655, 658, 703, 715, 730, 739, 748, 926, 929, 932, 944, 947, 950, 962, 965, 968, 980, 983, 986<br />2: 225, 247, 265, 283, 351, 368<br />ᐳ: 1203, 1207, 1211, 1215<br />3: 230, 250, 268, 286, 354, 371<br />ᐳ: 229, 231, 249, 251, 267, 269, 285, 287, 353, 355, 370, 372, 586, 661, 718, 721, 733, 742, 751, 757, 1204, 1205, 1208, 1209<br />4: PgSelectRows[598], PgSelectRows[673]<br />ᐳ: 597, 599, 672, 674"):::bucket
     Bucket13("Bucket 13 (nullableBoundary)<br />Deps: 119, 122, 1218, 1222, 1226, 1230<br /><br />ROOT PgInsertSingle{5}ᐸtypes()ᐳ[119]<br />1: <br />ᐳ: 137, 136, 140, 143, 146, 149, 152, 155, 158, 161, 164, 167, 170, 173, 176, 179, 182, 185, 188, 191, 194, 197, 200, 203, 206, 209, 212, 215, 232, 252, 270, 288, 296, 299, 302, 305, 308, 311, 314, 317, 320, 323, 326, 329, 332, 335, 338, 341, 344, 381, 384, 575, 578, 581, 584, 635, 650, 653, 656, 659, 704, 716, 731, 740, 749, 927, 930, 933, 945, 948, 951, 963, 966, 969, 981, 984, 987<br />2: 233, 253, 271, 289, 357, 374<br />ᐳ: 1219, 1223, 1227, 1231<br />3: 238, 256, 274, 292, 360, 377<br />ᐳ: 237, 239, 255, 257, 273, 275, 291, 293, 359, 361, 376, 378, 587, 662, 719, 722, 734, 743, 752, 758, 1220, 1221, 1224, 1225<br />4: PgSelectRows[604], PgSelectRows[679]<br />ᐳ: 603, 605, 678, 680"):::bucket
-    Bucket14("Bucket 14 (listItem)<br />Deps: 20, 23, 1170, 1174, 1178, 1182<br /><br />ROOT __Item{14}ᐸ125ᐳ[129]"):::bucket
-    Bucket15("Bucket 15 (listItem)<br />Deps: 27, 30, 1186, 1190, 1194, 1198<br /><br />ROOT __Item{15}ᐸ127ᐳ[131]"):::bucket
+    Bucket14("Bucket 14 (listItem)<br />Deps: 20, 23, 1170, 1174, 1178, 1182<br /><br />ROOT __Item{14}ᐸ126ᐳ[129]"):::bucket
+    Bucket15("Bucket 15 (listItem)<br />Deps: 27, 30, 1186, 1190, 1194, 1198<br /><br />ROOT __Item{15}ᐸ128ᐳ[131]"):::bucket
     Bucket16("Bucket 16 (nullableBoundary)<br />Deps: 130, 23, 1170, 1174, 1178, 1182<br /><br />ROOT PgSelectSingle{14}ᐸtype_function_list_mutationᐳ[130]<br />1: <br />ᐳ: 406, 408, 410, 412, 414, 416, 418, 420, 422, 424, 426, 428, 430, 432, 434, 436, 438, 440, 442, 444, 446, 448, 450, 452, 454, 456, 458, 460, 476, 488, 500, 512, 514, 516, 518, 520, 522, 524, 526, 528, 530, 532, 534, 536, 538, 540, 542, 544, 566, 568, 781, 783, 785, 787, 821, 834, 836, 838, 840, 870, 881, 894, 903, 912<br />2: 461, 477, 489, 501, 546, 556<br />ᐳ: Access[1171], Access[1175]<br />3: 466, 480, 492, 504, 549, 559<br />ᐳ: 465, 467, 479, 481, 491, 493, 503, 505, 548, 550, 558, 560, 789, 842, 883, 885, 896, 905, 914, 918, 1172, 1173, 1176, 1177<br />4: PgSelectRows[795], PgSelectRows[848]<br />ᐳ: 794, 796, 847, 849"):::bucket
     Bucket17("Bucket 17 (nullableBoundary)<br />Deps: 132, 30, 1186, 1190, 1194, 1198<br /><br />ROOT PgSelectSingle{15}ᐸtype_function_connection_mutationᐳ[132]<br />1: <br />ᐳ: 407, 409, 411, 413, 415, 417, 419, 421, 423, 425, 427, 429, 431, 433, 435, 437, 439, 441, 443, 445, 447, 449, 451, 453, 455, 457, 459, 468, 482, 494, 506, 513, 515, 517, 519, 521, 523, 525, 527, 529, 531, 533, 535, 537, 539, 541, 543, 545, 567, 569, 782, 784, 786, 788, 822, 835, 837, 839, 841, 871, 882, 895, 904, 913<br />2: 469, 483, 495, 507, 551, 561<br />ᐳ: Access[1187], Access[1191]<br />3: 474, 486, 498, 510, 554, 564<br />ᐳ: 473, 475, 485, 487, 497, 499, 509, 511, 553, 555, 563, 565, 790, 843, 884, 886, 897, 906, 915, 919, 1188, 1189, 1192, 1193<br />4: PgSelectRows[801], PgSelectRows[854]<br />ᐳ: 800, 802, 853, 855"):::bucket
     Bucket18("Bucket 18 (nullableBoundary)<br />Deps: 180<br /><br />ROOT PgClassExpression{11}ᐸ__type_fun...ble_range”ᐳ[180]"):::bucket
@@ -306,10 +306,14 @@ graph TD
     PgSelectInlineApply1158["PgSelectInlineApply[1158∈6] ➊"]:::plan
     PgSelectInlineApply1162["PgSelectInlineApply[1162∈6] ➊"]:::plan
     PgSelectInlineApply1166["PgSelectInlineApply[1166∈6] ➊"]:::plan
+    __CloneStream126[["__CloneStream[126∈7] ➊"]]:::plan
+    PgSelectRows125 --> __CloneStream126
     PgSelectInlineApply1170["PgSelectInlineApply[1170∈7] ➊"]:::plan
     PgSelectInlineApply1174["PgSelectInlineApply[1174∈7] ➊"]:::plan
     PgSelectInlineApply1178["PgSelectInlineApply[1178∈7] ➊"]:::plan
     PgSelectInlineApply1182["PgSelectInlineApply[1182∈7] ➊"]:::plan
+    __CloneStream128[["__CloneStream[128∈8] ➊"]]:::plan
+    PgSelectRows127 --> __CloneStream128
     PgSelectInlineApply1186["PgSelectInlineApply[1186∈8] ➊"]:::plan
     PgSelectInlineApply1190["PgSelectInlineApply[1190∈8] ➊"]:::plan
     PgSelectInlineApply1194["PgSelectInlineApply[1194∈8] ➊"]:::plan
@@ -1058,12 +1062,12 @@ graph TD
     PgSelect289 --> Access1227
     Access1231{{"Access[1231∈13] ➊<br />ᐸ289.m.joinDetailsFor697ᐳ"}}:::plan
     PgSelect289 --> Access1231
-    __Item129[/"__Item[129∈14]<br />ᐸ125ᐳ"\]:::itemplan
-    PgSelectRows125 ==> __Item129
+    __Item129[/"__Item[129∈14]<br />ᐸ126ᐳ"\]:::itemplan
+    __CloneStream126 ==> __Item129
     PgSelectSingle130{{"PgSelectSingle[130∈14]<br />ᐸtype_function_list_mutationᐳ"}}:::plan
     __Item129 --> PgSelectSingle130
-    __Item131[/"__Item[131∈15]<br />ᐸ127ᐳ"\]:::itemplan
-    PgSelectRows127 ==> __Item131
+    __Item131[/"__Item[131∈15]<br />ᐸ128ᐳ"\]:::itemplan
+    __CloneStream128 ==> __Item131
     PgSelectSingle132{{"PgSelectSingle[132∈15]<br />ᐸtype_function_connection_mutationᐳ"}}:::plan
     __Item131 --> PgSelectSingle132
     PgSelect477[["PgSelect[477∈16]<br />ᐸfrmcdc_nestedCompoundTypeᐳ"]]:::plan
@@ -2281,9 +2285,9 @@ graph TD
     classDef bucket6 stroke:#ff1493
     class Bucket6,PgSelectInlineApply1154,PgSelectInlineApply1158,PgSelectInlineApply1162,PgSelectInlineApply1166 bucket6
     classDef bucket7 stroke:#808000
-    class Bucket7,PgSelectInlineApply1170,PgSelectInlineApply1174,PgSelectInlineApply1178,PgSelectInlineApply1182 bucket7
+    class Bucket7,__CloneStream126,PgSelectInlineApply1170,PgSelectInlineApply1174,PgSelectInlineApply1178,PgSelectInlineApply1182 bucket7
     classDef bucket8 stroke:#dda0dd
-    class Bucket8,PgSelectInlineApply1186,PgSelectInlineApply1190,PgSelectInlineApply1194,PgSelectInlineApply1198 bucket8
+    class Bucket8,__CloneStream128,PgSelectInlineApply1186,PgSelectInlineApply1190,PgSelectInlineApply1194,PgSelectInlineApply1198 bucket8
     classDef bucket9 stroke:#ff0000
     class Bucket9,PgSelectInlineApply1202,PgSelectInlineApply1206,PgSelectInlineApply1210,PgSelectInlineApply1214 bucket9
     classDef bucket10 stroke:#ffff00
