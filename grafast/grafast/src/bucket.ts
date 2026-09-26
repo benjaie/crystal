@@ -1,6 +1,7 @@
 // import type { GraphQLScalarType } from "graphql";
 
 import type { LayerPlan } from "./engine/LayerPlan.ts";
+import type { ListExecution } from "./engine/listExecution.ts";
 import type { MetaByMetaKey } from "./engine/OperationPlan.ts";
 import type { ErrorBehavior, Step } from "./index.ts";
 import type {
@@ -63,6 +64,9 @@ export interface SharedBucketState {
  * @internal
  */
 export interface Bucket {
+  /** List-layer consumers, indexed by layer ID and then parent batch position. */
+  listExecutions?: Map<number, ListExecution>;
+
   /**
    * A small (low memory footprint) object that keeps track of when various
    * buckets are complete or not. Needed for `combined` LayerPlans so that

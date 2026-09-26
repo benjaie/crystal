@@ -5,6 +5,8 @@ import * as assert from "../assert.ts";
 import type { Bucket, RequestTools } from "../bucket.ts";
 import { isDev } from "../dev.ts";
 import type { ErrorBehavior, JSONValue } from "../interfaces.ts";
+import type { LayerPlan, LayerPlanReasonListItem } from "./LayerPlan.ts";
+import type { ListTraversal } from "./listExecution.ts";
 import type { OutputPlan } from "./OutputPlan.ts";
 
 const debug = debugFactory("grafast:OutputPlan");
@@ -80,6 +82,8 @@ export interface SubsequentPayloadSpec {
 }
 
 export interface SubsequentStreamSpec {
+  listLayer: LayerPlan<LayerPlanReasonListItem>;
+  traversal: ListTraversal;
   // TODO: abort this stream if an error occurred in this path
   // See: https://github.com/robrichard/defer-stream-wg/discussions/45#discussioncomment-3486994
 

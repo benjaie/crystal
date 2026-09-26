@@ -929,11 +929,14 @@ Do not set this true unless the following hold:
 
 - The `execute` method must be a regular (not async) function
 - The `execute` method must NEVER return a promise, async iterator, or similar
-- The values within the list returned from `execute` must NEVER include promises,
-  async iterators, or `FlaggedValue` objects such as errors
+- The values within the list returned from `execute` must NEVER include promises
+  or `FlaggedValue` objects such as errors
 - The result of calling `execute` should not differ after a
   `step.hasSideEffects` has executed (i.e. it should be pure, only dependent on
   its deps and use no external state)
+
+A value can be a repeatable async iterable created synchronously: consumers own
+its asynchronous traversal, independently of this step's execution.
 
 It's acceptable for the `execute` method to throw if it needs to, but this will
 impact every batched value.
@@ -1019,3 +1022,14 @@ The producer owns fetching and any shared cache. Each iterator owns its position
 and must release its resources on completion, errors, and cancellation. Creating
 an iterator should register a consumer without fetching; begin fetching when
 `next()` is called. No repeatability flag or marker is required.
+
+List traversal belongs to execution of the list-item layer. Step results retain
+their original iterable; Gra*fast* opens a separate iterator for each list
+consumer and parent position. The layer prepares the initial items and executes
+their child steps before synchronous output rendering. With an honoured
+`@stream`, it retains the remaining iterator for incremental delivery; otherwise
+it consumes the complete list. Arrays follow the same delivery rules, with an
+optimized path for immediate arrays without promised items.
+
+Streaming information passed to a step is a performance hint, not a promise of
+incremental delivery. Producers must support either consumption pattern.

@@ -81,7 +81,6 @@ import {
   stepHasToRecord,
   stepHasToSpecifier,
 } from "../step.ts";
-import { __cloneStream, __CloneStreamStep } from "../steps/__cloneStream.ts";
 import type { __TrackedValueStepWithDollars } from "../steps/__trackedValue.ts";
 import { itemsOrStep } from "../steps/connection.ts";
 import { constant, ConstantStep } from "../steps/constant.ts";
@@ -980,9 +979,6 @@ export class OperationPlan {
         },
       );
       subscribeStep._stepOptions.stream = stepStreamOptions;
-      // The subscription iterator must have only one consumer.
-      subscribeStep._stepOptions.walkIterable = true;
-
       this.rootLayerPlan.setRootStep(subscribeStep);
 
       const subscriptionEventLayerPlan = new LayerPlan(this, {
@@ -1057,8 +1053,8 @@ export class OperationPlan {
   }
 
   /**
-   * Gets the item plan for a given parent list plan - this ensures we only
-   * create one item plan per parent plan.
+   * Immediate lists can share an item layer. Streamed lists need independent
+   * traversal state for each field, even when their producer is shared.
    */
   private itemStepForListStep<TData>(
     parentLayerPlan: LayerPlan,
@@ -1070,7 +1066,8 @@ export class OperationPlan {
     const itemStepIdByListStepId =
       (this.itemStepIdByListStepIdByParentLayerPlanId[parentLayerPlan.id] ??=
         Object.create(null));
-    const itemStepId = itemStepIdByListStepId[listStep.id];
+    const itemStepId =
+      stream == null ? itemStepIdByListStepId[listStep.id] : undefined;
     if (itemStepId !== undefined) {
       const itemStep = this.stepTracker.getStepById(
         itemStepId,
@@ -1106,7 +1103,7 @@ export class OperationPlan {
       () => new __ItemStep(listStep, depth),
     );
     layerPlan.setRootStep(itemStep);
-    itemStepIdByListStepId[listStep.id] = itemStep.id;
+    if (stream == null) itemStepIdByListStepId[listStep.id] = itemStep.id;
     return itemStep;
   }
 
@@ -2228,7 +2225,7 @@ export class OperationPlan {
             ? `#${streamDetails.initialCount.id}|${streamDetails.if.id}|${streamDetails.label.id}`
             : ""
         }]`;
-      let $list = withGlobalLayerPlan(
+      const $list = withGlobalLayerPlan(
         parentLayerPlan,
         polymorphicPaths,
         listItemPlanningPath,
@@ -2241,40 +2238,6 @@ export class OperationPlan {
         $list._stepOptions.stream = $step._stepOptions.stream;
       }
 
-      // Each list field owns its traversal, including non-streamed fields
-      // sharing a repeatable source with streamed fields.
-      {
-        $list = withGlobalLayerPlan(
-          parentLayerPlan,
-          polymorphicPaths,
-          listItemPlanningPath,
-          null,
-          __cloneStream,
-          null,
-          $list,
-        );
-        // The source may already have been deduplicated with another field.
-        // Traversal settings belong to this field, not to that shared source.
-        $list._stepOptions.stream = streamDetails
-          ? {
-              initialCountStepId: streamDetails.initialCount.id,
-              ifStepId: streamDetails.if.id,
-              labelStepId: streamDetails.label.id,
-            }
-          : null;
-      }
-
-      if (
-        streamDetails &&
-        parentLayerPlan.ancestry.some(
-          (layer) => layer.reason.type === "listItem",
-        )
-      ) {
-        // A remaining iterator belongs to one field position, even if its
-        // repeatable source is unary.
-        this.stepTracker.setNonUnary($list, []);
-      }
-      $list._stepOptions.walkIterable = true;
       const listOutputPlan = new OutputPlan(
         parentLayerPlan,
         $list,
@@ -3133,11 +3096,6 @@ export class OperationPlan {
       if (stepStreamOptions !== undefined) {
         // `null` is fine! `undefined` is not.
         step._stepOptions.stream = stepStreamOptions;
-
-        if (streamDetails === true) {
-          // Subscriptions need to be informed to walkIterable
-          step._stepOptions.walkIterable = true;
-        }
       }
       return {
         step,
@@ -3499,9 +3457,9 @@ export class OperationPlan {
       return EMPTY_ARRAY;
     }
 
-    // Repeatable sources can share execution, but field-specific iterator
-    // walking must retain its own initial count and remaining iterator.
-    if (!canDeduplicateStream(step)) return EMPTY_ARRAY;
+    // Subscription sources have a single consumer. List traversal belongs to
+    // layers, so list sources can be deduplicated regardless of delivery hints.
+    if (step._stepOptions.stream === true) return EMPTY_ARRAY;
 
     if (this.stepTracker.internalDependencies.has(step)) {
       // PERF: we need to set up correct tracking, then internal deps can be deduped
@@ -3536,7 +3494,7 @@ export class OperationPlan {
           possiblyPeer.implicitSideEffectStep === implicitSideEffectStep &&
           possiblyPeer.isSyncAndSafe === isSyncAndSafe &&
           isPeerLayerPlan(possiblyPeer.layerPlan, layerPlan) &&
-          canDeduplicateStream(possiblyPeer) &&
+          possiblyPeer._stepOptions.stream !== true &&
           possiblyPeer.peerKey === peerKey
           // && possiblyPeer._stepOptions.stream?.initialCount === streamInitialCount
         ) {
@@ -3576,7 +3534,7 @@ export class OperationPlan {
           rawPossiblyPeer.hasSideEffects ||
           rawPossiblyPeer.implicitSideEffectStep !== implicitSideEffectStep ||
           rawPossiblyPeer.isSyncAndSafe !== isSyncAndSafe ||
-          !canDeduplicateStream(rawPossiblyPeer) ||
+          rawPossiblyPeer._stepOptions.stream === true ||
           rawPossiblyPeer.constructor !== stepConstructor ||
           rawPossiblyPeer.peerKey !== peerKey
           // || rawPossiblyPeer._stepOptions.stream?.initialCount !== streamInitialCount
@@ -3647,7 +3605,7 @@ export class OperationPlan {
               rawPossiblyPeer.implicitSideEffectStep !==
                 implicitSideEffectStep ||
               rawPossiblyPeer.isSyncAndSafe !== isSyncAndSafe ||
-              !canDeduplicateStream(rawPossiblyPeer) ||
+              rawPossiblyPeer._stepOptions.stream === true ||
               rawPossiblyPeer.constructor !== stepConstructor ||
               rawPossiblyPeer.peerKey !== peerKey
               // || rawPossiblyPeer._stepOptions.stream?.initialCount !== streamInitialCount
@@ -3716,11 +3674,6 @@ export class OperationPlan {
   }
 
   private isImmoveable(step: Step): boolean {
-    if (step._stepOptions.walkIterable && step._stepOptions.stream != null) {
-      // A partially consumed array carries a one-shot remaining iterator.
-      // Keep field traversal local so repeated fields obtain their own iterator.
-      return true;
-    }
     if (step.hasSideEffects) {
       return true;
     }
@@ -4219,15 +4172,11 @@ But ${p} is not in ${winner.layerPlan}'s expected polymorphic paths:
     }
 
     if (equivalentSteps.length > 0) {
-      if (!winner._stepOptions.walkIterable) {
-        winner._stepOptions.stream ??=
-          step._stepOptions.stream ??
-          equivalentSteps.find((s) => s._stepOptions.stream != null)
-            ?._stepOptions.stream ??
-          null;
-      } else {
-        winner._stepOptions.stream = null;
-      }
+      winner._stepOptions.stream ??=
+        step._stepOptions.stream ??
+        equivalentSteps.find((s) => s._stepOptions.stream != null)?._stepOptions
+          .stream ??
+        null;
     }
 
     // Give the steps a chance to pass their responsibilities to the winner.
@@ -4535,18 +4484,6 @@ But ${p} is not in ${winner.layerPlan}'s expected polymorphic paths:
         }
         const $flagDep = sudo($flag).dependencies[0];
         this.stepTracker.replaceStep($flag, $flagDep);
-      } else if ($step instanceof __CloneStreamStep) {
-        const $clone = sudo($step);
-        const $dep = $clone.dependencies[0];
-        if (
-          $dep.dependents.length === 1 &&
-          $dep.layerPlan === $clone.layerPlan &&
-          $dep._isUnary === $clone._isUnary
-        ) {
-          $dep._stepOptions.walkIterable ||= $clone._stepOptions.walkIterable;
-          $dep._stepOptions.stream ||= $clone._stepOptions.stream;
-          this.stepTracker.replaceStep($clone, $dep);
-        }
       }
     }
   }
@@ -4557,11 +4494,6 @@ But ${p} is not in ${winner.layerPlan}'s expected polymorphic paths:
     for (const step of this.stepTracker.activeSteps) {
       const wasLocked = isDev && unlock(step);
       step.finalize();
-      if (step._stepOptions.stream) {
-        // (Potentially) streamed steps aren't sync and safe, we need to
-        // iterate them expensively
-        step.isSyncAndSafe = false;
-      }
       if (wasLocked) lock(step);
       assertFinalized(step);
       if (isDev && this.stepTracker.stepCount !== initialStepCount) {
@@ -5808,8 +5740,4 @@ function intersectPolyPaths(
     }
   }
   return set;
-}
-
-function canDeduplicateStream(step: Step): boolean {
-  return step._stepOptions.stream == null || !step._stepOptions.walkIterable;
 }

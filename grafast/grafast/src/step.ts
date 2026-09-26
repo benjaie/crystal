@@ -387,7 +387,7 @@ export /* abstract */ class Step<TData = any> {
     this.dependents = [];
     this.isOptimized = false;
     this.allowMultipleOptimizations = false;
-    this._stepOptions = { stream: null, walkIterable: false };
+    this._stepOptions = { stream: null };
     this.store = true;
     this.polymorphicPaths = currentPolymorphicPaths();
 

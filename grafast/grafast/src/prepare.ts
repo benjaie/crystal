@@ -3,7 +3,7 @@ import type {
   AsyncExecutionResult,
   ExecutionResult,
 } from "graphql/execution/execute.js";
-import { isAsyncIterable } from "iterall";
+import { isAsyncIterable, isIterable } from "iterall";
 
 import * as assert from "./assert.ts";
 import type { Bucket, RequestTools } from "./bucket.ts";
@@ -11,7 +11,6 @@ import {
   $$contextPlanCache,
   $$eventEmitter,
   $$extensions,
-  $$streamMore,
   FLAG_ERROR,
   NO_FLAGS,
 } from "./constants.ts";
@@ -35,16 +34,14 @@ import type { OutputPlan } from "./engine/OutputPlan.ts";
 import {
   coerceError,
   getChildBucketAndIndex,
-  getDirectLayerPlanChild,
 } from "./engine/OutputPlan.ts";
+import { flagError, isFlaggedValue } from "./error.ts";
 import type {
   ErrorBehavior,
   GrafastInternalExecutionArgs,
   GrafastTimeouts,
   JSONValue,
   PromiseOrDirect,
-  StreamMaybeMoreableArray,
-  StreamMoreableArray,
 } from "./interfaces.ts";
 import { _plan } from "./plan.ts";
 import { timeSource } from "./timeSource.ts";
@@ -473,13 +470,14 @@ function executePreemptive(
     if (
       bucketRootValue != null &&
       subscriptionLayerPlan != null &&
-      Array.isArray(bucketRootValue) &&
-      (bucketRootValue as StreamMaybeMoreableArray)[$$streamMore]
+      (isAsyncIterable(bucketRootValue) || isIterable(bucketRootValue))
     ) {
       // We expect exactly one streamable, we should not need to
       // `releaseUnusedIterators(rootBucket, rootBucketIndex, null)` here.
-      const arr = bucketRootValue as StreamMoreableArray;
-      const stream = arr[$$streamMore];
+      const stream = isAsyncIterable(bucketRootValue)
+        ? bucketRootValue[Symbol.asyncIterator]()
+        : bucketRootValue[Symbol.iterator]();
+      (rootBucket.iterators[rootBucketIndex] ??= new Set()).add(stream);
       const iteratorAbortController = new AbortController();
       const abortIteratorWhenRequestAborts = () =>
         iteratorAbortController.abort();
@@ -775,10 +773,7 @@ async function processStream(
     const polymorphicPathList: (string | null)[] = [];
     const iterators: Array<Set<AsyncIterator<any> | Iterator<any>>> = [];
 
-    const directLayerPlanChild = getDirectLayerPlanChild(
-      spec.bucket.layerPlan,
-      spec.outputPlan.layerPlan,
-    );
+    const directLayerPlanChild = spec.listLayer;
     const { id: listItemStepId, _isUnary: isUnary } =
       directLayerPlanChild.rootStep!;
 
@@ -800,12 +795,20 @@ async function processStream(
       }
     }
 
+    let itemFlagUnion = NO_FLAGS;
     if (isUnary) {
-      assert.ok(entries.length === 0, "Unary step should only have one index");
+      assert.ok(entries.length === 1, "Unary step should only have one index");
       store.set(listItemStepId, unaryExecutionValue(entries[0][0]));
     } else {
-      const listItemStepIdList = entries.map((e) => e[0]);
-      store.set(listItemStepId, batchExecutionValue(listItemStepIdList));
+      const itemValues = batchExecutionValue<any>([]);
+      for (let i = 0; i < entries.length; i++) {
+        const raw = entries[i][0];
+        const flagged = isFlaggedValue(raw);
+        const flags = flagged ? raw.flags : NO_FLAGS;
+        itemFlagUnion |= flags;
+        itemValues._setResult(i, flagged ? raw.value : raw, flags);
+      }
+      store.set(listItemStepId, itemValues);
     }
 
     for (let bucketIndex = 0; bucketIndex < size; bucketIndex++) {
@@ -820,7 +823,7 @@ async function processStream(
       layerPlan: directLayerPlanChild,
       size,
       store,
-      flagUnion: NO_FLAGS,
+      flagUnion: itemFlagUnion,
       polymorphicPathList,
       polymorphicType: null,
       iterators,
@@ -939,12 +942,25 @@ async function processStream(
       if (iteratorResult.done) {
         break;
       }
-      const result = iteratorResult.value;
+      let result;
+      try {
+        result = await abortable(
+          requestContext.abortSignal,
+          undefined,
+          iteratorResult.value,
+        );
+      } catch (error) {
+        result = flagError(error);
+      }
+      if (requestContext.abortSignal.aborted) break;
       processResult(result, payloadIndex);
       payloadIndex++;
+      spec.traversal.count = payloadIndex;
     }
   } finally {
     loopComplete = true;
+    spec.traversal.complete = true;
+    spec.traversal.iterator = undefined;
     if (pendingQueues === 0) {
       whenDone.resolve();
     }

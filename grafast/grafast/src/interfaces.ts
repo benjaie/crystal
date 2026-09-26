@@ -32,7 +32,6 @@ import type { Bucket, RequestTools } from "./bucket.ts";
 import type {
   $$eventEmitter,
   $$extensions,
-  $$streamMore,
   $$timeout,
   $$ts,
   ExecutionEntryFlags,
@@ -480,7 +479,8 @@ export interface StepStreamOptions extends LayerPlanReasonListItemStream {}
  */
 export interface StepOptions {
   /**
-   * Details for the `@stream` directive.
+   * Producer hint from the `@stream` directive. Delivery is controlled by
+   * the consuming list layer, not by this hint.
    *
    * object - `@stream` details
    *
@@ -489,12 +489,6 @@ export interface StepOptions {
    * null - no stream directive
    */
   stream: StepStreamOptions | true | null;
-  /**
-   * Should we walk an iterable if presented. This is important because we
-   * don't want to walk things like Map/Set except if we're doing it as part of
-   * a list step.
-   */
-  walkIterable: boolean;
 }
 
 /**
@@ -502,9 +496,9 @@ export interface StepOptions {
  */
 export interface StepOptimizeOptions {
   /**
-   * If null, this step will not stream. If non-null, this step _might_ stream,
-   * but it's not guaranteed - it may be dependent on user variables, e.g. the
-   * `if` parameter.
+   * A hint that incremental consumption is expected. The consumer determines
+   * actual delivery at runtime; a step can yield an iterable regardless of
+   * this hint, and must support complete consumption for immediate delivery.
    */
   stream:
     | null
@@ -776,13 +770,6 @@ export type UnwrapPlanTuple</* const */ TIn extends readonly Step[]> = {
 };
 
 export type NotVariableValueNode = Exclude<ValueNode, VariableNode>;
-
-export type StreamMaybeMoreableArray<T = any> = Array<T> & {
-  [$$streamMore]?: AsyncIterator<any, any, any> | Iterator<any, any, any>;
-};
-export type StreamMoreableArray<T = any> = Array<T> & {
-  [$$streamMore]: AsyncIterator<any, any, any> | Iterator<any, any, any>;
-};
 
 export interface GrafastArgs extends GraphQLArgs {
   // This should ultimately come from graphql

@@ -1,9 +1,6 @@
-import { isAsyncIterable, isIterable } from "iterall";
-
 import * as assert from "../assert.ts";
 import type { Bucket, RequestTools, SharedBucketState } from "../bucket.ts";
 import {
-  $$streamMore,
   $$timeout,
   FLAG_ERROR,
   FLAG_INHIBITED,
@@ -13,7 +10,7 @@ import {
   NO_FLAGS,
 } from "../constants.ts";
 import { isDev } from "../dev.ts";
-import { flagError, isFlaggedValue, SafeError } from "../error.ts";
+import { isFlaggedValue, SafeError } from "../error.ts";
 import { inspect } from "../inspect.ts";
 import type {
   BatchExecutionValue,
@@ -29,7 +26,6 @@ import type {
   IndexForEach,
   IndexMap,
   PromiseOrDirect,
-  StreamMaybeMoreableArray,
   UnaryExecutionValue,
   UnbatchedExecutionExtra,
 } from "../interfaces.ts";
@@ -42,7 +38,8 @@ import {
   isPromiseLike,
   sudo,
 } from "../utils.ts";
-import type { LayerPlan } from "./LayerPlan.ts";
+import type { LayerPlan, LayerPlanReasonListItem } from "./LayerPlan.ts";
+import { prepareList } from "./listExecution.ts";
 import type { MetaByMetaKey } from "./OperationPlan.ts";
 
 /** Default recoverable/trappable flags (excluding NULL) */
@@ -300,150 +297,7 @@ export function executeBucket(
           return;
         }
 
-        // PERF: do we want to handle arrays differently?
-        let valueIsIterable = false;
-        let valueIsAsyncIterable = false;
-        if (finishedStep._stepOptions.walkIterable) {
-          valueIsIterable = isIterable(rawValue);
-          valueIsAsyncIterable = !valueIsIterable && isAsyncIterable(rawValue);
-        }
-
-        let stream: ExecutionDetailsStream | null = null;
-        if (
-          finishedStep._stepOptions.walkIterable &&
-          (valueIsAsyncIterable || valueIsIterable)
-        ) {
-          // PERF: we've already calculated this once; can we reference that again here?
-          stream = evaluateStream(bucket, finishedStep);
-        }
-
-        if (!stream && !valueIsAsyncIterable && Array.isArray(rawValue)) {
-          // Fast mode
-          const value = rawValue;
-
-          const valueCount = value.length;
-          /** We only create a duplicate array if the source array contains promises */
-          let replacement: Array<any> | null = null;
-          for (let i = 0; i < valueCount; i++) {
-            const item = value[i];
-            if (isPromiseLike(item)) {
-              if (replacement === null) {
-                // Copy up to here!
-                replacement = value.slice(0, i);
-              }
-              replacement[i] = null;
-              const index = i;
-              // Must not reject
-              const promise = item.then(
-                (v) => void (replacement![index] = v),
-                (e) => void (replacement![index] = flagError(e)),
-              );
-              if (promises === undefined) {
-                promises = [promise];
-              } else {
-                promises.push(promise);
-              }
-            } else if (replacement !== null) {
-              replacement[i] = item;
-            }
-          }
-          const list = replacement === null ? value : replacement;
-          bucket.setResult(finishedStep, resultIndex, list, flags);
-          return;
-        }
-
-        const willConsumeAsIterator =
-          finishedStep._stepOptions.walkIterable &&
-          (valueIsAsyncIterable || valueIsIterable);
-
-        if (willConsumeAsIterator) {
-          const value = rawValue;
-          const initialCount = stream?.initialCount ?? Infinity;
-
-          let iterator: Iterator<any, any, any> | AsyncIterator<any, any, any>;
-          try {
-            iterator = valueIsAsyncIterable
-              ? (value as AsyncIterable<any>)[Symbol.asyncIterator]()
-              : (value as Iterable<any>)[Symbol.iterator]();
-          } catch (e) {
-            bucket.setResult(finishedStep, resultIndex, e, flags | FLAG_ERROR);
-            return;
-          }
-
-          // Here we track the iterator via the bucket, this allows us to
-          // ensure that the iterator is terminated even if the stream is never
-          // consumed (e.g. if an error is thrown/caught during execution of
-          // the output plan).
-          if (!bucket.iterators[resultIndex]) {
-            bucket.iterators[resultIndex] = new Set();
-          }
-          bucket.iterators[resultIndex]!.add(iterator);
-
-          if (initialCount === 0) {
-            // Optimization - defer everything
-            const arr: StreamMaybeMoreableArray<any> = [];
-            arr[$$streamMore] = iterator;
-            bucket.setResult(finishedStep, resultIndex, arr, flags);
-          } else {
-            // Evaluate the first initialCount entries, rest is streamed.
-            const promise = (async () => {
-              try {
-                let valuesSeen = 0;
-                const arr: StreamMaybeMoreableArray<any> = [];
-
-                /*
-                 * We need to "shift" a few entries off the top of the
-                 * iterator, but still keep it iterable for the later
-                 * stream. To accomplish this we have to do manual
-                 * looping
-                 */
-
-                let resultPromise:
-                  | Promise<IteratorResult<any, any>>
-                  | IteratorResult<any, any>;
-                while ((resultPromise = iterator.next())) {
-                  const resolvedResult = await resultPromise;
-                  if (resolvedResult.done) {
-                    break;
-                  }
-                  try {
-                    const v = resolvedResult.value;
-                    if (isPromiseLike(v)) {
-                      arr.push(await v);
-                    } else {
-                      arr.push(v);
-                    }
-                  } catch (e) {
-                    arr.push(flagError(e));
-                  }
-                  if (++valuesSeen >= initialCount) {
-                    // This is safe to do in the `while` since we checked
-                    // the `0` entries condition in the optimization
-                    // above.
-                    arr[$$streamMore] = iterator;
-                    break;
-                  }
-                }
-
-                bucket.setResult(finishedStep, resultIndex, arr, flags);
-              } catch (e) {
-                bucket.setResult(
-                  finishedStep,
-                  resultIndex,
-                  e,
-                  flags | FLAG_ERROR,
-                );
-              }
-            })();
-            if (promises === undefined) {
-              promises = [promise];
-            } else {
-              promises.push(promise);
-            }
-          }
-        } else {
-          bucket.setResult(finishedStep, resultIndex, rawValue, flags);
-        }
+        bucket.setResult(finishedStep, resultIndex, rawValue, flags);
       };
 
       for (const allStepsIndex of indexesToProcess) {
@@ -1182,8 +1036,34 @@ function markLayerPlanAsDone(
   // PERF: create a JIT factory for this at planning time
   loop: for (const childLayerPlan of childLayerPlans) {
     switch (childLayerPlan.reason.type) {
+      case "listItem": {
+        const execute = () => {
+          const childBucket =
+            bucket == null ? null : childLayerPlan.newBucket(bucket);
+          return childBucket !== null
+            ? executeBucket(childBucket, requestContext)
+            : markLayerPlanAsDone(
+                requestContext,
+                sharedState,
+                childLayerPlan,
+                null,
+              );
+        };
+        const prepared =
+          bucket == null
+            ? undefined
+            : prepareList(
+                bucket,
+                childLayerPlan as LayerPlan<LayerPlanReasonListItem>,
+                requestContext,
+              );
+        const result = isPromiseLike(prepared)
+          ? prepared.then(execute)
+          : execute();
+        if (isPromiseLike(result)) childPromises.push(result);
+        break;
+      }
       case "nullableBoundary":
-      case "listItem":
       case "polymorphic":
       case "polymorphicPartition": {
         const childBucket =

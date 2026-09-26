@@ -784,7 +784,7 @@ export class LayerPlan<TReason extends LayerPlanReason = LayerPlanReason> {
       }
       case "listItem": {
         const listStepId = this.reason.parentStep.id;
-        const listStepStore = parentBucket.store.get(listStepId);
+        const listStepStore = parentBucket.listExecutions?.get(this.id)?.values;
         if (!listStepStore) {
           throw new Error(
             `GrafastInternalError<314865b0-f7e8-4e81-b966-56e5a0de562e>: could not find entry '${listStepId}' (${parentBucket.layerPlan.operationPlan.dangerouslyGetStep(

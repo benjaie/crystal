@@ -11,7 +11,7 @@ import * as graphql from "graphql";
 
 import * as assert from "../assert.ts";
 import type { Bucket } from "../bucket.ts";
-import { $$streamMore, FLAG_ERROR } from "../constants.ts";
+import { FLAG_ERROR } from "../constants.ts";
 import { isDev } from "../dev.ts";
 import { stepADependsOnStepB, stripAnsi } from "../index.ts";
 import { inspect } from "../inspect.ts";
@@ -24,7 +24,7 @@ import type { Step } from "../step.ts";
 import { stringifyJSON, stringifyString } from "../tamedevilUtils.ts";
 import { pathsFromAncestorToTargetLayerPlan } from "../utils.ts";
 import type { PayloadRoot } from "./executeOutputPlan.ts";
-import type { LayerPlan, LayerPlanReasonListItem } from "./LayerPlan.ts";
+import type { LayerPlan } from "./LayerPlan.ts";
 import { hasParentLayerPlan } from "./LayerPlan.ts";
 
 const debug = debugFactory("grafast:OutputPlan");
@@ -551,32 +551,12 @@ export class OutputPlan<TType extends OutputPlanType = OutputPlanType> {
             "GrafastInternalError<48fabdc8-ce84-45ec-ac20-35a2af9098e0>: No child output plan for list bucket?",
           );
         }
-        const childIsNonNull = this.childIsNonNull;
-        const directLayerPlanChild = getDirectLayerPlanChild(
-          this.layerPlan,
-          this.child.layerPlan,
-        );
-        const canStream =
-          directLayerPlanChild.reason.type === "listItem" &&
-          !!directLayerPlanChild.reason.stream;
-
-        if (childIsNonNull) {
-          if (canStream) {
-            this.execute = arrayExecutor_nonNullable_streaming;
-            this.executeString = arrayExecutorString_nonNullable_streaming;
-          } else {
-            this.execute = arrayExecutor_nonNullable;
-            this.executeString = arrayExecutorString_nonNullable;
-          }
-        } else {
-          if (canStream) {
-            this.execute = arrayExecutor_nullable_streaming;
-            this.executeString = arrayExecutorString_nullable_streaming;
-          } else {
-            this.execute = arrayExecutor_nullable;
-            this.executeString = arrayExecutorString_nullable;
-          }
-        }
+        this.execute = this.childIsNonNull
+          ? arrayExecutor_nonNullable
+          : arrayExecutor_nullable;
+        this.executeString = this.childIsNonNull
+          ? arrayExecutorString_nonNullable
+          : arrayExecutorString_nullable;
         break;
       }
       case "root":
@@ -875,10 +855,24 @@ function makeExecutor<
         mutablePath.slice(1),
       );
     }
-    const bucketRootValue =
+    let bucketRootValue =
       this.processRoot !== null
         ? this.processRoot(rawBucketRootValue, bucketRootFlags)
         : rawBucketRootValue;
+    if (this.type.mode === "array" && this.child !== null) {
+      const list = getListExecution(this, bucket, bucketIndex, bucketRootValue);
+      if (list) {
+        const flags = list.values._flagsAt(bucketIndex);
+        if (flags & FLAG_ERROR) {
+          throw coerceError(
+            list.values.at(bucketIndex),
+            this.locationDetails,
+            mutablePath.slice(1),
+          );
+        }
+        bucketRootValue = list.values.at(bucketIndex);
+      }
+    }
     const earlyReturn = preamble?.call(
       this as OutputPlan<any>,
       bucketRootValue,
@@ -1167,9 +1161,37 @@ function makePolymorphicExecutor<TAsString extends boolean>(
 const polymorphicExecutor = makePolymorphicExecutor(false);
 const polymorphicExecutorString = makePolymorphicExecutor(true);
 
+/** Select the prepared list from the applicable branch of a combined layer. */
+function getListExecution(
+  outputPlan: OutputPlan,
+  bucket: Bucket,
+  index: number,
+  sourceValue: unknown,
+) {
+  const paths = pathsFromAncestorToTargetLayerPlan(
+    bucket.layerPlan,
+    outputPlan.child!.layerPlan,
+  );
+  let fallback;
+  for (const path of paths) {
+    const layer = path[0];
+    const list = bucket.listExecutions?.get(layer.id);
+    if (!list) continue;
+    if (paths.length === 1) return list;
+    const source = bucket.store.get(list.layer.reason.parentStep.id)!;
+    if (
+      source.at(index) === sourceValue ||
+      list.values.at(index) === sourceValue
+    )
+      return list;
+    if (list.values.at(index) != null && !(source._flagsAt(index) & FLAG_ERROR))
+      fallback = list;
+  }
+  return fallback;
+}
+
 function makeArrayExecutor<TAsString extends boolean>(
   childIsNonNull: boolean,
-  canStream: boolean,
   asString: TAsString,
 ) {
   return makeExecutor({
@@ -1277,15 +1299,20 @@ function makeArrayExecutor<TAsString extends boolean>(
           string! += "]";
         }
       }
-      if (canStream) {
-        const stream = (bucketRootValue as any)[$$streamMore] as
-          | AsyncIterableIterator<any>
-          | undefined;
+      {
+        const list = getListExecution(
+          this,
+          bucket,
+          bucketIndex,
+          bucketRootValue,
+        );
+        const traversal = list?.entries[bucketIndex];
+        const stream = traversal?.iterator;
         if (stream !== undefined) {
-          const labelStepId = (
-            childOutputPlan.layerPlan as LayerPlan<LayerPlanReasonListItem>
-          ).reason.stream?.labelStepId;
+          const labelStepId = list!.layer.reason.stream?.labelStepId;
           root.streams.push({
+            listLayer: list!.layer,
+            traversal: traversal!,
             root,
             path: mutablePath.slice(1),
             bucket,
@@ -1305,32 +1332,14 @@ function makeArrayExecutor<TAsString extends boolean>(
         ? string
         : JSONValue;
     },
-    nameExtra: `array${childIsNonNull ? "_nonNull" : ""}${
-      canStream ? "_stream" : ""
-    }`,
+    nameExtra: `array${childIsNonNull ? "_nonNull" : ""}`,
     asString,
   });
 }
-const arrayExecutor_nullable = makeArrayExecutor(false, false, false);
-const arrayExecutor_nullable_streaming = makeArrayExecutor(false, true, false);
-const arrayExecutor_nonNullable = makeArrayExecutor(true, false, false);
-const arrayExecutor_nonNullable_streaming = makeArrayExecutor(
-  true,
-  true,
-  false,
-);
-const arrayExecutorString_nullable = makeArrayExecutor(false, false, true);
-const arrayExecutorString_nullable_streaming = makeArrayExecutor(
-  false,
-  true,
-  true,
-);
-const arrayExecutorString_nonNullable = makeArrayExecutor(true, false, true);
-const arrayExecutorString_nonNullable_streaming = makeArrayExecutor(
-  true,
-  true,
-  true,
-);
+const arrayExecutor_nullable = makeArrayExecutor(false, false);
+const arrayExecutor_nonNullable = makeArrayExecutor(true, false);
+const arrayExecutorString_nullable = makeArrayExecutor(false, true);
+const arrayExecutorString_nonNullable = makeArrayExecutor(true, true);
 
 /**
  * This piggy-backs off of GraphQL.js by rewriting the request, executing it in

@@ -30,11 +30,6 @@ export const $$idempotent = Symbol("idempotent");
  */
 export const $$eventEmitter = Symbol("executionEventEmitter");
 
-/**
- * Used to indicate that an array has more results available via a stream.
- */
-export const $$streamMore = Symbol("streamMore");
-
 export const $$proxy = Symbol("proxy");
 
 /**
