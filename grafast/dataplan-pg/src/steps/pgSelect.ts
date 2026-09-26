@@ -16,7 +16,6 @@ import {
   __InputStaticLeafStep,
   __ItemStep,
   __TrackedValueStep,
-  $$repeatable,
   access,
   arrayOfLength,
   ConstantStep,
@@ -433,7 +432,6 @@ export class PgSelectStep<
   };
 
   isSyncAndSafe = false;
-  public isStreamRepeatable = true;
 
   // FROM
   private readonly from: SQL;
@@ -1391,7 +1389,6 @@ export class PgSelectStep<
           executionDetails.extra._requestContext.abortSignal,
         );
         const items = {
-          [$$repeatable]: true as const,
           [Symbol.asyncIterator]() {
             const iterator = rawItems[Symbol.asyncIterator]();
             let remaining = first ?? Infinity;
@@ -1959,7 +1956,6 @@ export class PgSelectStep<
     }
   }
 
-  public readonly itemsAreRepeatable = true;
   private streamOptions: PgStreamOptions = { ...defaultPgStreamOptions };
 
   /** @experimental Configure request-local sharing of keyset stream pages. */
@@ -2367,7 +2363,6 @@ export class PgSelectRowsStep<
   };
 
   public isSyncAndSafe = false;
-  public isStreamRepeatable = true;
 
   constructor($pgSelect: PgSelectStep<TResource>) {
     super();

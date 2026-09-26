@@ -302,9 +302,6 @@ export interface ConnectionHandlingStep<
     ...args: any[]
   ): ConnectionHandlingStep<TItem, TNodeStep, TEdgeStep, TCursorValue>; // TODO: `this`
 
-  /** @experimental Items support independent traversals, including metadata. */
-  readonly itemsAreRepeatable?: boolean;
-
   paginationSupport: {
     full: true;
   } /* satisfies PaginationFeatures */;
@@ -471,7 +468,7 @@ export class ConnectionStep<
   }
 
   public mightStream() {
-    return this.itemsAreRepeatable() || this._mightStream === true;
+    return this.handlerSupportsStreaming() || this._mightStream === true;
   }
 
   public getSubplan(): TCollectionStep {
@@ -703,17 +700,13 @@ export class ConnectionStep<
     }
   };
 
-  public itemsAreRepeatable() {
-    return (
-      this.collectionPaginationSupport?.full === true &&
-      (this.getSubplan() as unknown as ConnectionHandlingStep<any>)
-        .itemsAreRepeatable === true
-    );
+  public handlerSupportsStreaming() {
+    return this.collectionPaginationSupport?.full === true;
   }
 
   private captureStream() {
     const $streamDetails = currentFieldStreamDetails();
-    if (this.itemsAreRepeatable()) {
+    if (this.handlerSupportsStreaming()) {
       if ($streamDetails != null && $streamDetails !== true) {
         this.getHandler().addStreamDetails?.($streamDetails);
         this._mightStream = true;
@@ -846,7 +839,7 @@ export class ConnectionStep<
         // collection handles everything
         const result = collectionValue as ConnectionHandlingResult<any>;
         if (
-          !this.itemsAreRepeatable() &&
+          !this.handlerSupportsStreaming() &&
           !this._mightStream &&
           result.items != null &&
           !Array.isArray(result.items)
@@ -1596,24 +1589,28 @@ class PageInfoStep extends UnbatchedStep<ConnectionResult<any>> {
     >;
     switch (key) {
       case "hasNextPage": {
-        if (!$connection.itemsAreRepeatable()) $connection.disableStreaming();
+        if (!$connection.handlerSupportsStreaming())
+          $connection.disableStreaming();
         $connection.setNeedsHasMore();
         return lambda($connection, (connection) => connection?.hasNextPage);
       }
       case "hasPreviousPage": {
-        if (!$connection.itemsAreRepeatable()) $connection.disableStreaming();
+        if (!$connection.handlerSupportsStreaming())
+          $connection.disableStreaming();
         $connection.setNeedsHasMore();
         return lambda($connection, (connection) => connection?.hasPreviousPage);
       }
       case "startCursor": {
-        if (!$connection.itemsAreRepeatable()) $connection.disableStreaming();
+        if (!$connection.handlerSupportsStreaming())
+          $connection.disableStreaming();
         // Get first node, get cursor for it
         const isArray = !$connection.mightStream();
         const $first = first($connection._items(), isArray);
         return $connection.cursorPlan($first);
       }
       case "endCursor": {
-        if (!$connection.itemsAreRepeatable()) $connection.disableStreaming();
+        if (!$connection.handlerSupportsStreaming())
+          $connection.disableStreaming();
         // Get last node, get cursor for it
         const isArray = !$connection.mightStream();
         const $last = last($connection._items(), isArray);
@@ -1643,7 +1640,6 @@ export class ConnectionItemsStep extends Step {
 
   constructor($connection: ConnectionStep<any, any, any, any, any, any>) {
     super();
-    this.isStreamRepeatable = $connection.itemsAreRepeatable();
     this.addStrongDependency($connection);
   }
 

@@ -995,3 +995,27 @@ constants consistently, you may want to look at them for more inspiration.
 [plan resolvers]: ./plan-resolvers
 [getting started]: ./getting-started
 [standard steps]: ./standard-steps/index.mdx
+
+## Repeatable streams
+
+Steps that yield streamed results must return repeatable iterables. Each call to
+`[Symbol.asyncIterator]()` (or `[Symbol.iterator]()` for synchronous iterables)
+must return an independent iterator starting at the beginning. Gra*fast* can
+traverse the same result for multiple fields or repeated list items; it does not
+copy iterators or automatically materialize shared results.
+
+Return an iterable that creates an iterator, rather than returning a single
+async generator object:
+
+```ts
+return {
+  async *[Symbol.asyncIterator]() {
+    yield* await fetchRows();
+  },
+};
+```
+
+The producer owns fetching and any shared cache. Each iterator owns its position
+and must release its resources on completion, errors, and cancellation. Creating
+an iterator should register a consumer without fetching; begin fetching when
+`next()` is called. No repeatability flag or marker is required.

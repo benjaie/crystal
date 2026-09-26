@@ -2243,11 +2243,7 @@ export class OperationPlan {
 
       // Each list field owns its traversal, including non-streamed fields
       // sharing a repeatable source with streamed fields.
-      if (
-        $list._stepOptions.stream ||
-        $list.isStreamRepeatable ||
-        (isSkippableEach($list) && $list.getListStep().isStreamRepeatable)
-      ) {
+      {
         $list = withGlobalLayerPlan(
           parentLayerPlan,
           polymorphicPaths,
@@ -2268,6 +2264,16 @@ export class OperationPlan {
           : null;
       }
 
+      if (
+        streamDetails &&
+        parentLayerPlan.ancestry.some(
+          (layer) => layer.reason.type === "listItem",
+        )
+      ) {
+        // A remaining iterator belongs to one field position, even if its
+        // repeatable source is unary.
+        this.stepTracker.setNonUnary($list, []);
+      }
       $list._stepOptions.walkIterable = true;
       const listOutputPlan = new OutputPlan(
         parentLayerPlan,
@@ -3512,7 +3518,6 @@ export class OperationPlan {
       constructor: stepConstructor,
       peerKey,
       isSyncAndSafe,
-      isStreamRepeatable,
       implicitSideEffectStep,
     } = sstep;
     // const streamInitialCount = sstep._stepOptions.stream?.initialCount;
@@ -3529,7 +3534,6 @@ export class OperationPlan {
           possiblyPeer !== step &&
           !possiblyPeer.hasSideEffects &&
           possiblyPeer.implicitSideEffectStep === implicitSideEffectStep &&
-          possiblyPeer.isStreamRepeatable === isStreamRepeatable &&
           possiblyPeer.isSyncAndSafe === isSyncAndSafe &&
           isPeerLayerPlan(possiblyPeer.layerPlan, layerPlan) &&
           canDeduplicateStream(possiblyPeer) &&
@@ -3571,7 +3575,6 @@ export class OperationPlan {
           rawPossiblyPeer === step ||
           rawPossiblyPeer.hasSideEffects ||
           rawPossiblyPeer.implicitSideEffectStep !== implicitSideEffectStep ||
-          rawPossiblyPeer.isStreamRepeatable !== isStreamRepeatable ||
           rawPossiblyPeer.isSyncAndSafe !== isSyncAndSafe ||
           !canDeduplicateStream(rawPossiblyPeer) ||
           rawPossiblyPeer.constructor !== stepConstructor ||
@@ -3643,7 +3646,6 @@ export class OperationPlan {
               rawPossiblyPeer.hasSideEffects ||
               rawPossiblyPeer.implicitSideEffectStep !==
                 implicitSideEffectStep ||
-              rawPossiblyPeer.isStreamRepeatable !== isStreamRepeatable ||
               rawPossiblyPeer.isSyncAndSafe !== isSyncAndSafe ||
               !canDeduplicateStream(rawPossiblyPeer) ||
               rawPossiblyPeer.constructor !== stepConstructor ||
@@ -4217,7 +4219,7 @@ But ${p} is not in ${winner.layerPlan}'s expected polymorphic paths:
     }
 
     if (equivalentSteps.length > 0) {
-      if (winner.isStreamRepeatable && !winner._stepOptions.walkIterable) {
+      if (!winner._stepOptions.walkIterable) {
         winner._stepOptions.stream ??=
           step._stepOptions.stream ??
           equivalentSteps.find((s) => s._stepOptions.stream != null)
@@ -5809,8 +5811,5 @@ function intersectPolyPaths(
 }
 
 function canDeduplicateStream(step: Step): boolean {
-  return (
-    step._stepOptions.stream == null ||
-    (step.isStreamRepeatable && !step._stepOptions.walkIterable)
-  );
+  return step._stepOptions.stream == null || !step._stepOptions.walkIterable;
 }

@@ -52,7 +52,6 @@ import {
   $$eventEmitter,
   $$extensions,
   $$idempotent,
-  $$repeatable,
   $$verbatim,
   DEFAULT_ACCEPT_FLAGS,
 } from "./constants.ts";
@@ -428,7 +427,6 @@ export {
   $$extensions,
   $$idempotent,
   $$inhibit,
-  $$repeatable,
   $$verbatim,
   abortable,
   access,

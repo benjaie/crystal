@@ -5,7 +5,6 @@ import { it } from "mocha";
 
 import type { ExecutionDetails } from "../dist/index.js";
 import {
-  $$repeatable,
   connection,
   constant,
   grafast,
@@ -22,8 +21,8 @@ async function run(source: string) {
   let closed = 0;
   let yielded = 0;
   const loader = (keys: readonly unknown[]) =>
-    keys.map(() =>
-      (async function* () {
+    keys.map(() => ({
+      async *[Symbol.asyncIterator]() {
         try {
           for (const value of expected) {
             yielded++;
@@ -32,8 +31,8 @@ async function run(source: string) {
         } finally {
           closed++;
         }
-      })(),
-    );
+      },
+    }));
   const schema = makeGrafastSchema({
     enableDeferStream: true,
     typeDefs: `
@@ -169,7 +168,6 @@ it("independently traverses a shared repeatable source", async () => {
                 }
               },
             }));
-            $source.isStreamRepeatable = true;
             return $source;
           },
         },
@@ -213,7 +211,6 @@ it("independently traverses a source repeated across list items", async () => {
                 yield* expected;
               },
             }));
-            source.isStreamRepeatable = true;
             return source;
           },
         },
@@ -243,7 +240,6 @@ it("deduplicates a repeatable source while retaining each field's independent tr
   let executions = 0;
   let iterations = 0;
   class RepeatableNumbersStep extends Step {
-    public isStreamRepeatable = true;
     public isSyncAndSafe = false;
     deduplicate(peers: readonly RepeatableNumbersStep[]) {
       return peers;
@@ -251,7 +247,6 @@ it("deduplicates a repeatable source while retaining each field's independent tr
     execute({ indexMap }: ExecutionDetails) {
       executions++;
       return indexMap(() => ({
-        [$$repeatable]: true,
         [Symbol.asyncIterator]() {
           iterations++;
           return (async function* () {

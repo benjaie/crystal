@@ -1,5 +1,3 @@
-import { $$repeatable } from "grafast";
-
 export interface PgStreamOptions {
   pageSize: number;
   maxPages: number;
@@ -22,7 +20,7 @@ export function sharedStream<T, K>(
   fetchPage: (key: K | null) => Promise<Page<T, K>>,
   options: Pick<PgStreamOptions, "maxPages" | "consumerIdleTimeout">,
   signal?: AbortSignal,
-): AsyncIterable<T> & { [$$repeatable]: true } {
+): AsyncIterable<T> {
   interface Consumer {
     key: string | undefined;
     active: boolean;
@@ -116,7 +114,6 @@ export function sharedStream<T, K>(
   }
 
   return {
-    [$$repeatable]: true,
     [Symbol.asyncIterator]() {
       let nextKey: K | null | undefined = null;
       let rows: readonly T[] = [];

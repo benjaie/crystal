@@ -300,14 +300,6 @@ export /* abstract */ class Step<TData = any> {
   }
 
   /**
-   * @experimental Stream execution yields values safe to share between
-   * independent consumers. Any iterables must create fresh iterators and be
-   * marked with `$$repeatable`. Field-specific iterator walking is still kept
-   * separate so different initial counts do not share a partially read array.
-   */
-  public isStreamRepeatable = false;
-
-  /**
    * DO NOT USE! (Specifically exists so that very VERY special steps could
    * override it if they so wished.)
    *
