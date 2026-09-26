@@ -2387,13 +2387,6 @@ export class PgSelectRowsStep<
     return _peers;
   }
 
-  optimize() {
-    if (this.getClassStep().mightHaveStream()) {
-      this.cloneStreams = true;
-    }
-    return this;
-  }
-
   execute(executionDetails: ExecutionDetails) {
     const pgSelect = executionDetails.values[0];
     return executionDetails.indexMap((i) => pgSelect.at(i).items);

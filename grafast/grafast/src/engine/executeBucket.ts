@@ -3,7 +3,6 @@ import { isAsyncIterable, isIterable } from "iterall";
 import * as assert from "../assert.ts";
 import type { Bucket, RequestTools, SharedBucketState } from "../bucket.ts";
 import {
-  $$repeatable,
   $$streamMore,
   $$timeout,
   FLAG_ERROR,
@@ -35,7 +34,6 @@ import type {
   UnbatchedExecutionExtra,
 } from "../interfaces.ts";
 import type { Step, UnbatchedStep } from "../step.ts";
-import { __ItemStep } from "../steps/__item.ts";
 import { __ValueStep } from "../steps/__value.ts";
 import { timeSource } from "../timeSource.ts";
 import {
@@ -305,10 +303,7 @@ export function executeBucket(
         // PERF: do we want to handle arrays differently?
         let valueIsIterable = false;
         let valueIsAsyncIterable = false;
-        if (
-          finishedStep.cloneStreams ||
-          finishedStep._stepOptions.walkIterable
-        ) {
+        if (finishedStep._stepOptions.walkIterable) {
           valueIsIterable = isIterable(rawValue);
           valueIsAsyncIterable = !valueIsIterable && isAsyncIterable(rawValue);
         }
@@ -361,21 +356,9 @@ export function executeBucket(
           finishedStep._stepOptions.walkIterable &&
           (valueIsAsyncIterable || valueIsIterable);
 
-        // A one-shot iterable cannot be shared between independent consumers.
-        // Materialize it before any dependent runs, rather than retaining an
-        // unbounded replay buffer for consumers that advance at different rates.
-        const mustMaterialize =
-          (valueIsIterable || valueIsAsyncIterable) &&
-          !Array.isArray(rawValue) &&
-          !(rawValue as any)[$$repeatable] &&
-          ((finishedStep.cloneStreams && finishedStep.dependents.length > 1) ||
-            hasRepeatedConsumer(finishedStep));
-
-        if (willConsumeAsIterator || mustMaterialize) {
+        if (willConsumeAsIterator) {
           const value = rawValue;
-          const initialCount = mustMaterialize
-            ? Infinity
-            : (stream?.initialCount ?? Infinity);
+          const initialCount = stream?.initialCount ?? Infinity;
 
           let iterator: Iterator<any, any, any> | AsyncIterator<any, any, any>;
           try {
@@ -666,21 +649,7 @@ export function executeBucket(
                     }
                     continue stepLoop;
                   }
-                  if ($dep.cloneStreams) {
-                    const err = new Error(
-                      `It's not safe for an unbatched isSyncAndSafe step (${step}) to consume a step that has cloneStreams=true (${$dep})`,
-                    );
-                    if (step._isUnary) {
-                      const uev = unaryExecutionValue(err, FLAG_ERROR);
-                      bucket.store.set(step.id, uev);
-                      bucket.flagUnion |= FLAG_ERROR;
-                    } else {
-                      bucket.setResult(step, dataIndex, err, FLAG_ERROR);
-                    }
-                    continue stepLoop;
-                  } else {
-                    deps.push(depVal);
-                  }
+                  deps.push(depVal);
                 }
               }
             }
@@ -1670,33 +1639,12 @@ function executeStepFromEvent(event: ExecuteStepEvent) {
   return event.step.execute(event.executeDetails);
 }
 
-// One dependent step can still consume a value repeatedly if it runs for
-// multiple child list items. The item's own layer consumes the list once;
-// intervening list layers represent additional consumers.
-function hasRepeatedConsumer(step: Step): boolean {
-  return step.dependents.some(({ step: dependent }) =>
-    dependent.layerPlan.ancestry
-      .slice(
-        step.layerPlan.depth + 1,
-        dependent.layerPlan.depth + (dependent instanceof __ItemStep ? 0 : 1),
-      )
-      .some((layer) =>
-        [
-          "listItem",
-          "subscription",
-          "combined",
-          "polymorphicPartition",
-        ].includes(layer.reason.type),
-      ),
-  );
-}
-
 function evaluateStream(
   bucket: Bucket,
   step: Step,
 ): ExecutionDetailsStream | null {
   const stream = step._stepOptions.stream;
-  if (stream === null || hasRepeatedConsumer(step)) return null;
+  if (stream === null) return null;
 
   const shouldStream =
     stream === true || stream.ifStepId == null

@@ -276,14 +276,6 @@ export class LoadManyStep<
     ));
   }
 
-  optimize() {
-    if (this.mightHaveStream()) {
-      // TODO: prompt users to disable this if they don't need it.
-      this.cloneStreams = true;
-    }
-    return this;
-  }
-
   finalize() {
     // Find all steps of this type that use the same callback and have
     // equivalent params and then match their list of attributes together.

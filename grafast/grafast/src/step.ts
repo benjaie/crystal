@@ -286,20 +286,18 @@ export /* abstract */ class Step<TData = any> {
    */
   public hasSideEffects: boolean;
 
-  /**
-   * Set this to `true` if this step can yield a one-shot iterable. When more
-   * than one step depends on it, or a consumer repeats across child list
-   * items, Grafast materializes it before executing its dependents. A single
-   * consumer can stream it.
-   *
-   * Repeatable iterables marked with `$$repeatable` are shared directly; each
-   * consumer obtains its own iterator.
-   *
-   * Despite the historical name, iterators are never cloned. Properties and
-   * methods other than the iterable's items are not preserved when it is
-   * materialized.
-   */
-  public cloneStreams: boolean;
+  /** @deprecated Iterator sharing is the responsibility of the producing step. */
+  private set cloneStreams(value: boolean) {
+    if (value) {
+      throw new Error(
+        "cloneStreams is no longer supported; return a repeatable iterable with an independent iterator for each consumer instead.",
+      );
+    }
+  }
+
+  private get cloneStreams(): boolean {
+    return false;
+  }
 
   /**
    * @experimental Stream execution yields values safe to share between
@@ -333,7 +331,6 @@ export /* abstract */ class Step<TData = any> {
 
     this.implicitSideEffectStep = layerPlan.latestSideEffectStep;
     this.hasSideEffects ??= false;
-    this.cloneStreams = false;
     let hasSideEffects = false;
     const stepTracker = this.layerPlan.operationPlan.stepTracker;
     Object.defineProperty(this, "hasSideEffects", {

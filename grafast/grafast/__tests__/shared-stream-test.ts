@@ -147,7 +147,7 @@ it("does not share a one-shot iterator between repeated loader keys", async () =
   ]);
 });
 
-it("materializes a shared one-shot source at the former Distributor boundary", async () => {
+it("independently traverses a shared repeatable source", async () => {
   let yielded = 0;
   let closed = 0;
   const schema = makeGrafastSchema({
@@ -157,8 +157,8 @@ it("materializes a shared one-shot source at the former Distributor boundary", a
       Query: {
         plans: {
           shared() {
-            const $source = lambda(constant(null), () =>
-              (function* () {
+            const $source = lambda(constant(null), () => ({
+              *[Symbol.iterator]() {
                 try {
                   for (const value of expected) {
                     yielded++;
@@ -167,9 +167,9 @@ it("materializes a shared one-shot source at the former Distributor boundary", a
                 } finally {
                   closed++;
                 }
-              })(),
-            );
-            $source.cloneStreams = true;
+              },
+            }));
+            $source.isStreamRepeatable = true;
             return $source;
           },
         },
@@ -195,11 +195,11 @@ it("materializes a shared one-shot source at the former Distributor boundary", a
   expect(resolveStreamDefer(payloads).data).to.deep.equal({
     shared: { numbers: expected, last: 12 },
   });
-  expect(yielded).to.equal(12);
-  expect(closed).to.equal(1);
+  expect(yielded).to.equal(24);
+  expect(closed).to.equal(2);
 });
 
-it("materializes a source used by a consumer repeated across list items", async () => {
+it("independently traverses a source repeated across list items", async () => {
   let source: ReturnType<typeof lambda>;
   const schema = makeGrafastSchema({
     enableDeferStream: true,
@@ -208,12 +208,12 @@ it("materializes a source used by a consumer repeated across list items", async 
       Query: {
         plans: {
           shared() {
-            source = lambda(constant(null), () =>
-              (function* () {
+            source = lambda(constant(null), () => ({
+              *[Symbol.iterator]() {
                 yield* expected;
-              })(),
-            );
-            source.cloneStreams = true;
+              },
+            }));
+            source.isStreamRepeatable = true;
             return source;
           },
         },
@@ -243,7 +243,6 @@ it("deduplicates a repeatable source while retaining each field's independent tr
   let executions = 0;
   let iterations = 0;
   class RepeatableNumbersStep extends Step {
-    public cloneStreams = true;
     public isStreamRepeatable = true;
     public isSyncAndSafe = false;
     deduplicate(peers: readonly RepeatableNumbersStep[]) {
@@ -289,4 +288,13 @@ it("deduplicates a repeatable source while retaining each field's independent tr
   expect(merged.data).to.deep.equal({ a: expected, b: expected, c: expected });
   expect(executions).to.equal(1);
   expect(iterations).to.equal(3);
+});
+
+it("rejects the removed cloneStreams behaviour", () => {
+  const source = Object.create(Step.prototype);
+  expect(source.cloneStreams).to.equal(false);
+  source.cloneStreams = false;
+  expect(() => {
+    source.cloneStreams = true;
+  }).to.throw("cloneStreams is no longer supported");
 });

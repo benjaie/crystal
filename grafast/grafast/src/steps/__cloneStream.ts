@@ -13,6 +13,12 @@ export class __CloneStreamStep extends Step {
   constructor($dep: Step) {
     super();
     this.addDependency($dep);
+    if (
+      this.layerPlan.ancestry.some((layer) => layer.reason.type === "listItem")
+    ) {
+      // Each list position must open its own iterator, even for a unary source.
+      this.operationPlan.stepTracker.setNonUnary(this, []);
+    }
   }
   [$$deepDepSkip](): Step {
     return this.getDepOptions(0).step;

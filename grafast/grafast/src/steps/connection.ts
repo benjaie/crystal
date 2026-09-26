@@ -10,7 +10,6 @@ import type {
   GrafastResultsList,
   Maybe,
   PromiseOrDirect,
-  StepOptimizeOptions,
   UnbatchedExecutionExtra,
 } from "../interfaces.ts";
 import { promiseWithResolve } from "../promiseWithResolve.ts";
@@ -1641,7 +1640,6 @@ export class ConnectionItemsStep extends Step {
   };
 
   public isSyncAndSafe = false;
-  public cloneStreams = true;
 
   constructor($connection: ConnectionStep<any, any, any, any, any, any>) {
     super();
@@ -1658,12 +1656,6 @@ export class ConnectionItemsStep extends Step {
       any,
       any
     >;
-  }
-
-  public optimize(_options: StepOptimizeOptions): Step {
-    // If false, connection guarantees an array
-    this.cloneStreams = this.getConnection().mightStream();
-    return this;
   }
 
   public deduplicate(_peers: readonly ConnectionItemsStep[]) {

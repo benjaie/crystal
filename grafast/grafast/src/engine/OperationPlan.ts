@@ -3512,7 +3512,6 @@ export class OperationPlan {
       constructor: stepConstructor,
       peerKey,
       isSyncAndSafe,
-      cloneStreams,
       isStreamRepeatable,
       implicitSideEffectStep,
     } = sstep;
@@ -3530,7 +3529,6 @@ export class OperationPlan {
           possiblyPeer !== step &&
           !possiblyPeer.hasSideEffects &&
           possiblyPeer.implicitSideEffectStep === implicitSideEffectStep &&
-          possiblyPeer.cloneStreams === cloneStreams &&
           possiblyPeer.isStreamRepeatable === isStreamRepeatable &&
           possiblyPeer.isSyncAndSafe === isSyncAndSafe &&
           isPeerLayerPlan(possiblyPeer.layerPlan, layerPlan) &&
@@ -3573,7 +3571,6 @@ export class OperationPlan {
           rawPossiblyPeer === step ||
           rawPossiblyPeer.hasSideEffects ||
           rawPossiblyPeer.implicitSideEffectStep !== implicitSideEffectStep ||
-          rawPossiblyPeer.cloneStreams !== cloneStreams ||
           rawPossiblyPeer.isStreamRepeatable !== isStreamRepeatable ||
           rawPossiblyPeer.isSyncAndSafe !== isSyncAndSafe ||
           !canDeduplicateStream(rawPossiblyPeer) ||
@@ -3646,7 +3643,6 @@ export class OperationPlan {
               rawPossiblyPeer.hasSideEffects ||
               rawPossiblyPeer.implicitSideEffectStep !==
                 implicitSideEffectStep ||
-              rawPossiblyPeer.cloneStreams !== cloneStreams ||
               rawPossiblyPeer.isStreamRepeatable !== isStreamRepeatable ||
               rawPossiblyPeer.isSyncAndSafe !== isSyncAndSafe ||
               !canDeduplicateStream(rawPossiblyPeer) ||
@@ -3718,6 +3714,11 @@ export class OperationPlan {
   }
 
   private isImmoveable(step: Step): boolean {
+    if (step._stepOptions.walkIterable && step._stepOptions.stream != null) {
+      // A partially consumed array carries a one-shot remaining iterator.
+      // Keep field traversal local so repeated fields obtain their own iterator.
+      return true;
+    }
     if (step.hasSideEffects) {
       return true;
     }
@@ -4535,8 +4536,11 @@ But ${p} is not in ${winner.layerPlan}'s expected polymorphic paths:
       } else if ($step instanceof __CloneStreamStep) {
         const $clone = sudo($step);
         const $dep = $clone.dependencies[0];
-        if ($dep.dependents.length === 1) {
-          $dep.cloneStreams = false;
+        if (
+          $dep.dependents.length === 1 &&
+          $dep.layerPlan === $clone.layerPlan &&
+          $dep._isUnary === $clone._isUnary
+        ) {
           $dep._stepOptions.walkIterable ||= $clone._stepOptions.walkIterable;
           $dep._stepOptions.stream ||= $clone._stepOptions.stream;
           this.stepTracker.replaceStep($clone, $dep);
@@ -4549,16 +4553,6 @@ But ${p} is not in ${winner.layerPlan}'s expected polymorphic paths:
   private finalizeSteps(): void {
     const initialStepCount = this.stepTracker.stepCount;
     for (const step of this.stepTracker.activeSteps) {
-      if (step.isSyncAndSafe && !(step instanceof __ItemStep)) {
-        const dependencies = sudo(step).dependencies;
-        for (const dep of dependencies) {
-          if (dep.cloneStreams) {
-            throw new Error(
-              `${step} has isSyncAndSafe=true, but depends on ${dep} which has cloneStreams=true - this is forbidden.`,
-            );
-          }
-        }
-      }
       const wasLocked = isDev && unlock(step);
       step.finalize();
       if (step._stepOptions.stream) {
