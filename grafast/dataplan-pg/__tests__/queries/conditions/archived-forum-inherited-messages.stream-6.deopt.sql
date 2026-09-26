@@ -22,7 +22,8 @@ where
   ) and (
     (__messages__.archived_at is null) = ($2::"timestamptz" is null)
   )
-order by __messages__."id" asc;
+order by __messages__."id" asc
+limit 100;
 
 select
   (count(*))::text as "0"
