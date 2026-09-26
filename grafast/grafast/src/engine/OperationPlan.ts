@@ -2241,8 +2241,13 @@ export class OperationPlan {
         $list._stepOptions.stream = $step._stepOptions.stream;
       }
 
-      // Clone the stream
-      if ($list._stepOptions.stream) {
+      // Each list field owns its traversal, including non-streamed fields
+      // sharing a repeatable source with streamed fields.
+      if (
+        $list._stepOptions.stream ||
+        $list.isStreamRepeatable ||
+        (isSkippableEach($list) && $list.getListStep().isStreamRepeatable)
+      ) {
         $list = withGlobalLayerPlan(
           parentLayerPlan,
           polymorphicPaths,
@@ -2252,7 +2257,15 @@ export class OperationPlan {
           null,
           $list,
         );
-        $list._stepOptions.stream = $step._stepOptions.stream;
+        // The source may already have been deduplicated with another field.
+        // Traversal settings belong to this field, not to that shared source.
+        $list._stepOptions.stream = streamDetails
+          ? {
+              initialCountStepId: streamDetails.initialCount.id,
+              ifStepId: streamDetails.if.id,
+              labelStepId: streamDetails.label.id,
+            }
+          : null;
       }
 
       $list._stepOptions.walkIterable = true;
@@ -3480,26 +3493,9 @@ export class OperationPlan {
       return EMPTY_ARRAY;
     }
 
-    // NOTE: Streams have no peers - we cannot reference the stream more than
-    // once (and we aim to not cache the stream because we want its entries to
-    // be garbage collected) - however if we're already fetching the list then
-    // we shouldn't fetch it again via stream... We should deduplicate a stream
-    // to return a non-stream.
-
-    if (step._stepOptions.stream != null) {
-      // Streams have no peers - we cannot reference the stream more
-      // than once (and we aim to not cache the stream because we want its
-      // entries to be garbage collected).
-      //
-      // HOWEVER! There may be lifecycle parts that need to be called... So
-      // call the function with an empty array; ignore the result.
-
-      // TODO: remove this if block when we implement the new stream/defer -
-      // deduplicating a stream should be fine. (Not subscriptions though - may
-      // need a check for that!)
-
-      return EMPTY_ARRAY;
-    }
+    // Repeatable sources can share execution, but field-specific iterator
+    // walking must retain its own initial count and remaining iterator.
+    if (!canDeduplicateStream(step)) return EMPTY_ARRAY;
 
     if (this.stepTracker.internalDependencies.has(step)) {
       // PERF: we need to set up correct tracking, then internal deps can be deduped
@@ -3517,6 +3513,7 @@ export class OperationPlan {
       peerKey,
       isSyncAndSafe,
       cloneStreams,
+      isStreamRepeatable,
       implicitSideEffectStep,
     } = sstep;
     // const streamInitialCount = sstep._stepOptions.stream?.initialCount;
@@ -3534,9 +3531,10 @@ export class OperationPlan {
           !possiblyPeer.hasSideEffects &&
           possiblyPeer.implicitSideEffectStep === implicitSideEffectStep &&
           possiblyPeer.cloneStreams === cloneStreams &&
+          possiblyPeer.isStreamRepeatable === isStreamRepeatable &&
           possiblyPeer.isSyncAndSafe === isSyncAndSafe &&
           isPeerLayerPlan(possiblyPeer.layerPlan, layerPlan) &&
-          possiblyPeer._stepOptions.stream == null &&
+          canDeduplicateStream(possiblyPeer) &&
           possiblyPeer.peerKey === peerKey
           // && possiblyPeer._stepOptions.stream?.initialCount === streamInitialCount
         ) {
@@ -3576,8 +3574,9 @@ export class OperationPlan {
           rawPossiblyPeer.hasSideEffects ||
           rawPossiblyPeer.implicitSideEffectStep !== implicitSideEffectStep ||
           rawPossiblyPeer.cloneStreams !== cloneStreams ||
+          rawPossiblyPeer.isStreamRepeatable !== isStreamRepeatable ||
           rawPossiblyPeer.isSyncAndSafe !== isSyncAndSafe ||
-          rawPossiblyPeer._stepOptions.stream != null ||
+          !canDeduplicateStream(rawPossiblyPeer) ||
           rawPossiblyPeer.constructor !== stepConstructor ||
           rawPossiblyPeer.peerKey !== peerKey
           // || rawPossiblyPeer._stepOptions.stream?.initialCount !== streamInitialCount
@@ -3648,8 +3647,9 @@ export class OperationPlan {
               rawPossiblyPeer.implicitSideEffectStep !==
                 implicitSideEffectStep ||
               rawPossiblyPeer.cloneStreams !== cloneStreams ||
+              rawPossiblyPeer.isStreamRepeatable !== isStreamRepeatable ||
               rawPossiblyPeer.isSyncAndSafe !== isSyncAndSafe ||
-              rawPossiblyPeer._stepOptions.stream != null ||
+              !canDeduplicateStream(rawPossiblyPeer) ||
               rawPossiblyPeer.constructor !== stepConstructor ||
               rawPossiblyPeer.peerKey !== peerKey
               // || rawPossiblyPeer._stepOptions.stream?.initialCount !== streamInitialCount
@@ -4215,9 +4215,16 @@ But ${p} is not in ${winner.layerPlan}'s expected polymorphic paths:
       winner.polymorphicPaths = polymorphicPaths;
     }
 
-    // Equivalent steps cannot be streaming; so we can no longer stream either.
     if (equivalentSteps.length > 0) {
-      winner._stepOptions.stream = null;
+      if (winner.isStreamRepeatable && !winner._stepOptions.walkIterable) {
+        winner._stepOptions.stream ??=
+          step._stepOptions.stream ??
+          equivalentSteps.find((s) => s._stepOptions.stream != null)
+            ?._stepOptions.stream ??
+          null;
+      } else {
+        winner._stepOptions.stream = null;
+      }
     }
 
     // Give the steps a chance to pass their responsibilities to the winner.
@@ -5805,4 +5812,11 @@ function intersectPolyPaths(
     }
   }
   return set;
+}
+
+function canDeduplicateStream(step: Step): boolean {
+  return (
+    step._stepOptions.stream == null ||
+    (step.isStreamRepeatable && !step._stepOptions.walkIterable)
+  );
 }

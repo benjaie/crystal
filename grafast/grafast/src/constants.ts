@@ -1,5 +1,8 @@
 export const $$hooked = Symbol("hookArgsApplied");
 
+/** @experimental Each iteration starts a fresh traversal of this iterable. */
+export const $$repeatable = Symbol("repeatableIterable");
+
 export const $$grafastContext = Symbol("context");
 export const $$planResults = Symbol("planResults");
 export const $$id = Symbol("id");

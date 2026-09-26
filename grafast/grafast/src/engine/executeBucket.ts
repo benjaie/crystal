@@ -3,6 +3,7 @@ import { isAsyncIterable, isIterable } from "iterall";
 import * as assert from "../assert.ts";
 import type { Bucket, RequestTools, SharedBucketState } from "../bucket.ts";
 import {
+  $$repeatable,
   $$streamMore,
   $$timeout,
   FLAG_ERROR,
@@ -366,6 +367,7 @@ export function executeBucket(
         const mustMaterialize =
           (valueIsIterable || valueIsAsyncIterable) &&
           !Array.isArray(rawValue) &&
+          !(rawValue as any)[$$repeatable] &&
           ((finishedStep.cloneStreams && finishedStep.dependents.length > 1) ||
             hasRepeatedConsumer(finishedStep));
 

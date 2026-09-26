@@ -154,7 +154,8 @@ Type: `GrafastTimeouts | undefined`
 
 `distributorPauseDuration`, `distributorTargetBufferSize`, and
 `distributorTargetBufferSizeIncrement` are deprecated and ignored. Gra*fast*
-materializes shared iterables into arrays instead of distributing one iterator
-among independent consumers. A single consumer can still stream its results.
+materializes shared one-shot iterables into arrays instead of distributing one
+iterator among independent consumers. Repeatable iterables marked with
+`$$repeatable` support independent traversals without materialization.
 
 <!-- END:OPTIONS:grafast -->

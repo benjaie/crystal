@@ -577,3 +577,5 @@ declare global {
     interface PgCodecRelationExtensions {}
   }
 }
+
+export type { PgStreamOptions } from "./sharedStream.ts";

@@ -1,5 +1,5 @@
 ## expect(errors).toBeFalsy()
-## expect(queries).toHaveLength(5);
+## expect(queries).toHaveLength(4);
 # PERF: inlining author could avoid separate author queries since pageInfo
 # was not requested.
 {

@@ -1122,6 +1122,7 @@ export class PgResource<
   }
 
   /** @internal */
+  /** @deprecated Materializes the query; use executeWithoutCache instead. */
   public executeStream<TInput = any, TOutput = any>(
     values: GrafastValuesList<PgExecutorInput<TInput>>,
     options: PgExecutorOptions,

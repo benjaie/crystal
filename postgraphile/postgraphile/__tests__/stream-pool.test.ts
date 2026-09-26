@@ -7,6 +7,7 @@ import { StreamDeferPlugin } from "graphile-build";
 import {
   EXPORTABLE,
   makeAddPgTableOrderByPlugin,
+  makeWrapPlansPlugin,
   orderByAscDesc,
 } from "graphile-utils";
 import { Pool } from "pg";
@@ -102,11 +103,11 @@ afterAll(async () => {
   await dropTestDatabase(databaseName);
 });
 
-async function run(source: string) {
-  const args = { schema: built.schema, document: parse(source) };
-  expect(validate(built.schema, args.document)).toEqual([]);
-  await hookArgs(args, built.resolvedPreset, {});
-  const result = await execute(args, built.resolvedPreset);
+async function run(source: string, schemaResult = built) {
+  const args = { schema: schemaResult.schema, document: parse(source) };
+  expect(validate(schemaResult.schema, args.document)).toEqual([]);
+  await hookArgs(args, schemaResult.resolvedPreset, {});
+  const result = await execute(args, schemaResult.resolvedPreset);
   expect(Symbol.asyncIterator in result).toBe(true);
   const payloads: any[] = [];
   for await (const payload of result as AsyncIterable<any>) {
@@ -145,11 +146,11 @@ test("Amber streams four independent large connections through a one-client pool
 
 test.each([
   [0, [100, 100, 50]],
-  [2, [2, 100, 100, 48]],
-  [150, [150, 100]],
-  [300, [250]],
+  [2, [100, 100, 50]],
+  [150, [100, 100, 50]],
+  [300, [100, 100, 50]],
 ] as const)(
-  "sizes the first SQL fetch for initialCount: %s",
+  "shares fixed-size SQL pages independently of initialCount: %s",
   async (initialCount, limits) => {
     const args = {
       schema: built.schema,
@@ -304,7 +305,7 @@ test("materializes backward pagination rather than incorrectly seeking forwards"
   expect(statements.some((s) => s.includes("limit 100"))).toBe(false);
 });
 
-test("materializes shared nodes/edges and immediate pageInfo in one query", async () => {
+test("shares SQL pages between nodes, edges, and immediate pageInfo", async () => {
   const payloads = await run(`{ allItems(first: 250) {
     nodes @stream(initialCount: 1) { rowId }
     edges @stream(initialCount: 2) { node { rowId } }
@@ -327,7 +328,9 @@ test("materializes shared nodes/edges and immediate pageInfo in one query", asyn
       ).toString(),
     ).at(-1),
   ).toBe(250);
-  expect(statements.some((s) => s.includes("limit 100"))).toBe(false);
+  expect(
+    statements.filter((s) => /from "public"\."items"/.test(s)),
+  ).toHaveLength(3);
 });
 
 test("stops fetching keyset pages when the response is cancelled", async () => {
@@ -355,4 +358,154 @@ test("stops fetching keyset pages when the response is cancelled", async () => {
     pageCount,
   );
   expect((await pool.query("select * from pg_cursors")).rows).toEqual([]);
+});
+
+test("shares pages with deferred pageInfo without materializing the connection", async () => {
+  const payloads = await run(`{ allItems(first: 900) {
+    edges @stream(initialCount: 3) { node { rowId } }
+    nodes @stream(initialCount: 2) { rowId }
+    ... @defer { pageInfo { hasNextPage hasPreviousPage startCursor endCursor } }
+  } }`);
+  expect(payloads[0].data.allItems.nodes).toHaveLength(2);
+  expect(payloads[0].data.allItems.edges).toHaveLength(3);
+  expect(payloads[0].data.allItems.pageInfo).toBeUndefined();
+  expect(nodeIds(payloads)).toEqual(
+    Array.from({ length: 900 }, (_, i) => i + 1),
+  );
+  const info = payloads.find((p) => p.data?.pageInfo)?.data.pageInfo;
+  expect(info).toMatchObject({ hasNextPage: true, hasPreviousPage: false });
+  expect(
+    JSON.parse(Buffer.from(info.startCursor, "base64").toString()).at(-1),
+  ).toBe(1);
+  expect(
+    JSON.parse(Buffer.from(info.endCursor, "base64").toString()).at(-1),
+  ).toBe(900);
+  // Nine full pages and one lookahead row, shared across all consumers.
+  expect(
+    statements.filter((s) => /from "public"\."items"/.test(s)),
+  ).toHaveLength(10);
+});
+
+test("immediate pageInfo can finish when streamed nodes have stopped at initialCount", async () => {
+  const payloads = await run(`{ allItems(first: 900) {
+    nodes @stream(initialCount: 2) { rowId }
+    pageInfo { endCursor hasNextPage }
+  } }`);
+  expect(payloads[0].data.allItems.nodes).toHaveLength(2);
+  expect(payloads[0].data.allItems.pageInfo.hasNextPage).toBe(true);
+  expect(
+    JSON.parse(
+      Buffer.from(
+        payloads[0].data.allItems.pageInfo.endCursor,
+        "base64",
+      ).toString(),
+    ).at(-1),
+  ).toBe(900);
+  expect(nodeIds(payloads)).toEqual(
+    Array.from({ length: 900 }, (_, i) => i + 1),
+  );
+});
+
+test("pageInfo planned before nodes still uses independent iterators", async () => {
+  const payloads = await run(`{ allItems(first: 250) {
+    pageInfo { endCursor startCursor hasNextPage }
+    nodes @stream(initialCount: 2) { rowId }
+  } }`);
+  expect(payloads[0].data.allItems.pageInfo.hasNextPage).toBe(true);
+  expect(nodeIds(payloads)).toHaveLength(250);
+});
+
+test.each([0, 100, 1000, 1100])(
+  "streamed pageInfo handles first: %s and end of data",
+  async (first) => {
+    const args = {
+      schema: built.schema,
+      document: parse(`{ allItems(first: ${first}) {
+    nodes @stream(initialCount: 0) { rowId }
+    pageInfo { hasNextPage hasPreviousPage startCursor endCursor }
+  } }`),
+    };
+    await hookArgs(args, built.resolvedPreset, {});
+    const result = await execute(args, built.resolvedPreset);
+    const payloads: any[] = [];
+    if (Symbol.asyncIterator in result) {
+      for await (const payload of result) payloads.push(payload);
+    } else payloads.push(result);
+    expect(payloads.flatMap((p) => p.errors ?? [])).toEqual([]);
+    const info = payloads[0].data.allItems.pageInfo;
+    expect(info.hasNextPage).toBe(first > 0 && first < 1000);
+    expect(info.hasPreviousPage).toBe(false);
+    expect(nodeIds(payloads)).toHaveLength(Math.min(first, 1000));
+    if (first === 0)
+      expect(info).toMatchObject({ startCursor: null, endCursor: null });
+  },
+);
+
+test("configures PgSelect page size, cache capacity, and idle timeout", async () => {
+  const smallCacheSchema = await makeSchema({
+    extends: [AmberPreset],
+    plugins: [
+      StreamDeferPlugin,
+      makeWrapPlansPlugin({
+        Query: {
+          allItems(plan) {
+            const $connection = plan() as any;
+            $connection.getSubplan().setStreamOptions({
+              pageSize: 37,
+              maxPages: 1,
+              consumerIdleTimeout: 5,
+            });
+            return $connection;
+          },
+        },
+      }),
+    ],
+    pgServices: [makePgService({ pool, schemas: ["public"], pubsub: false })],
+  });
+  statements.length = 0;
+  const immediate = await run(
+    `{ allItems(first: 120) {
+    nodes @stream(initialCount: 2) { rowId }
+    pageInfo { endCursor hasNextPage }
+  } }`,
+    smallCacheSchema,
+  );
+  expect(nodeIds(immediate)).toEqual(
+    Array.from({ length: 120 }, (_, i) => i + 1),
+  );
+  expect(immediate[0].data.allItems.pageInfo.hasNextPage).toBe(true);
+  const immediateQueries = statements.filter((s) =>
+    /from "public"\."items"/.test(s),
+  );
+  expect(immediateQueries.length).toBeGreaterThan(4);
+  expect(immediateQueries[0]).toContain("limit 37");
+
+  statements.length = 0;
+  const deferred = await run(
+    `{ allItems(first: 120) {
+    nodes @stream(initialCount: 2) { rowId }
+    edges @stream(initialCount: 3) { node { rowId } }
+    ... @defer { pageInfo { startCursor endCursor hasNextPage } }
+  } }`,
+    smallCacheSchema,
+  );
+  expect(nodeIds(deferred)).toHaveLength(120);
+  // Deferred work can register after the one-page cache has already advanced.
+  // Refetching remains correct and does not retain a database client.
+  expect(
+    statements.filter((s) => /from "public"\."items"/.test(s)).length,
+  ).toBeGreaterThanOrEqual(4);
+});
+
+test("a non-streamed field and a streamed field independently traverse shared rows", async () => {
+  const payloads = await run(`{ allItems(first: 250) {
+    nodes @stream(initialCount: 0) { rowId }
+    edges { node { rowId } }
+    ... @defer { pageInfo { endCursor hasNextPage } }
+  } }`);
+  const expected = Array.from({ length: 250 }, (_, i) => i + 1);
+  expect(
+    payloads[0].data.allItems.edges.map((edge: any) => edge.node.rowId),
+  ).toEqual(expected);
+  expect(nodeIds(payloads)).toEqual(expected);
 });

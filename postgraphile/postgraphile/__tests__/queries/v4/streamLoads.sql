@@ -12,19 +12,6 @@ where (
   __post__."author_id" = $1::"int4"
 )
 order by __post__."id" asc
-limit 2;
-
-select
-  __post__."id"::text as "0",
-  __post__."headline" as "1"
-from "a"."post" as __post__
-where
-  (
-    __post__."author_id" = $1::"int4"
-  ) and (
-    __post__."id" > $2::"int4"
-  )
-order by __post__."id" asc
 limit 100;
 
 select

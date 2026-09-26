@@ -292,11 +292,22 @@ export /* abstract */ class Step<TData = any> {
    * items, Grafast materializes it before executing its dependents. A single
    * consumer can stream it.
    *
+   * Repeatable iterables marked with `$$repeatable` are shared directly; each
+   * consumer obtains its own iterator.
+   *
    * Despite the historical name, iterators are never cloned. Properties and
    * methods other than the iterable's items are not preserved when it is
    * materialized.
    */
   public cloneStreams: boolean;
+
+  /**
+   * @experimental Stream execution yields values safe to share between
+   * independent consumers. Any iterables must create fresh iterators and be
+   * marked with `$$repeatable`. Field-specific iterator walking is still kept
+   * separate so different initial counts do not share a partially read array.
+   */
+  public isStreamRepeatable = false;
 
   /**
    * DO NOT USE! (Specifically exists so that very VERY special steps could

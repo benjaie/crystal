@@ -16,6 +16,7 @@ import {
   __InputStaticLeafStep,
   __ItemStep,
   __TrackedValueStep,
+  $$repeatable,
   access,
   arrayOfLength,
   ConstantStep,
@@ -62,6 +63,8 @@ import type {
 } from "../interfaces.ts";
 import { parseArray } from "../parseArray.ts";
 import { PgLocker } from "../pgLocker.ts";
+import type { PgStreamOptions } from "../sharedStream.ts";
+import { defaultPgStreamOptions, sharedStream } from "../sharedStream.ts";
 import type {
   PlantimeEmbeddable,
   RuntimeEmbeddable,
@@ -353,7 +356,6 @@ interface QueryBuildResult {
     previous: readonly any[] | null,
     limit: number,
   ) => Pick<QueryBuildResult, "text" | "rawSqlValues" | "identifierIndex">;
-  streamInitialCount?: number;
 
   // The column on the result that indicates which group the result belongs to
   identifierIndex: number | null;
@@ -374,8 +376,8 @@ interface QueryBuildResult {
 }
 
 interface PgSelectStepResult extends ConnectionHandlingResult<unknown> {
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
+  hasNextPage: boolean | Promise<boolean>;
+  hasPreviousPage: boolean | Promise<boolean>;
   /** a tuple based on what is selected at runtime */
   items: ReadonlyArray<unknown[]> | AsyncIterable<unknown[]>;
   cursorDetails: PgCursorDetails | undefined;
@@ -431,6 +433,7 @@ export class PgSelectStep<
   };
 
   isSyncAndSafe = false;
+  public isStreamRepeatable = true;
 
   // FROM
   private readonly from: SQL;
@@ -678,6 +681,7 @@ export class PgSelectStep<
         $clone.orders.push(v);
       }
 
+      $clone.streamOptions = { ...cloneFromMatchingMode.streamOptions };
       $clone.isOrderUnique = cloneFromMatchingMode.isOrderUnique;
       $clone.firstStepId = cloneFromMatchingMode.firstStepId;
       $clone.lastStepId = cloneFromMatchingMode.lastStepId;
@@ -1181,7 +1185,6 @@ export class PgSelectStep<
       identifierIndex,
       name,
       streamPage,
-      streamInitialCount = 0,
       queryValues: rawQueryValues,
       shouldReverseOrder,
       first,
@@ -1331,6 +1334,7 @@ export class PgSelectStep<
       });
     } else {
       const resource = this.resource;
+      const resultsByKey = new Map<string, PgSelectStepResult>();
       return indexMap((i) => {
         if (
           this.identifierDepIds.some(
@@ -1343,43 +1347,100 @@ export class PgSelectStep<
           const value = values[dependencyIndex].at(i);
           return value == null ? null : codec.toPg(value);
         });
-        const items = (async function* () {
-          let previous: readonly any[] | null = null;
-          let remaining = first ?? Infinity;
-          while (remaining > 0) {
-            // Avoid computing and transferring rows beyond the initial
-            // payload before it is ready. With initialCount: 0 this lazy
-            // iterator is first consumed during incremental processing.
-            const batchSize = Math.min(
-              previous === null && streamInitialCount > 0
-                ? streamInitialCount
-                : 100,
-              remaining,
-            );
-            const query = streamPage(previous, batchSize);
-            // Fully release the client before yielding any row to dependent
-            // work. There is no transaction or cursor retained between batches.
+        const resultKey = JSON.stringify(queryValues);
+        const existing = resultsByKey.get(resultKey);
+        if (existing) return existing;
+        const fetchOneExtra = this.fetchOneExtra;
+        const total =
+          first == null ? Infinity : first + (fetchOneExtra ? 1 : 0);
+        const options = this.streamOptions;
+        type Key = { cursor: readonly any[]; remaining: number };
+        const rawItems = sharedStream<unknown[], Key>(
+          async (key) => {
+            const remaining = key?.remaining ?? total;
+            if (remaining === 0) return { rows: [], next: undefined };
+            const batchSize = Math.min(options.pageSize, remaining);
+            const query = streamPage(key?.cursor ?? null, batchSize);
+            // No client is retained while any iterator is paused or waiting for
+            // another consumer to advance.
             const {
               values: [rows],
             } = await resource.executeWithoutCache([{ context, queryValues }], {
               ...query,
               eventEmitter,
             });
-            if (rows.length === 0) return;
-            previous = rows[rows.length - 1];
-            remaining -= rows.length;
-            yield* rows;
-            if (rows.length < batchSize) return;
-          }
-        })();
-        return {
-          hasNextPage: false,
-          hasPreviousPage: false,
+            const nextRemaining = remaining - rows.length;
+            const lastRow = rows[rows.length - 1];
+            const next =
+              rows.length === batchSize && nextRemaining > 0
+                ? {
+                    cursor: [
+                      cursorDetails!.digest,
+                      ...cursorDetails!.indicies.map(({ index, codec }) =>
+                        lastRow[index] == null
+                          ? null
+                          : codec.fromPg(lastRow[index]),
+                      ),
+                    ],
+                    remaining: nextRemaining,
+                  }
+                : undefined;
+            return { rows, next };
+          },
+          options,
+          executionDetails.extra._requestContext.abortSignal,
+        );
+        const items = {
+          [$$repeatable]: true as const,
+          [Symbol.asyncIterator]() {
+            const iterator = rawItems[Symbol.asyncIterator]();
+            let remaining = first ?? Infinity;
+            return {
+              async next(): Promise<IteratorResult<unknown[]>> {
+                if (remaining === 0) {
+                  await iterator.return?.();
+                  return { done: true, value: undefined };
+                }
+                const result = await iterator.next();
+                if (!result.done && --remaining === 0)
+                  await iterator.return?.();
+                return result;
+              },
+              return() {
+                remaining = 0;
+                return (
+                  iterator.return?.() ??
+                  Promise.resolve({ done: true as const, value: undefined })
+                );
+              },
+              throw(error: unknown) {
+                remaining = 0;
+                return iterator.throw?.(error) ?? Promise.reject(error);
+              },
+            };
+          },
+        };
+        let hasMorePromise: Promise<boolean> | undefined;
+        const hasMore = () =>
+          (hasMorePromise ??= (async () => {
+            let count = 0;
+            for await (const _row of rawItems) count++;
+            return first != null && count > first;
+          })());
+        const result: PgSelectStepResult = {
+          get hasNextPage() {
+            return first != null && first !== 0 && fetchOneExtra
+              ? hasMore()
+              : false;
+          },
+          hasPreviousPage: hasPreviousPageCb(first, last, offset, false),
           items,
           cursorDetails,
           groupDetails,
           m: meta,
         };
+        resultsByKey.set(resultKey, result);
+        return result;
       });
     }
   }
@@ -1560,6 +1621,13 @@ export class PgSelectStep<
         return false;
       }
 
+      if (
+        this.streamOptions.pageSize !== p.streamOptions.pageSize ||
+        this.streamOptions.maxPages !== p.streamOptions.maxPages ||
+        this.streamOptions.consumerIdleTimeout !==
+          p.streamOptions.consumerIdleTimeout
+      )
+        return false;
       if (!maybeArraysMatch(this.streamDetailsDepIds, p.streamDetailsDepIds)) {
         return false;
       }
@@ -1891,6 +1959,25 @@ export class PgSelectStep<
     }
   }
 
+  public readonly itemsAreRepeatable = true;
+  private streamOptions: PgStreamOptions = { ...defaultPgStreamOptions };
+
+  /** @experimental Configure request-local sharing of keyset stream pages. */
+  public setStreamOptions(options: Partial<PgStreamOptions>): void {
+    const next = { ...this.streamOptions, ...options };
+    if (
+      !Number.isSafeInteger(next.pageSize) ||
+      next.pageSize < 1 ||
+      !Number.isSafeInteger(next.maxPages) ||
+      next.maxPages < 1 ||
+      !Number.isFinite(next.consumerIdleTimeout) ||
+      next.consumerIdleTimeout < 0
+    ) {
+      throw new Error("Invalid PgSelect stream options");
+    }
+    this.streamOptions = next;
+  }
+
   private streamDetailsDepIds: number[] | null = [];
   addStreamDetails(
     $details: Step<ExecutionDetailsStream | null> | false | null,
@@ -1898,8 +1985,7 @@ export class PgSelectStep<
     if ($details) {
       this.streamDetailsDepIds?.push(this.addUnaryDependency($details));
     } else {
-      // Explicitly disable streaming
-      this.streamDetailsDepIds = null;
+      // Other consumers can traverse independently; null does not veto streaming.
     }
   }
 
@@ -2281,6 +2367,7 @@ export class PgSelectRowsStep<
   };
 
   public isSyncAndSafe = false;
+  public isStreamRepeatable = true;
 
   constructor($pgSelect: PgSelectStep<TResource>) {
     super();
@@ -3120,11 +3207,7 @@ function buildTheQueryCore<
   ) {
     for (const depId of rawInfo.streamDetailsDepIds) {
       const deets = values[depId].unaryValue() as ExecutionDetailsStream | null;
-      if (deets == null) {
-        // Null wins
-        stream = null;
-        break;
-      } else {
+      if (deets != null) {
         if (stream == null) {
           stream = { ...deets };
         } else if (deets.initialCount > stream.initialCount) {
@@ -3155,7 +3238,6 @@ function buildTheQueryCore<
     stream &&
     (info.mode !== "normal" ||
       info.hasSideEffects ||
-      info.fetchOneExtra ||
       typeof info.resource.from === "function" ||
       !info.isOrderUnique ||
       info.orders.length === 0 ||
@@ -3389,13 +3471,7 @@ ${lateralText};`;
           },
         };
         if (previous !== null) {
-          const cursor = [
-            cursorDetails!.digest,
-            ...cursorDetails!.indicies.map(({ index, codec }) =>
-              previous[index] == null ? null : codec.fromPg(previous[index]),
-            ),
-          ];
-          applyConditionFromCursor(pageInfo, "after", cursor);
+          applyConditionFromCursor(pageInfo, "after", previous as any[]);
         }
         return makeQuery({
           queryInfo: pageInfo,
@@ -3420,7 +3496,6 @@ ${lateralText};`;
     cursorDetails,
     groupDetails,
     streamPage,
-    streamInitialCount: stream?.initialCount,
   };
 }
 

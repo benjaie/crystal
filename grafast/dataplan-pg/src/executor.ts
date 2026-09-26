@@ -592,6 +592,7 @@ ${duration}
   }
 
   /**
+   * @deprecated Materializes the query; use executeWithoutCache instead.
    * Returns a list of streams (async iterables), one for each entry in
    * `values`, for the results from running the query
    * `common.text` with the given variables.
@@ -610,11 +611,11 @@ ${duration}
       common,
     );
     return {
-      streams: result.values.map((rows) =>
-        (async function* () {
+      streams: result.values.map((rows) => ({
+        async *[Symbol.asyncIterator]() {
           yield* rows;
-        })(),
-      ),
+        },
+      })),
     };
   }
 

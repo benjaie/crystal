@@ -1,11 +1,9 @@
 ## expect(errors).toBeFalsy()
-## expect(queries).toHaveLength(2);
+## expect(queries).toHaveLength(3);
 {
   forums(includeArchived: EXCLUSIVELY) {
     name
     messagesConnection(includeArchived: INHERIT) {
-      # nodes and edges share the same rows, and pageInfo needs a complete result.
-      # Fetch once up front; GraphQL delivery can still be incremental.
       nodes @stream {
         body
         author {

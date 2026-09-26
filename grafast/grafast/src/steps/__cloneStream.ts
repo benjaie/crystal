@@ -27,7 +27,7 @@ export class __CloneStreamStep extends Step {
     return this;
   }
   execute({ values: [val], indexMap }: ExecutionDetails) {
-    // The stream has already been cloned, we're just a placeholder really
+    // executeBucket obtains this field's iterator and walks its initial items.
     if (val.isBatch) {
       return val.entries;
     } else {

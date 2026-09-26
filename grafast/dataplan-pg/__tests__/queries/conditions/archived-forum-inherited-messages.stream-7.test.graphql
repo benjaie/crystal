@@ -1,11 +1,9 @@
 ## expect(errors).toBeFalsy()
-## expect(queries).toHaveLength(3);
+## expect(queries).toHaveLength(4);
 {
   forums(includeArchived: EXCLUSIVELY) {
     name
     messagesConnection(includeArchived: INHERIT) {
-      # Non-streamed edges need the shared rows up front; deferred pageInfo also
-      # requires materialization. Only GraphQL delivery can still stream.
       nodes @stream {
         body
         author {
@@ -13,9 +11,8 @@
           gravatarUrl
         }
       }
-      # No @stream here. `edges` and `nodes` should still deduplicate and the
-      # list should be populated from this without streaming even though the
-      # results may still stream
+      # No @stream here: edges fully consumes its own iterator while nodes
+      # consumes another incrementally, sharing the same SQL pages.
       edges {
         cursor
         node {

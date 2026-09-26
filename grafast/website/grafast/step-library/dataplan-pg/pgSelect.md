@@ -510,18 +510,48 @@ transformed values is safe.
 
 ## Incremental delivery
 
-For eligible uniquely ordered table queries, `@stream` fetches successive keyset
-batches. Each batch releases its database client before its rows are consumed;
-no PostgreSQL cursor or transaction is retained between batches. Concurrent
-changes to the data can affect later batches, as with separate pagination
-requests.
+For eligible uniquely ordered table queries, `@stream` yields a repeatable async
+iterable. Each consumer has its own iterator and keyset position. SQL pages and
+in-flight fetches are shared between consumers, including `nodes`, `edges`, and
+`pageInfo`. Each fetch releases its database client before rows are consumed.
+No PostgreSQL cursor or transaction is retained between pages.
 
-The first batch fetches up to `initialCount` rows, capped by the requested result
-limit. Subsequent batches fetch up to 100 rows. With `initialCount: 0`, fetching
-starts when the engine consumes the incremental iterator.
+SQL pages have a fixed size, independent of `initialCount`, so consumers with
+different initial counts can share them. `initialCount` still controls the
+initial GraphQL payload. Concurrent database changes can affect later fetches,
+including refetches of evicted pages, as with separate pagination requests.
 
-Queries that cannot use this strategy, including backward pagination, function
-sources, and aggregates, fetch the requested result in one query. Shared
-connection items and requested `pageInfo` also force materialization. The engine
-can still deliver the resulting array incrementally, but fetching it is not
-incremental and requires memory for the complete requested result.
+The cache first evicts the newest page that no consumer needs next. If all
+cached pages are wanted, fetching waits until a page is no longer wanted or all
+consumers wanting a candidate page have been idle long enough. A pending
+`next()` counts as active; idle time uses a monotonic clock. Completion, errors,
+and cancellation release the iterator's interest and wake waiting fetches.
+
+Deferring `pageInfo` lets it advance alongside streamed nodes and edges.
+Immediate metadata can outrun a consumer stopped at its initial count and
+require an idle wait and refetching. A deferred consumer that starts after a
+page has been evicted also refetches it.
+
+Configure this behaviour at plan-time with the experimental
+`$select.setStreamOptions(...)` method:
+
+```ts
+$select.setStreamOptions({
+  pageSize: 100,
+  maxPages: 3,
+  consumerIdleTimeout: 100,
+});
+```
+
+These are the defaults; the idle timeout is in milliseconds. The page size and
+cache capacity must be positive integers; the timeout must be finite and
+non-negative. The cache limit counts pages, not bytes. Each iterator also holds
+its current page, and GraphQL output buffering is separate from this cache.
+
+Queries that cannot use keyset fetching, including backward pagination,
+function sources, and aggregates, fetch the requested result in one query.
+The engine can still deliver the resulting array incrementally, but fetching
+it requires memory for the complete requested result.
+
+`PgExecutor.executeStream` and `PgResource.executeStream` are deprecated.
+They materialize raw SQL results; use `executeWithoutCache` instead.

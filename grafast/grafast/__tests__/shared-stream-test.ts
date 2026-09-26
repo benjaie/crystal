@@ -3,7 +3,9 @@ import { expect } from "chai";
 import { resolvePreset } from "graphile-config";
 import { it } from "mocha";
 
+import type { ExecutionDetails } from "../dist/index.js";
 import {
+  $$repeatable,
   connection,
   constant,
   grafast,
@@ -11,6 +13,7 @@ import {
   last,
   loadMany,
   makeGrafastSchema,
+  Step,
 } from "../dist/index.js";
 import { resolveStreamDefer } from "./incrementalUtils.ts";
 
@@ -234,4 +237,56 @@ it("materializes a source used by a consumer repeated across list items", async 
   expect(merged.data).to.deep.equal({
     shared: { groups: [{ numbers: expected }, { numbers: expected }] },
   });
+});
+
+it("deduplicates a repeatable source while retaining each field's independent traversal", async () => {
+  let executions = 0;
+  let iterations = 0;
+  class RepeatableNumbersStep extends Step {
+    public cloneStreams = true;
+    public isStreamRepeatable = true;
+    public isSyncAndSafe = false;
+    deduplicate(peers: readonly RepeatableNumbersStep[]) {
+      return peers;
+    }
+    execute({ indexMap }: ExecutionDetails) {
+      executions++;
+      return indexMap(() => ({
+        [$$repeatable]: true,
+        [Symbol.asyncIterator]() {
+          iterations++;
+          return (async function* () {
+            yield* expected;
+          })();
+        },
+      }));
+    }
+  }
+  const schema = makeGrafastSchema({
+    enableDeferStream: true,
+    typeDefs: `type Query { numbers: [Int!] }`,
+    objects: {
+      Query: { plans: { numbers: () => new RepeatableNumbersStep() } },
+    },
+  });
+  const result = await grafast({
+    schema,
+    source: `{ a: numbers @stream(initialCount: 2) b: numbers @stream(initialCount: 3) c: numbers }`,
+    resolvedPreset: resolvePreset({}),
+    requestContext: {},
+  });
+  const payloads: any[] = [];
+  if (Symbol.asyncIterator in result) {
+    for await (const payload of result) payloads.push(payload);
+  } else payloads.push(result);
+  expect(payloads[0].data).to.deep.equal({
+    a: [1, 2],
+    b: [1, 2, 3],
+    c: expected,
+  });
+  const merged = resolveStreamDefer(payloads);
+  expect(merged.errors).not.to.exist;
+  expect(merged.data).to.deep.equal({ a: expected, b: expected, c: expected });
+  expect(executions).to.equal(1);
+  expect(iterations).to.equal(3);
 });
