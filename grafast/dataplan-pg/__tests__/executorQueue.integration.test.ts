@@ -1,5 +1,13 @@
 import type { Step } from "grafast";
-import { context, execute, grafast, makeGrafastSchema, object } from "grafast";
+import {
+  constant,
+  context,
+  each,
+  execute,
+  grafast,
+  makeGrafastSchema,
+  object,
+} from "grafast";
 import { ExecutionResult, parse } from "grafast/graphql";
 import { resolvePreset } from "graphile-config";
 import { Pool } from "pg";
@@ -115,6 +123,92 @@ test("concurrent identical reads with different pgSettings stay isolated", async
     expect(first).toMatchObject({ data: { currentUserId: "101" } });
     expect(second).toMatchObject({ data: { currentUserId: "202" } });
     expect(leases).toBe(2);
+  } finally {
+    await pool.end();
+    await dropTestDatabase(databaseName);
+  }
+});
+
+test("repeats batched selects without query values using generate_series", async () => {
+  const { connectionString, databaseName } = await createTestDatabase();
+  const pool = new Pool({ connectionString });
+  try {
+    const queries: PgClientQuery[] = [];
+    await withTestWithPgClient(pool, queries, true, async (withPgClient) => {
+      const executor = EXPORTABLE(
+        (PgExecutor, context, object) =>
+          new PgExecutor({
+            name: "generateSeriesTest",
+            context: () => {
+              const $context = context();
+              return object({
+                pgSettings: $context.get("pgSettings"),
+                withPgClient: $context.get("withPgClient"),
+              }) as Step<PgExecutorContext>;
+            },
+          }),
+        [PgExecutor, context, object],
+      );
+      const resource = makePgResourceOptions({
+        executor,
+        codec: TYPES.text,
+        from: sql`(select current_setting('jwt.claims.user_id')::text)`,
+        name: "current_user_id",
+      });
+      const registry = EXPORTABLE(
+        (executor, makeRegistry, makeRegistryBuilder, resource) =>
+          makeRegistry(
+            makeRegistryBuilder()
+              .addExecutor(executor)
+              .addResource(resource)
+              .getRegistryConfig(),
+          ),
+        [executor, makeRegistry, makeRegistryBuilder, resource],
+      );
+      const schema = makeGrafastSchema({
+        typeDefs: "type Query { currentUserIds: [String] }",
+        objects: {
+          Query: {
+            plans: {
+              currentUserIds: EXPORTABLE(
+                (constant, each, pgSelect, registry) =>
+                  function currentUserIds() {
+                    return each(constant([0, 1]), ($item) => {
+                      const $select = pgSelect({
+                        resource: registry.pgResources.current_user_id,
+                        identifiers: [],
+                        forceIdentity: true,
+                      });
+                      // Keep the select in this batched layer without adding a query value.
+                      ($select as any).addDependency($item);
+                      return $select.single();
+                    });
+                  },
+                [constant, each, pgSelect, registry],
+              ),
+            },
+          },
+        },
+      });
+
+      const result = (await execute({
+        schema,
+        document: parse("{ currentUserIds }"),
+        contextValue: {
+          pgSettings: { "jwt.claims.user_id": "101" },
+          withPgClient,
+        },
+      })) as ExecutionResult<any, any>;
+
+      expect(result).toMatchObject({
+        data: { currentUserIds: ["101", "101"] },
+      });
+      expect(queries).toContainEqual(
+        expect.objectContaining({
+          text: expect.stringContaining("generate_series"),
+        }),
+      );
+    });
   } finally {
     await pool.end();
     await dropTestDatabase(databaseName);
