@@ -7,7 +7,11 @@
 
 This preset simplifies field names in the PostGraphile schema; e.g. `allUsers`
 becomes simply `users`, `User.postsByAuthorId` becomes simply `User.posts`, and
-`Post.userByAuthorId` becomes simply `Post.author`.
+`Post.userByAuthorId` becomes simply `Post.author`. The preset also supports
+multi-tenancy - configure `pgMultiTenancy` (see below) and relationships such as
+`posts (tenant_id, author_id) -> users (tenant_id, id)` should still get their
+tidily inflected names such as `Post.author` rather than
+`Post.userByTenantIdAndAuthorId`.
 
 **Adding this preset to your schema is almost certainly a breaking change, so do
 it before you ship anything!**
@@ -45,12 +49,96 @@ as you see fit.
 Alternatively, you can
 [write your own inflection plugin](https://postgraphile.org/postgraphile/next/inflection).
 
-## Tenancy-aware relationships
+## Multi-tenancy
 
-For schemas that use composite foreign keys to enforce tenant boundaries, you
-can configure the local column names that identify each tenancy scope. These
-columns are removed from relationship names when another key column remains. The
-foreign keys and GraphQL fields themselves are unchanged.
+For schemas that use composite foreign keys to enforce tenant boundaries,
+configure each table that is a multi-tenancy target along with the column names
+that conventionally reference it. These columns are then removed from
+relationship names within the same tenancy container when another key column
+remains.
+
+For example, if you run a gym franchise, each gym in the `gyms` table may act as
+a tenant, so tables within that tenant (tables with a `gym_id` column that
+references the `gyms` table) should not include `gym_id` in their names when
+exposed through the GraphQL schema, even when that's included as part of the
+relationship definition:
+
+```sql
+create table gyms ( -- "Tenant" table
+  id uuid primary key
+);
+
+-- All remaining tables "belong" to a tenant.
+create table families (
+  id uuid primary key,
+  gym_id uuid not null references gyms,
+  unique (gym_id, id)
+);
+create table members (
+  id uuid primary key,
+  gym_id uuid not null references gyms,
+  family_id uuid not null,
+  unique (gym_id, id),
+  -- Using the tenant ID as part of foreign key constraints enforces
+  -- relationships remain within the tenant.
+  foreign key fk_family (gym_id, family_id) references families (gym_id, id)
+);
+```
+
+```ts
+const preset = {
+  extends: [PgSimplifyInflectionPreset],
+  schema: {
+    pgMultiTenancy: [{ table: "gyms", columns: ["gym_id"] }],
+  },
+};
+```
+
+```graphql
+type Family {
+  id: ID!
+  gym: Gym
+  members: [Member!]
+}
+type Member {
+  id: ID!
+  gym: Gym
+  family: Family
+}
+```
+
+Note: In the `pgMultiTenancy` configuration, `table` may include a schema name,
+for example `app_public.families`, and though it is case sensitive (unlike
+Postgres) it allows you to use Postgres quoting for consistency:
+`"app_public"."families"`. A column is treated as tenancy context only when it
+participates in a foreign key to the configured table. If all key columns are
+tenancy columns, the existing name is retained.
+
+We even support tiered multi-tenancy, for example when the family contains its
+own scoped tables:
+
+```sql
+create table subscriptions (
+  id uuid primary key,
+  gym_id uuid not null references gyms,
+  family_id uuid not null,
+  subscription_tier text not null,
+  unique (gym_id, family_id, id),
+  foreign key fk_family (gym_id, family_id) references families (gym_id, id)
+);
+create table subscription_usage (
+  id uuid primary key,
+  gym_id uuid not null references gyms,
+  family_id uuid not null,
+  subscription_id uuid not null,
+  member_id uuid not null,
+  amount_used int not null,
+  date timestamptz not null default now(),
+  unique (gym_id, id),
+  foreign key fk_family (gym_id, family_id) references families (gym_id, id),
+  foreign key fk_subscription (gym_id, family_id, subscription_id) references subscriptions (gym_id, family_id, id)
+);
+```
 
 ```ts
 const preset = {
@@ -64,11 +152,18 @@ const preset = {
 };
 ```
 
-`table` may include a schema name, for example `app_public.families`. A column
-is treated as tenancy context only when it participates in a foreign key to the
-configured table. For example, a composite key containing `gym_id`, `family_id`,
-and `subscription_id` can be named using `subscription_id` alone. If all key
-columns are tenancy columns, the existing name is retained.
+With this, there will be `SubscriptionUsage.subscription` and
+`Subscription.subscriptionUsages` fields, despite the foreign key constraint
+actually including 3 columns.
+
+Note: If multiple tenancy matches are found for a particular relationship
+(keeping in mind that at least one column must be omitted), the one with the
+most matching columns will be used. If there are still multiple matches, the
+"best" matching entry in `pgMultiTenancy` will be chosen, where best is the one
+with the most "final" columns excluded, and if there are still multiple matches
+the first best matching entry in `pgMultiTenancy` will be used. This matching is
+deterministic, but makes the order in which `pgMultiTenancy` is defined
+significant - reordering that list could be a breaking change.
 
 ## Changes:
 
