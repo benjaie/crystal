@@ -232,7 +232,7 @@
  type GymSubscription implements Node {
    """Reads and enables pagination through a set of `Allocation`."""
 -  allocationsByFamilyIdAndGymIdAndSubscriptionId(
-+  allocations(
++  allocationsBySubscriptionId(
      """Read all values in the set after (below) this cursor."""
      after: Cursor
  
@@ -241,7 +241,7 @@
  
    """Reads and enables pagination through a set of `Allocation`."""
 -  allocationsByFamilyIdAndGymIdAndSubscriptionIdList(
-+  allocationsList(
++  allocationsBySubscriptionIdList(
      """
      A condition to be used in determining which values should be returned by the collection.
      """

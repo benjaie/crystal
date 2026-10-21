@@ -983,43 +983,18 @@ function getSpecs(
   let candidates = resource.uniques.filter((unique: PgResourceUnique) =>
     build.behavior.pgResourceUniqueMatches([resource, unique], constraintMode),
   );
-  if (!build.options.pgEnableTenants || !build.options.pgMultiTenancy?.length) {
-    return [
-      ...(primaryUnique &&
-      build.getNodeIdCodec !== undefined &&
-      build.behavior.pgCodecMatches(resource.codec, `nodeId:${mode}` as const)
-        ? [{ unique: primaryUnique, uniqueMode: "node" }]
-        : []),
-      ...candidates.map((unique: PgResourceUnique) => ({
-        unique,
-        uniqueMode: "keys",
-      })),
-    ];
-  }
-  const implicit = getPgImplicitMultiTenancyColumns(
-    resource.codec,
-    (build as any).input.pgRegistry,
-    build.options.pgMultiTenancy,
-  );
-  candidates = candidates.filter(
-    (unique: PgResourceUnique) =>
-      !unique.attributes.some((attribute: string) => implicit.has(attribute)),
-  );
-  const canUseNodeId =
-    primaryUnique &&
-    build.getNodeIdCodec !== undefined &&
-    build.behavior.pgCodecMatches(resource.codec, `nodeId:${mode}` as const);
-  if (canUseNodeId && primaryUnique) {
-    const primaryIdentity = primaryUnique.attributes
-      .filter((attribute: string) => !implicit.has(attribute))
-      .sort()
-      .join("\0");
+  if (build.options.pgEnableTenants && build.options.pgMultiTenancy?.length) {
+    const implicit = getPgImplicitMultiTenancyColumns(
+      resource.codec,
+      (build as any).input.pgRegistry,
+      build.options.pgMultiTenancy,
+    );
     candidates = candidates.filter(
       (unique: PgResourceUnique) =>
-        [...unique.attributes].sort().join("\0") !== primaryIdentity,
+        !unique.attributes.some((attribute: string) => implicit.has(attribute)),
     );
   }
-  const specs = [
+  return [
     ...(primaryUnique &&
     build.getNodeIdCodec !== undefined &&
     build.behavior.pgCodecMatches(resource.codec, `nodeId:${mode}` as const)
@@ -1030,5 +1005,4 @@ function getSpecs(
       uniqueMode: "keys",
     })),
   ];
-  return specs;
 }

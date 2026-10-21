@@ -387,9 +387,76 @@ async function runTests(pool, dir) {
 
     await snapshot(diff, diffPath);
     if (dir === "gym_franchise") {
+      await runTenantNamingRegressionTests(client, settings);
       await runTenantRuntimeTests(client, settings);
     }
   });
+}
+
+async function runTenantNamingRegressionTests(client, settings) {
+  await client.query(`
+    create table app_public.users (
+      gym_id uuid not null references app_public.gyms (id),
+      id int not null,
+      primary key (gym_id, id)
+    );
+    create table app_public.posts (
+      id int primary key,
+      gym_id uuid not null references app_public.gyms (id),
+      author_id int not null,
+      editor_id int not null,
+      approver_id int not null,
+      assignee_id int not null,
+      foreign key (gym_id, author_id) references app_public.users (gym_id, id),
+      foreign key (gym_id, editor_id) references app_public.users (gym_id, id),
+      foreign key (gym_id, approver_id) references app_public.users (gym_id, id),
+      foreign key (gym_id, assignee_id) references app_public.users (gym_id, id)
+    );
+    create table app_public.unscoped_records (id int primary key, title text);
+  `);
+  for (const implicit of [false, true]) {
+    const schema = await getSchema(
+      client,
+      true,
+      {
+        ...settings,
+        disableDefaultMutations: false,
+        graphileBuildOptions: {
+          ...settings.graphileBuildOptions,
+          pgMultiTenancy: [
+            { table: "gyms", columns: ["gym_id"], implicit: [implicit] },
+          ],
+        },
+      },
+      true,
+    );
+    const postFields = schema.getType("Post").getFields();
+    assert(
+      postFields.author && postFields.editor,
+      "tenant-first primary keys must preserve author and editor names",
+    );
+    const userFields = schema.getType("User").getFields();
+    assert(
+      userFields.authoredPosts &&
+        userFields.editedPosts &&
+        userFields.postsByApproverId &&
+        userFields.postsByAssigneeId,
+      `reverse relationships must retain business keys for disambiguation: ${Object.keys(userFields)}`,
+    );
+    assert(
+      !userFields.postsByGymIdAndAuthorId &&
+        !userFields.postsByGymIdAndEditorId,
+      "reverse relationship fallback must omit tenant context",
+    );
+    const mutations = schema.getMutationType().getFields();
+    for (const mode of ["update", "delete"]) {
+      assert(
+        mutations[`${mode}UnscopedRecord`] &&
+          mutations[`${mode}UnscopedRecordByNodeId`],
+        "raw primary key and Node ID mutations must both remain available",
+      );
+    }
+  }
 }
 
 async function runTenantRuntimeTests(client, settings) {

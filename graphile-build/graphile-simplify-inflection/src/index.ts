@@ -343,16 +343,23 @@ const PgSimplifyInflectionPlugin: GraphileConfig.Plugin = {
           registry,
           options.schema,
         );
+        const remoteTenancyColumns = this._pgMultiTenancyColumns(
+          relation.remoteResource.codec,
+          registry,
+          options.schema,
+        );
         const primaryKey = (
           relation.remoteResource.uniques as PgResourceUnique[]
         ).find((unique) => unique.isPrimary);
-        const primaryKeyAttribute = primaryKey?.attributes[0];
-        const withoutTenancy = attributes.filter((attribute, index) => {
-          return (
+        const targetIdentifiers = primaryKey?.attributes.filter(
+          (attribute) => !remoteTenancyColumns.has(attribute),
+        );
+        // A scope's own identifier still names a direct relation to that scope.
+        const withoutTenancy = attributes.filter(
+          (attribute, index) =>
             !tenancyColumns.has(attribute) ||
-            relation.remoteAttributes[index] === primaryKeyAttribute
-          );
-        });
+            targetIdentifiers?.includes(relation.remoteAttributes[index]),
+        );
         if (withoutTenancy.length) attributes = withoutTenancy;
         const detailedKeys = attributes.map((attributeName) => ({
           codec,
@@ -362,15 +369,20 @@ const PgSimplifyInflectionPlugin: GraphileConfig.Plugin = {
         if (baseName) {
           return this.camelCase(baseName);
         }
-        const foreignPk = (
-          relation.remoteResource.uniques as PgResourceUnique[]
-        ).find((u) => u.isPrimary);
         if (
-          foreignPk &&
-          arraysMatch(foreignPk.attributes, relation.localAttributes)
+          primaryKey &&
+          arraysMatch(primaryKey.attributes, relation.localAttributes)
         ) {
           return this.camelCase(
             `${this._singularizedCodecName(relation.remoteResource.codec)}`,
+          );
+        }
+        if (attributes.length < relation.localAttributes.length) {
+          return this.camelCase(
+            `${this.tableType(relation.remoteResource.codec)}-by-${this._joinAttributeNames(
+              codec,
+              attributes,
+            )}`,
           );
         }
         return previous!(details);
@@ -433,6 +445,14 @@ const PgSimplifyInflectionPlugin: GraphileConfig.Plugin = {
             `${this._singularizedCodecName(relation.remoteResource.codec)}`,
           );
         }
+        if (attributes.length < relation.remoteAttributes.length) {
+          return this.camelCase(
+            `${this.tableType(relation.remoteResource.codec)}-by-${this._joinAttributeNames(
+              relation.remoteResource.codec,
+              attributes,
+            )}`,
+          );
+        }
         return previous!(details);
       },
 
@@ -452,7 +472,13 @@ const PgSimplifyInflectionPlugin: GraphileConfig.Plugin = {
         const withoutTenancy = attributes.filter(
           (attribute) => !tenancyColumns.has(attribute),
         );
-        const tenancyWasRemoved = withoutTenancy.length < attributes.length;
+        if (withoutTenancy.length === 0 && attributes.length > 0) {
+          return this.camelCase(
+            this.distinctPluralize(
+              this._singularizedCodecName(relation.remoteResource.codec),
+            ),
+          );
+        }
         if (withoutTenancy.length) attributes = withoutTenancy;
         const detailedKeys = attributes.map((attributeName) => ({
           codec: relation.remoteResource.codec,
@@ -476,13 +502,6 @@ const PgSimplifyInflectionPlugin: GraphileConfig.Plugin = {
             );
           }
         }
-        if (tenancyWasRemoved) {
-          return this.camelCase(
-            this.distinctPluralize(
-              this._singularizedCodecName(relation.remoteResource.codec),
-            ),
-          );
-        }
         const pk = (relation.remoteResource.uniques as PgResourceUnique[]).find(
           (u) => u.isPrimary,
         );
@@ -490,6 +509,14 @@ const PgSimplifyInflectionPlugin: GraphileConfig.Plugin = {
           return this.camelCase(
             `${this.distinctPluralize(
               this._singularizedCodecName(relation.remoteResource.codec),
+            )}`,
+          );
+        }
+        if (attributes.length < relation.remoteAttributes.length) {
+          return this.camelCase(
+            `${this.pluralize(this.tableType(relation.remoteResource.codec))}-by-${this._joinAttributeNames(
+              relation.remoteResource.codec,
+              attributes,
             )}`,
           );
         }
