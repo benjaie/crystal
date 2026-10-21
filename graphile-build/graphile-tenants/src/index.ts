@@ -80,9 +80,16 @@ export const PgTenantsPlugin: GraphileConfig.Plugin = {
           scopes,
         );
         for (const pgClass of classes) {
+          const implicitByName = classification.implicitByName.get(
+            classNames(pgClass),
+          );
           info.state.implicitColumnsByClass.set(
             pgClass,
-            classification.columnsByName.get(classNames(pgClass)) ?? new Set(),
+            new Set(
+              [...(implicitByName ?? [])]
+                .filter(([, implicit]) => implicit)
+                .map(([column]) => column),
+            ),
           );
         }
       },
