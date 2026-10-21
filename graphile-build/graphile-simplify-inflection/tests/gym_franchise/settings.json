@@ -4,7 +4,10 @@
   "graphileBuildOptions": {
     "pgMultiTenancy": [
       { "table": "gyms", "columns": ["gym_id"] },
-      { "table": "families", "columns": ["gym_id", "family_id"] }
+      {
+        "table": "\"app_public\".\"families\"",
+        "columns": ["gym_id", "family_id"]
+      }
     ]
   }
 }

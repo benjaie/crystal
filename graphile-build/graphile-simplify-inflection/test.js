@@ -117,7 +117,10 @@ async function runTests(pool, dir) {
     const after = await getSchema(client, true, settings);
     if (dir === "gym_franchise") {
       const allocationFields = after.getType("Allocation").getFields();
-      assert(allocationFields.subscription, "expected Allocation.subscription");
+      assert(
+        allocationFields.subscription && allocationFields.family,
+        "expected tenancy-aware Allocation.subscription and Allocation.family fields",
+      );
       const withoutTenancySettings = {
         ...settings,
         graphileBuildOptions: {
@@ -149,8 +152,16 @@ async function runTests(pool, dir) {
       );
       const membershipFields = after.getType("Membership").getFields();
       assert(
+        membershipFields.family,
+        "expected the target primary key to remain meaningful in a forward relationship",
+      );
+      assert(
         membershipFields.membershipAllocations,
         "expected tenancy columns to be omitted from reverse relationship names",
+      );
+      assert(
+        after.getType("Family").getFields().memberships,
+        "expected reverse relationships to omit all contextual tenancy columns",
       );
       const joinFields = after.getType("MembershipAllocation").getFields();
       assert(
