@@ -50,6 +50,97 @@ function codecName(codec: PgCodec): string {
   return pg?.schemaName && pg.name ? `${pg.schemaName}.${pg.name}` : codec.name;
 }
 
+export interface PgMultiTenancyRelationMetadata {
+  localName: string;
+  remoteName: string;
+  localAttributes: readonly string[];
+  remoteAttributes: readonly string[];
+}
+
+export function classifyPgMultiTenancyRelations(
+  relations: readonly PgMultiTenancyRelationMetadata[],
+  scopes: readonly TenantScope[],
+): {
+  columnsByName: Map<string, Set<string>>;
+  implicitByName: Map<string, Map<string, boolean>>;
+} {
+  const scopesWithImplicit = scopes.map((scope) => {
+    const implicit = scope.implicit ?? scope.columns.map(() => false);
+    if (implicit.length !== scope.columns.length) {
+      throw new Error(
+        `pgMultiTenancy scope for '${scope.table}' has ${scope.columns.length} columns but ${implicit.length} implicit flags`,
+      );
+    }
+    return { ...scope, implicit, table: normalizeTableName(scope.table) };
+  });
+  const columnsByName = new Map<string, Set<string>>();
+  const implicitByName = new Map<string, Map<string, boolean>>();
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const relation of relations) {
+      for (const scope of scopesWithImplicit) {
+        if (
+          relation.remoteName !== scope.table &&
+          !(
+            !scope.table.includes(".") &&
+            relation.remoteName.endsWith(`.${scope.table}`)
+          )
+        ) {
+          continue;
+        }
+        const localSet = new Set(relation.localAttributes);
+        if (
+          localSet.size !== scope.columns.length ||
+          !scope.columns.every((column) => localSet.has(column))
+        ) {
+          continue;
+        }
+        const columns = columnsByName.get(relation.localName) ?? new Set();
+        const classifications =
+          implicitByName.get(relation.localName) ?? new Map();
+        for (let i = 0; i < scope.columns.length; i++) {
+          const column = scope.columns[i];
+          const old = classifications.get(column);
+          if (old !== undefined && old !== scope.implicit[i]) {
+            throw new Error(
+              `Conflicting pgMultiTenancy implicit classification for ${relation.localName}.${column}`,
+            );
+          }
+          if (!columns.has(column)) changed = true;
+          columns.add(column);
+          classifications.set(column, scope.implicit[i]);
+        }
+        columnsByName.set(relation.localName, columns);
+        implicitByName.set(relation.localName, classifications);
+      }
+      const remoteColumns = columnsByName.get(relation.remoteName);
+      if (!remoteColumns) continue;
+      const localColumns = columnsByName.get(relation.localName) ?? new Set();
+      const localImplicit = implicitByName.get(relation.localName) ?? new Map();
+      const remoteImplicit = implicitByName.get(relation.remoteName);
+      for (let i = 0; i < relation.localAttributes.length; i++) {
+        const remoteColumn = relation.remoteAttributes[i];
+        if (!remoteColumns.has(remoteColumn)) continue;
+        const localColumn = relation.localAttributes[i];
+        const value = remoteImplicit?.get(remoteColumn) ?? false;
+        const old = localImplicit.get(localColumn);
+        if (old !== undefined && old !== value) {
+          throw new Error(
+            `Conflicting pgMultiTenancy implicit classification for ${relation.localName}.${localColumn}`,
+          );
+        }
+        if (!localColumns.has(localColumn)) changed = true;
+        localColumns.add(localColumn);
+        localImplicit.set(localColumn, value);
+      }
+      columnsByName.set(relation.localName, localColumns);
+      implicitByName.set(relation.localName, localImplicit);
+    }
+  }
+  return { columnsByName, implicitByName };
+}
+
 /**
  * Classifies local FK columns participating in configured scopes. Scope
  * matching is exact and order-independent; subsequent relationships propagate
@@ -79,92 +170,16 @@ export function getPgMultiTenancyColumns(
         if (!(relation as any).isReferencee) relations.push(relation);
       }
     }
-    const scopesWithImplicit = scopes.map((scope) => {
-      const implicit = scope.implicit ?? scope.columns.map(() => false);
-      if (implicit.length !== scope.columns.length) {
-        throw new Error(
-          `pgMultiTenancy scope for '${scope.table}' has ${scope.columns.length} columns but ${implicit.length} implicit flags`,
-        );
-      }
-      return { ...scope, implicit, table: normalizeTableName(scope.table) };
-    });
-    const byName = new Map<string, Set<string>>();
-    const implicitByName = new Map<string, Map<string, boolean>>();
-    let changed = true;
-    while (changed) {
-      changed = false;
-      for (const relation of relations) {
-        const local = relation.localCodec as PgCodec;
-        const remote = relation.remoteResource.codec as PgCodec;
-        const localName = codecName(local);
-        const remoteName = codecName(remote);
-        for (const scope of scopesWithImplicit) {
-          if (
-            remoteName !== scope.table &&
-            !(
-              !scope.table.includes(".") &&
-              remoteName.endsWith(`.${scope.table}`)
-            )
-          )
-            continue;
-          const localSet = new Set<string>();
-          const remoteSet = new Set<string>();
-          for (let i = 0; i < relation.localAttributes.length; i++) {
-            localSet.add(relation.localAttributes[i]);
-            remoteSet.add(relation.remoteAttributes[i]);
-          }
-          if (
-            localSet.size !== scope.columns.length ||
-            !scope.columns.every((col) => localSet.has(col))
-          )
-            continue;
-          const current = byName.get(localName) ?? new Set<string>();
-          const classifications = implicitByName.get(localName) ?? new Map();
-          for (let i = 0; i < scope.columns.length; i++) {
-            const localColumn = scope.columns[i];
-            const remoteColumn =
-              relation.remoteAttributes[
-                relation.localAttributes.indexOf(localColumn)
-              ];
-            if (!remoteSet.has(remoteColumn)) continue;
-            const old = classifications.get(localColumn);
-            if (old !== undefined && old !== scope.implicit[i]) {
-              throw new Error(
-                `Conflicting pgMultiTenancy implicit classification for ${localName}.${localColumn}`,
-              );
-            }
-            classifications.set(localColumn, scope.implicit[i]);
-            current.add(localColumn);
-          }
-          if (current.size !== (byName.get(localName)?.size ?? 0))
-            changed = true;
-          byName.set(localName, current);
-          implicitByName.set(localName, classifications);
-        }
-        const remoteColumns = byName.get(remoteName);
-        if (!remoteColumns) continue;
-        const localColumns = byName.get(localName) ?? new Set<string>();
-        const localImplicit = implicitByName.get(localName) ?? new Map();
-        const remoteImplicit = implicitByName.get(remoteName);
-        for (let i = 0; i < relation.localAttributes.length; i++) {
-          const remoteColumn = relation.remoteAttributes[i];
-          if (!remoteColumns.has(remoteColumn)) continue;
-          const localColumn = relation.localAttributes[i];
-          const value = remoteImplicit?.get(remoteColumn) ?? false;
-          const old = localImplicit.get(localColumn);
-          if (old !== undefined && old !== value) {
-            throw new Error(
-              `Conflicting pgMultiTenancy implicit classification for ${localName}.${localColumn}`,
-            );
-          }
-          if (!localColumns.has(localColumn)) changed = true;
-          localColumns.add(localColumn);
-          localImplicit.set(localColumn, value);
-        }
-        byName.set(localName, localColumns);
-        implicitByName.set(localName, localImplicit);
-      }
-    }
+    const classified = classifyPgMultiTenancyRelations(
+      relations.map((relation) => ({
+        localName: codecName(relation.localCodec),
+        remoteName: codecName(relation.remoteResource.codec),
+        localAttributes: relation.localAttributes,
+        remoteAttributes: relation.remoteAttributes,
+      })),
+      scopes,
+    );
+    const { columnsByName: byName, implicitByName } = classified;
     byCodec = new Map();
     caches.set(scopeKey, byCodec);
     cache.set(registry as object, caches);

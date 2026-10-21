@@ -114,7 +114,6 @@ export const PgRowByUniquePlugin: GraphileConfig.Plugin = {
                     any
                   >;
                   const uniqueKeys = unique.attributes as string[];
-                  const lookupResource = resourceWithUnique(resource, unique);
                   const fieldName = build.inflection.rowByUnique({
                     unique,
                     resource,
@@ -181,7 +180,7 @@ return function (resource) {
     ", ",
   )} });
 }` as any,
-                        [lookupResource],
+                        [resource],
                       )
                     : EXPORTABLE(
                         (detailsByAttributeName, resource) =>
@@ -195,7 +194,7 @@ return function (resource) {
                             }
                             return resource.get(spec);
                           },
-                        [detailsByAttributeName, lookupResource],
+                        [detailsByAttributeName, resource],
                       );
 
                   const fieldBehaviorScope = "query:resource:single";
@@ -275,37 +274,7 @@ function publicUniqueConstraints(
     (build as any).input.pgRegistry,
     build.options.pgMultiTenancy,
   );
-  const byIdentity = new Map<string, PgResourceUnique>();
-  for (const unique of resource.uniques as PgResourceUnique[]) {
-    const attributes = unique.attributes.filter(
-      (attribute) => !implicit.has(attribute),
-    );
-    if (!attributes.length) continue;
-    const key = [...attributes].sort().join("\0");
-    const previous = byIdentity.get(key);
-    if (!previous || unique.isPrimary) {
-      byIdentity.set(key, { ...unique, attributes });
-    }
-  }
-  return [...byIdentity.values()];
-}
-
-function resourceWithUnique(
-  resource: PgResource<any, any, any, any, any, any, any>,
-  unique: PgResourceUnique,
-): PgResource<any, any, any, any, any, any, any> {
-  if (
-    resource.uniques.some(
-      (candidate: PgResourceUnique) =>
-        candidate.attributes.length === unique.attributes.length &&
-        candidate.attributes.every((attribute: string) =>
-          unique.attributes.includes(attribute),
-        ),
-    )
-  ) {
-    return resource;
-  }
-  return Object.assign(Object.create(resource), {
-    uniques: [...resource.uniques, unique],
-  });
+  return (resource.uniques as PgResourceUnique[]).filter(
+    (unique) => !unique.attributes.some((attribute) => implicit.has(attribute)),
+  );
 }

@@ -710,10 +710,7 @@ export const PgMutationUpdateDeletePlugin: GraphileConfig.Plugin = {
             const specs = getSpecs(build, resource, mode);
             for (const spec of specs) {
               const { uniqueMode, unique } = spec;
-              const mutationResource =
-                uniqueMode === "keys"
-                  ? resourceWithUnique(resource, unique)
-                  : resource;
+              const mutationResource = resource;
               const details = {
                 resource,
                 unique,
@@ -983,7 +980,7 @@ function getSpecs(
     (u: PgResourceUnique) => u.isPrimary,
   );
   const constraintMode = `constraint:${mode}` as const;
-  const candidates = resource.uniques.filter((unique: PgResourceUnique) =>
+  let candidates = resource.uniques.filter((unique: PgResourceUnique) =>
     build.behavior.pgResourceUniqueMatches([resource, unique], constraintMode),
   );
   if (!build.options.pgEnableTenants || !build.options.pgMultiTenancy?.length) {
@@ -1004,17 +1001,23 @@ function getSpecs(
     (build as any).input.pgRegistry,
     build.options.pgMultiTenancy,
   );
-  const keyUniques = new Map<string, PgResourceUnique>();
-  for (const unique of candidates) {
-    const attributes = unique.attributes.filter(
-      (attribute: string) => !implicit.has(attribute),
+  candidates = candidates.filter(
+    (unique: PgResourceUnique) =>
+      !unique.attributes.some((attribute: string) => implicit.has(attribute)),
+  );
+  const canUseNodeId =
+    primaryUnique &&
+    build.getNodeIdCodec !== undefined &&
+    build.behavior.pgCodecMatches(resource.codec, `nodeId:${mode}` as const);
+  if (canUseNodeId && primaryUnique) {
+    const primaryIdentity = primaryUnique.attributes
+      .filter((attribute: string) => !implicit.has(attribute))
+      .sort()
+      .join("\0");
+    candidates = candidates.filter(
+      (unique: PgResourceUnique) =>
+        [...unique.attributes].sort().join("\0") !== primaryIdentity,
     );
-    if (!attributes.length) continue;
-    const key = [...attributes].sort().join("\0");
-    const previous = keyUniques.get(key);
-    if (!previous || unique.isPrimary) {
-      keyUniques.set(key, { ...unique, attributes });
-    }
   }
   const specs = [
     ...(primaryUnique &&
@@ -1022,36 +1025,10 @@ function getSpecs(
     build.behavior.pgCodecMatches(resource.codec, `nodeId:${mode}` as const)
       ? [{ unique: primaryUnique, uniqueMode: "node" }]
       : []),
-    ...[...keyUniques.values()].map((unique: PgResourceUnique) => ({
+    ...candidates.map((unique: PgResourceUnique) => ({
       unique,
       uniqueMode: "keys",
     })),
   ];
   return specs;
-}
-
-/**
- * The mutation steps validate their getBy spec against resource.uniques. A
- * scoped unique identity (e.g. (tenant_id, slug)) becomes a public identity
- * (slug) only when the database execution context enforces tenant isolation.
- * Add that context-scoped identity to this operation-local resource copy so
- * the step can validate its plan without changing shared schema metadata.
- */
-function resourceWithUnique(
-  resource: PgResource<any, any, any, any, any, any, any>,
-  unique: PgResourceUnique,
-): PgResource<any, any, any, any, any, any, any> {
-  const attributes = [...unique.attributes].sort();
-  if (
-    resource.uniques.some(
-      (candidate: PgResourceUnique) =>
-        candidate.attributes.length === attributes.length &&
-        [...candidate.attributes].sort().every((a, i) => a === attributes[i]),
-    )
-  ) {
-    return resource;
-  }
-  return Object.assign(Object.create(resource), {
-    uniques: [...resource.uniques, unique],
-  }) as PgResource<any, any, any, any, any, any, any>;
 }

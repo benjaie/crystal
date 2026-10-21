@@ -26,6 +26,7 @@ export { PgMutationPayloadEdgePlugin } from "./plugins/PgMutationPayloadEdgePlug
 export { PgMutationUpdateDeletePlugin } from "./plugins/PgMutationUpdateDeletePlugin.ts";
 export { getPgMultiTenancyColumns } from "./multiTenancy.ts";
 export { getPgImplicitMultiTenancyColumns } from "./multiTenancy.ts";
+export { classifyPgMultiTenancyRelations } from "./multiTenancy.ts";
 export { isPgMultiTenancyRelation } from "./multiTenancy.ts";
 export type { TenantScope } from "./multiTenancy.ts";
 export { PgNodeIdAttributesPlugin } from "./plugins/PgNodeIdAttributesPlugin.ts";
