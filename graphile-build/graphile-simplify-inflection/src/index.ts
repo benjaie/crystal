@@ -60,6 +60,12 @@ declare global {
           attributeName: string;
         }>,
       ): string | null;
+      _pgMultiTenancyColumns(
+        this: GraphileBuild.Inflection,
+        codec: PgCodec<any, any, any, any, any, any, any>,
+        registry: any,
+        schemaOptions: GraphileConfig.ResolvedPreset["schema"],
+      ): ReadonlySet<string>;
     }
     interface SchemaOptions {
       pgOmitListSuffix?: boolean;
@@ -67,6 +73,7 @@ declare global {
       pgSimplifyAllRows?: boolean;
       pgShortPk?: boolean;
       pgSimplifyMultikeyRelations?: boolean;
+      pgMultiTenancy?: Array<{ table: string; columns: string[] }>;
     }
   }
 }
@@ -96,6 +103,12 @@ function fixChangePlural(
   const suffix = str.substring(suffixIndex);
   return `${prefix}${previous!(word)}${suffix}`;
 }
+
+const multiTenancyColumnsByRegistry = new WeakMap<
+  object,
+  Map<string, Set<string>>
+>();
+const latestMultiTenancyColumnsByCodec = new WeakMap<object, Set<string>>();
 
 // Users can add 'listSuffix === "omit"`/`"include"` smart tags, this handles
 // that.
@@ -211,6 +224,90 @@ const PgSimplifyInflectionPlugin: GraphileConfig.Plugin = {
         }
         return null;
       },
+
+      _pgMultiTenancyColumns(_preset, codec, registry, schemaOptions) {
+        const scopes = schemaOptions?.pgMultiTenancy;
+        if (!scopes?.length) return new Set();
+        if (!registry) {
+          return latestMultiTenancyColumnsByCodec.get(codec) ?? new Set();
+        }
+        let columnsByCodec = multiTenancyColumnsByRegistry.get(registry);
+        if (!columnsByCodec) {
+          columnsByCodec = new Map();
+          const relations: any[] = [];
+          const getName = (codec: any) => {
+            const pg = codec.extensions?.pg;
+            return pg ? `${pg.schemaName}.${pg.name}` : codec.name;
+          };
+          for (const codecRelations of Object.values(
+            registry.pgRelations,
+          ) as any[]) {
+            for (const relation of Object.values(codecRelations) as any[]) {
+              if (!relation.isReferencee) relations.push(relation);
+            }
+          }
+          let changed = true;
+          while (changed) {
+            changed = false;
+            for (const relation of relations) {
+              const localName = getName(relation.localCodec);
+              const remoteName = getName(relation.remoteResource.codec);
+              const localColumns = columnsByCodec.get(localName) ?? new Set();
+              const remoteColumns = columnsByCodec.get(remoteName) ?? new Set();
+              for (const scope of scopes) {
+                if (
+                  remoteName === scope.table ||
+                  (!scope.table.includes(".") &&
+                    remoteName.endsWith(`.${scope.table}`))
+                ) {
+                  const targetBaseName = this._singularizedCodecName(
+                    relation.remoteResource.codec,
+                  );
+                  for (let i = 0; i < relation.localAttributes.length; i++) {
+                    const attribute = relation.localAttributes[i];
+                    if (!scope.columns.includes(attribute)) continue;
+                    const attributeBaseName = this._getBaseName(attribute);
+                    if (
+                      attribute !== relation.remoteAttributes[i] &&
+                      (!attributeBaseName ||
+                        !this._baseNameMatches(
+                          attributeBaseName,
+                          targetBaseName,
+                        ))
+                    ) {
+                      continue;
+                    }
+                    if (!localColumns.has(attribute)) {
+                      localColumns.add(attribute);
+                      changed = true;
+                    }
+                  }
+                }
+              }
+              for (let i = 0; i < relation.localAttributes.length; i++) {
+                if (remoteColumns.has(relation.remoteAttributes[i])) {
+                  const attribute = relation.localAttributes[i];
+                  if (!localColumns.has(attribute)) {
+                    localColumns.add(attribute);
+                    changed = true;
+                  }
+                }
+              }
+              if (localColumns.size) {
+                columnsByCodec.set(localName, localColumns);
+                latestMultiTenancyColumnsByCodec.set(
+                  relation.localCodec,
+                  localColumns,
+                );
+              }
+            }
+          }
+          multiTenancyColumnsByRegistry.set(registry, columnsByCodec);
+        }
+        const pg = (codec.extensions as any)?.pg;
+        const name = pg ? `${pg.schemaName}.${pg.name}` : codec.name;
+        return columnsByCodec.get(name) ?? new Set();
+      },
     },
     ignoreReplaceIfNotExists: ["deletedNodeId"],
     replace: {
@@ -313,18 +410,26 @@ const PgSimplifyInflectionPlugin: GraphileConfig.Plugin = {
         });
       },
 
-      singleRelation(previous, _options, details) {
+      singleRelation(previous, options, details) {
         const { registry, codec, relationName } = details;
         const relation = registry.pgRelations[codec.name]?.[relationName];
         if (typeof relation.extensions?.tags?.fieldName === "string") {
           return relation.extensions.tags.fieldName;
         }
-        const detailedKeys = (relation.localAttributes as string[]).map(
-          (attributeName) => ({
-            codec,
-            attributeName,
-          }),
+        let attributes = relation.localAttributes as string[];
+        const tenancyColumns = this._pgMultiTenancyColumns(
+          codec,
+          registry,
+          options.schema,
         );
+        const withoutTenancy = attributes.filter(
+          (attribute) => !tenancyColumns.has(attribute),
+        );
+        if (withoutTenancy.length) attributes = withoutTenancy;
+        const detailedKeys = attributes.map((attributeName) => ({
+          codec,
+          attributeName,
+        }));
         const baseName = this._getBaseNameFromKeys(detailedKeys);
         if (baseName) {
           return this.camelCase(baseName);
@@ -343,7 +448,7 @@ const PgSimplifyInflectionPlugin: GraphileConfig.Plugin = {
         return previous!(details);
       },
 
-      singleRelationBackwards(previous, _options, details) {
+      singleRelationBackwards(previous, options, details) {
         const { registry, codec, relationName } = details;
         const relation = registry.pgRelations[codec.name]?.[relationName];
         if (
@@ -354,12 +459,20 @@ const PgSimplifyInflectionPlugin: GraphileConfig.Plugin = {
         if (typeof relation.extensions?.tags?.foreignFieldName === "string") {
           return relation.extensions.tags.foreignFieldName;
         }
-        const detailedKeys = (relation.remoteAttributes as string[]).map(
-          (attributeName) => ({
-            codec: relation.remoteResource.codec,
-            attributeName,
-          }),
+        let attributes = relation.remoteAttributes as string[];
+        const tenancyColumns = this._pgMultiTenancyColumns(
+          relation.remoteResource.codec,
+          registry,
+          options.schema,
         );
+        const withoutTenancy = attributes.filter(
+          (attribute) => !tenancyColumns.has(attribute),
+        );
+        if (withoutTenancy.length) attributes = withoutTenancy;
+        const detailedKeys = attributes.map((attributeName) => ({
+          codec: relation.remoteResource.codec,
+          attributeName,
+        }));
         const baseName = this._getBaseNameFromKeys(detailedKeys);
         if (baseName) {
           const oppositeBaseName = this._getOppositeBaseName(baseName);
@@ -395,19 +508,30 @@ const PgSimplifyInflectionPlugin: GraphileConfig.Plugin = {
         return previous!(details);
       },
 
-      _manyRelation(previous, _options, details) {
+      _manyRelation(previous, options, details) {
         const { registry, codec, relationName } = details;
         const relation = registry.pgRelations[codec.name]?.[relationName];
         const baseOverride = relation.extensions?.tags?.foreignFieldName;
         if (typeof baseOverride === "string") {
           return baseOverride;
         }
-        const detailedKeys = (relation.remoteAttributes as string[]).map(
-          (attributeName) => ({
-            codec: relation.remoteResource.codec,
-            attributeName,
-          }),
+        let attributes = relation.remoteAttributes as string[];
+        const tenancyColumns = this._pgMultiTenancyColumns(
+          relation.remoteResource.codec,
+          registry,
+          options.schema,
         );
+        const withoutTenancy = attributes.filter(
+          (attribute) => !tenancyColumns.has(attribute),
+        );
+        const tenancyWasRemoved =
+          withoutTenancy.length > 0 &&
+          withoutTenancy.length < attributes.length;
+        if (withoutTenancy.length) attributes = withoutTenancy;
+        const detailedKeys = attributes.map((attributeName) => ({
+          codec: relation.remoteResource.codec,
+          attributeName,
+        }));
         const baseName = this._getBaseNameFromKeys(detailedKeys);
         if (baseName) {
           const oppositeBaseName = this._getOppositeBaseName(baseName);
@@ -425,6 +549,13 @@ const PgSimplifyInflectionPlugin: GraphileConfig.Plugin = {
               )}`,
             );
           }
+        }
+        if (tenancyWasRemoved) {
+          return this.camelCase(
+            this.distinctPluralize(
+              this._singularizedCodecName(relation.remoteResource.codec),
+            ),
+          );
         }
         const pk = (relation.remoteResource.uniques as PgResourceUnique[]).find(
           (u) => u.isPrimary,
@@ -488,9 +619,30 @@ const PgSimplifyInflectionPlugin: GraphileConfig.Plugin = {
         if (options.schema?.pgShortPk && unique.isPrimary) {
           // Primary key, shorten!
           return this.camelCase(this._singularizedCodecName(resource.codec));
-        } else {
+        }
+        if (!options.schema?.pgMultiTenancy?.length) {
           return previous!(details);
         }
+        const tenancyColumns = this._pgMultiTenancyColumns(
+          resource.codec,
+          undefined,
+          options.schema,
+        );
+        const remainingAttributes = unique.attributes.filter(
+          (attribute) => !tenancyColumns.has(attribute),
+        );
+        if (
+          remainingAttributes.length &&
+          remainingAttributes.length < unique.attributes.length
+        ) {
+          return this.camelCase(
+            `${this.tableType(resource.codec)}-by-${this._joinAttributeNames(
+              resource.codec,
+              remainingAttributes,
+            )}`,
+          );
+        }
+        return previous!(details);
       },
 
       updateByKeysField(previous, options, details) {
@@ -502,9 +654,23 @@ const PgSimplifyInflectionPlugin: GraphileConfig.Plugin = {
           return this.camelCase(
             `update-${this._singularizedCodecName(resource.codec)}`,
           );
-        } else {
-          return previous!(details);
         }
+        const tenancyColumns = this._pgMultiTenancyColumns(
+          resource.codec,
+          undefined,
+          options.schema,
+        );
+        const attributes = unique.attributes.filter(
+          (attribute) => !tenancyColumns.has(attribute),
+        );
+        if (attributes.length && attributes.length < unique.attributes.length) {
+          return this.camelCase(
+            `update-${this._singularizedResourceName(
+              resource,
+            )}-by-${this._joinAttributeNames(resource.codec, attributes)}`,
+          );
+        }
+        return previous!(details);
       },
       deleteByKeysField(previous, options, details) {
         const { resource, unique } = details;
@@ -516,9 +682,23 @@ const PgSimplifyInflectionPlugin: GraphileConfig.Plugin = {
           return this.camelCase(
             `delete-${this._singularizedCodecName(resource.codec)}`,
           );
-        } else {
-          return previous!(details);
         }
+        const tenancyColumns = this._pgMultiTenancyColumns(
+          resource.codec,
+          undefined,
+          options.schema,
+        );
+        const attributes = unique.attributes.filter(
+          (attribute) => !tenancyColumns.has(attribute),
+        );
+        if (attributes.length && attributes.length < unique.attributes.length) {
+          return this.camelCase(
+            `delete-${this._singularizedResourceName(
+              resource,
+            )}-by-${this._joinAttributeNames(resource.codec, attributes)}`,
+          );
+        }
+        return previous!(details);
       },
       updateByKeysInputType(previous, options, details) {
         const { resource, unique } = details;
@@ -532,9 +712,23 @@ const PgSimplifyInflectionPlugin: GraphileConfig.Plugin = {
           return this.upperCamelCase(
             `update-${this._singularizedCodecName(resource.codec)}-input`,
           );
-        } else {
-          return previous!(details);
         }
+        const tenancyColumns = this._pgMultiTenancyColumns(
+          resource.codec,
+          undefined,
+          options.schema,
+        );
+        if (
+          unique.attributes.some((attribute) =>
+            tenancyColumns.has(attribute),
+          ) &&
+          unique.attributes.some((attribute) => !tenancyColumns.has(attribute))
+        ) {
+          return this.upperCamelCase(
+            `${this.updateByKeysField(details)}-input`,
+          );
+        }
+        return previous!(details);
       },
       deleteByKeysInputType(previous, options, details) {
         const { resource, unique } = details;
@@ -548,9 +742,23 @@ const PgSimplifyInflectionPlugin: GraphileConfig.Plugin = {
           return this.upperCamelCase(
             `delete-${this._singularizedCodecName(resource.codec)}-input`,
           );
-        } else {
-          return previous!(details);
         }
+        const tenancyColumns = this._pgMultiTenancyColumns(
+          resource.codec,
+          undefined,
+          options.schema,
+        );
+        if (
+          unique.attributes.some((attribute) =>
+            tenancyColumns.has(attribute),
+          ) &&
+          unique.attributes.some((attribute) => !tenancyColumns.has(attribute))
+        ) {
+          return this.upperCamelCase(
+            `${this.deleteByKeysField(details)}-input`,
+          );
+        }
+        return previous!(details);
       },
       updateNodeField(previous, options, details) {
         if (options.schema?.pgShortPk) {

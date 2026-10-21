@@ -1,0 +1,1602 @@
+type Allocation implements Node {
+  description: String!
+  familyId: UUID!
+
+  """Reads a single `Family` that is related to this `Allocation`."""
+  gymFamily: Family
+  gymId: UUID!
+  id: UUID!
+
+  """Reads and enables pagination through a set of `MembershipAllocation`."""
+  membershipAllocations(
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: MembershipAllocationCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """The method to use when ordering `MembershipAllocation`."""
+    orderBy: [MembershipAllocationsOrderBy!] = [PRIMARY_KEY_ASC]
+  ): MembershipAllocationsConnection!
+
+  """Reads and enables pagination through a set of `MembershipAllocation`."""
+  membershipAllocationsList(
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: MembershipAllocationCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Skip the first `n` values."""
+    offset: Int
+
+    """The method to use when ordering `MembershipAllocation`."""
+    orderBy: [MembershipAllocationsOrderBy!]
+  ): [MembershipAllocation!]!
+
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+
+  """Reads a single `GymSubscription` that is related to this `Allocation`."""
+  subscription: GymSubscription
+  subscriptionId: UUID!
+}
+
+"""
+A condition to be used against `Allocation` object types. All fields are tested
+for equality and combined with a logical ‘and.’
+"""
+input AllocationCondition {
+  """Checks for equality with the object’s `description` field."""
+  description: String
+
+  """Checks for equality with the object’s `familyId` field."""
+  familyId: UUID
+
+  """Checks for equality with the object’s `gymId` field."""
+  gymId: UUID
+
+  """Checks for equality with the object’s `id` field."""
+  id: UUID
+
+  """Checks for equality with the object’s `subscriptionId` field."""
+  subscriptionId: UUID
+}
+
+"""A connection to a list of `Allocation` values."""
+type AllocationsConnection {
+  """
+  A list of edges which contains the `Allocation` and cursor to aid in pagination.
+  """
+  edges: [AllocationsEdge]!
+
+  """A list of `Allocation` objects."""
+  nodes: [Allocation]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """The count of *all* `Allocation` you could get from the connection."""
+  totalCount: Int!
+}
+
+"""A `Allocation` edge in the connection."""
+type AllocationsEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `Allocation` at the end of the edge."""
+  node: Allocation
+}
+
+"""Methods to use when ordering `Allocation`."""
+enum AllocationsOrderBy {
+  DESCRIPTION_ASC
+  DESCRIPTION_DESC
+  FAMILY_ID_ASC
+  FAMILY_ID_DESC
+  GYM_ID_ASC
+  GYM_ID_DESC
+  ID_ASC
+  ID_DESC
+  NATURAL
+  PRIMARY_KEY_ASC
+  PRIMARY_KEY_DESC
+  SUBSCRIPTION_ID_ASC
+  SUBSCRIPTION_ID_DESC
+}
+
+"""A location in a connection that can be used for resuming pagination."""
+scalar Cursor
+
+"""A connection to a list of `Family` values."""
+type FamiliesConnection {
+  """
+  A list of edges which contains the `Family` and cursor to aid in pagination.
+  """
+  edges: [FamiliesEdge]!
+
+  """A list of `Family` objects."""
+  nodes: [Family]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """The count of *all* `Family` you could get from the connection."""
+  totalCount: Int!
+}
+
+"""A `Family` edge in the connection."""
+type FamiliesEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `Family` at the end of the edge."""
+  node: Family
+}
+
+"""Methods to use when ordering `Family`."""
+enum FamiliesOrderBy {
+  GYM_ID_ASC
+  GYM_ID_DESC
+  ID_ASC
+  ID_DESC
+  NAME_ASC
+  NAME_DESC
+  NATURAL
+  PRIMARY_KEY_ASC
+  PRIMARY_KEY_DESC
+}
+
+type Family implements Node {
+  """Reads and enables pagination through a set of `Allocation`."""
+  allocationsByGymIdAndFamilyId(
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: AllocationCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """The method to use when ordering `Allocation`."""
+    orderBy: [AllocationsOrderBy!] = [PRIMARY_KEY_ASC]
+  ): AllocationsConnection!
+
+  """Reads and enables pagination through a set of `Allocation`."""
+  allocationsByGymIdAndFamilyIdList(
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: AllocationCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Skip the first `n` values."""
+    offset: Int
+
+    """The method to use when ordering `Allocation`."""
+    orderBy: [AllocationsOrderBy!]
+  ): [Allocation!]!
+
+  """Reads a single `Gym` that is related to this `Family`."""
+  gym: Gym
+  gymId: UUID!
+
+  """Reads and enables pagination through a set of `GymSubscription`."""
+  gymSubscriptionsByGymIdAndFamilyId(
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: GymSubscriptionCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """The method to use when ordering `GymSubscription`."""
+    orderBy: [GymSubscriptionsOrderBy!] = [PRIMARY_KEY_ASC]
+  ): GymSubscriptionsConnection!
+
+  """Reads and enables pagination through a set of `GymSubscription`."""
+  gymSubscriptionsByGymIdAndFamilyIdList(
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: GymSubscriptionCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Skip the first `n` values."""
+    offset: Int
+
+    """The method to use when ordering `GymSubscription`."""
+    orderBy: [GymSubscriptionsOrderBy!]
+  ): [GymSubscription!]!
+  id: UUID!
+
+  """Reads and enables pagination through a set of `Membership`."""
+  membershipsByGymIdAndFamilyId(
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: MembershipCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """The method to use when ordering `Membership`."""
+    orderBy: [MembershipsOrderBy!] = [PRIMARY_KEY_ASC]
+  ): MembershipsConnection!
+
+  """Reads and enables pagination through a set of `Membership`."""
+  membershipsByGymIdAndFamilyIdList(
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: MembershipCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Skip the first `n` values."""
+    offset: Int
+
+    """The method to use when ordering `Membership`."""
+    orderBy: [MembershipsOrderBy!]
+  ): [Membership!]!
+  name: String!
+
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+}
+
+"""
+A condition to be used against `Family` object types. All fields are tested for equality and combined with a logical ‘and.’
+"""
+input FamilyCondition {
+  """Checks for equality with the object’s `gymId` field."""
+  gymId: UUID
+
+  """Checks for equality with the object’s `id` field."""
+  id: UUID
+
+  """Checks for equality with the object’s `name` field."""
+  name: String
+}
+
+type Gym implements Node {
+  """Reads and enables pagination through a set of `Family`."""
+  families(
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: FamilyCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """The method to use when ordering `Family`."""
+    orderBy: [FamiliesOrderBy!] = [PRIMARY_KEY_ASC]
+  ): FamiliesConnection!
+
+  """Reads and enables pagination through a set of `Family`."""
+  familiesList(
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: FamilyCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Skip the first `n` values."""
+    offset: Int
+
+    """The method to use when ordering `Family`."""
+    orderBy: [FamiliesOrderBy!]
+  ): [Family!]!
+
+  """Reads and enables pagination through a set of `GymLink`."""
+  gymLinksByTargetGymId(
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: GymLinkCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """The method to use when ordering `GymLink`."""
+    orderBy: [GymLinksOrderBy!] = [PRIMARY_KEY_ASC]
+  ): GymLinksConnection!
+
+  """Reads and enables pagination through a set of `GymLink`."""
+  gymLinksByTargetGymIdList(
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: GymLinkCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Skip the first `n` values."""
+    offset: Int
+
+    """The method to use when ordering `GymLink`."""
+    orderBy: [GymLinksOrderBy!]
+  ): [GymLink!]!
+  id: UUID!
+  name: String!
+
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+}
+
+"""
+A condition to be used against `Gym` object types. All fields are tested for equality and combined with a logical ‘and.’
+"""
+input GymCondition {
+  """Checks for equality with the object’s `id` field."""
+  id: UUID
+
+  """Checks for equality with the object’s `name` field."""
+  name: String
+}
+
+type GymLink implements Node {
+  id: UUID!
+
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+
+  """Reads a single `Gym` that is related to this `GymLink`."""
+  targetGym: Gym
+  targetGymId: UUID
+}
+
+"""
+A condition to be used against `GymLink` object types. All fields are tested for equality and combined with a logical ‘and.’
+"""
+input GymLinkCondition {
+  """Checks for equality with the object’s `id` field."""
+  id: UUID
+
+  """Checks for equality with the object’s `targetGymId` field."""
+  targetGymId: UUID
+}
+
+"""A connection to a list of `GymLink` values."""
+type GymLinksConnection {
+  """
+  A list of edges which contains the `GymLink` and cursor to aid in pagination.
+  """
+  edges: [GymLinksEdge]!
+
+  """A list of `GymLink` objects."""
+  nodes: [GymLink]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """The count of *all* `GymLink` you could get from the connection."""
+  totalCount: Int!
+}
+
+"""A `GymLink` edge in the connection."""
+type GymLinksEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `GymLink` at the end of the edge."""
+  node: GymLink
+}
+
+"""Methods to use when ordering `GymLink`."""
+enum GymLinksOrderBy {
+  ID_ASC
+  ID_DESC
+  NATURAL
+  PRIMARY_KEY_ASC
+  PRIMARY_KEY_DESC
+  TARGET_GYM_ID_ASC
+  TARGET_GYM_ID_DESC
+}
+
+type GymSubscription implements Node {
+  """Reads and enables pagination through a set of `Allocation`."""
+  allocations(
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: AllocationCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """The method to use when ordering `Allocation`."""
+    orderBy: [AllocationsOrderBy!] = [PRIMARY_KEY_ASC]
+  ): AllocationsConnection!
+
+  """Reads and enables pagination through a set of `Allocation`."""
+  allocationsList(
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: AllocationCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Skip the first `n` values."""
+    offset: Int
+
+    """The method to use when ordering `Allocation`."""
+    orderBy: [AllocationsOrderBy!]
+  ): [Allocation!]!
+  description: String!
+  familyId: UUID!
+
+  """Reads a single `Family` that is related to this `GymSubscription`."""
+  gymFamily: Family
+  gymId: UUID!
+  id: UUID!
+
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+}
+
+"""
+A condition to be used against `GymSubscription` object types. All fields are
+tested for equality and combined with a logical ‘and.’
+"""
+input GymSubscriptionCondition {
+  """Checks for equality with the object’s `description` field."""
+  description: String
+
+  """Checks for equality with the object’s `familyId` field."""
+  familyId: UUID
+
+  """Checks for equality with the object’s `gymId` field."""
+  gymId: UUID
+
+  """Checks for equality with the object’s `id` field."""
+  id: UUID
+}
+
+"""A connection to a list of `GymSubscription` values."""
+type GymSubscriptionsConnection {
+  """
+  A list of edges which contains the `GymSubscription` and cursor to aid in pagination.
+  """
+  edges: [GymSubscriptionsEdge]!
+
+  """A list of `GymSubscription` objects."""
+  nodes: [GymSubscription]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """
+  The count of *all* `GymSubscription` you could get from the connection.
+  """
+  totalCount: Int!
+}
+
+"""A `GymSubscription` edge in the connection."""
+type GymSubscriptionsEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `GymSubscription` at the end of the edge."""
+  node: GymSubscription
+}
+
+"""Methods to use when ordering `GymSubscription`."""
+enum GymSubscriptionsOrderBy {
+  DESCRIPTION_ASC
+  DESCRIPTION_DESC
+  FAMILY_ID_ASC
+  FAMILY_ID_DESC
+  GYM_ID_ASC
+  GYM_ID_DESC
+  ID_ASC
+  ID_DESC
+  NATURAL
+  PRIMARY_KEY_ASC
+  PRIMARY_KEY_DESC
+}
+
+"""A connection to a list of `Gym` values."""
+type GymsConnection {
+  """
+  A list of edges which contains the `Gym` and cursor to aid in pagination.
+  """
+  edges: [GymsEdge]!
+
+  """A list of `Gym` objects."""
+  nodes: [Gym]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """The count of *all* `Gym` you could get from the connection."""
+  totalCount: Int!
+}
+
+"""A `Gym` edge in the connection."""
+type GymsEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `Gym` at the end of the edge."""
+  node: Gym
+}
+
+"""Methods to use when ordering `Gym`."""
+enum GymsOrderBy {
+  ID_ASC
+  ID_DESC
+  NAME_ASC
+  NAME_DESC
+  NATURAL
+  PRIMARY_KEY_ASC
+  PRIMARY_KEY_DESC
+}
+
+type Membership implements Node {
+  familyId: UUID!
+
+  """Reads a single `Family` that is related to this `Membership`."""
+  gymFamily: Family
+  gymId: UUID!
+  id: UUID!
+
+  """Reads and enables pagination through a set of `MembershipAllocation`."""
+  membershipAllocations(
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: MembershipAllocationCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """The method to use when ordering `MembershipAllocation`."""
+    orderBy: [MembershipAllocationsOrderBy!] = [PRIMARY_KEY_ASC]
+  ): MembershipAllocationsConnection!
+
+  """Reads and enables pagination through a set of `MembershipAllocation`."""
+  membershipAllocationsList(
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: MembershipAllocationCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Skip the first `n` values."""
+    offset: Int
+
+    """The method to use when ordering `MembershipAllocation`."""
+    orderBy: [MembershipAllocationsOrderBy!]
+  ): [MembershipAllocation!]!
+  name: String!
+
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+}
+
+type MembershipAllocation implements Node {
+  """
+  Reads a single `Allocation` that is related to this `MembershipAllocation`.
+  """
+  allocation: Allocation
+  allocationId: UUID!
+  familyId: UUID!
+  gymId: UUID!
+
+  """
+  Reads a single `Membership` that is related to this `MembershipAllocation`.
+  """
+  membership: Membership
+  membershipId: UUID!
+
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+}
+
+"""
+A condition to be used against `MembershipAllocation` object types. All fields
+are tested for equality and combined with a logical ‘and.’
+"""
+input MembershipAllocationCondition {
+  """Checks for equality with the object’s `allocationId` field."""
+  allocationId: UUID
+
+  """Checks for equality with the object’s `familyId` field."""
+  familyId: UUID
+
+  """Checks for equality with the object’s `gymId` field."""
+  gymId: UUID
+
+  """Checks for equality with the object’s `membershipId` field."""
+  membershipId: UUID
+}
+
+"""A connection to a list of `MembershipAllocation` values."""
+type MembershipAllocationsConnection {
+  """
+  A list of edges which contains the `MembershipAllocation` and cursor to aid in pagination.
+  """
+  edges: [MembershipAllocationsEdge]!
+
+  """A list of `MembershipAllocation` objects."""
+  nodes: [MembershipAllocation]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """
+  The count of *all* `MembershipAllocation` you could get from the connection.
+  """
+  totalCount: Int!
+}
+
+"""A `MembershipAllocation` edge in the connection."""
+type MembershipAllocationsEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `MembershipAllocation` at the end of the edge."""
+  node: MembershipAllocation
+}
+
+"""Methods to use when ordering `MembershipAllocation`."""
+enum MembershipAllocationsOrderBy {
+  ALLOCATION_ID_ASC
+  ALLOCATION_ID_DESC
+  FAMILY_ID_ASC
+  FAMILY_ID_DESC
+  GYM_ID_ASC
+  GYM_ID_DESC
+  MEMBERSHIP_ID_ASC
+  MEMBERSHIP_ID_DESC
+  NATURAL
+  PRIMARY_KEY_ASC
+  PRIMARY_KEY_DESC
+}
+
+"""
+A condition to be used against `Membership` object types. All fields are tested
+for equality and combined with a logical ‘and.’
+"""
+input MembershipCondition {
+  """Checks for equality with the object’s `familyId` field."""
+  familyId: UUID
+
+  """Checks for equality with the object’s `gymId` field."""
+  gymId: UUID
+
+  """Checks for equality with the object’s `id` field."""
+  id: UUID
+
+  """Checks for equality with the object’s `name` field."""
+  name: String
+}
+
+"""A connection to a list of `Membership` values."""
+type MembershipsConnection {
+  """
+  A list of edges which contains the `Membership` and cursor to aid in pagination.
+  """
+  edges: [MembershipsEdge]!
+
+  """A list of `Membership` objects."""
+  nodes: [Membership]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """The count of *all* `Membership` you could get from the connection."""
+  totalCount: Int!
+}
+
+"""A `Membership` edge in the connection."""
+type MembershipsEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `Membership` at the end of the edge."""
+  node: Membership
+}
+
+"""Methods to use when ordering `Membership`."""
+enum MembershipsOrderBy {
+  FAMILY_ID_ASC
+  FAMILY_ID_DESC
+  GYM_ID_ASC
+  GYM_ID_DESC
+  ID_ASC
+  ID_DESC
+  NAME_ASC
+  NAME_DESC
+  NATURAL
+  PRIMARY_KEY_ASC
+  PRIMARY_KEY_DESC
+}
+
+"""An object with a globally unique `ID`."""
+interface Node {
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+}
+
+"""Information about pagination in a connection."""
+type PageInfo {
+  """When paginating forwards, the cursor to continue."""
+  endCursor: Cursor
+
+  """When paginating forwards, are there more items?"""
+  hasNextPage: Boolean!
+
+  """When paginating backwards, are there more items?"""
+  hasPreviousPage: Boolean!
+
+  """When paginating backwards, the cursor to continue."""
+  startCursor: Cursor
+}
+
+type ProductVariant implements Node {
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+  productId: UUID!
+  variantId: UUID!
+
+  """Reads and enables pagination through a set of `VariantReference`."""
+  variantReferences(
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: VariantReferenceCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """The method to use when ordering `VariantReference`."""
+    orderBy: [VariantReferencesOrderBy!] = [PRIMARY_KEY_ASC]
+  ): VariantReferencesConnection!
+
+  """Reads and enables pagination through a set of `VariantReference`."""
+  variantReferencesList(
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: VariantReferenceCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Skip the first `n` values."""
+    offset: Int
+
+    """The method to use when ordering `VariantReference`."""
+    orderBy: [VariantReferencesOrderBy!]
+  ): [VariantReference!]!
+}
+
+"""
+A condition to be used against `ProductVariant` object types. All fields are
+tested for equality and combined with a logical ‘and.’
+"""
+input ProductVariantCondition {
+  """Checks for equality with the object’s `productId` field."""
+  productId: UUID
+
+  """Checks for equality with the object’s `variantId` field."""
+  variantId: UUID
+}
+
+"""A connection to a list of `ProductVariant` values."""
+type ProductVariantsConnection {
+  """
+  A list of edges which contains the `ProductVariant` and cursor to aid in pagination.
+  """
+  edges: [ProductVariantsEdge]!
+
+  """A list of `ProductVariant` objects."""
+  nodes: [ProductVariant]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """The count of *all* `ProductVariant` you could get from the connection."""
+  totalCount: Int!
+}
+
+"""A `ProductVariant` edge in the connection."""
+type ProductVariantsEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `ProductVariant` at the end of the edge."""
+  node: ProductVariant
+}
+
+"""Methods to use when ordering `ProductVariant`."""
+enum ProductVariantsOrderBy {
+  NATURAL
+  PRIMARY_KEY_ASC
+  PRIMARY_KEY_DESC
+  PRODUCT_ID_ASC
+  PRODUCT_ID_DESC
+  VARIANT_ID_ASC
+  VARIANT_ID_DESC
+}
+
+"""The root query type which gives access points into the data universe."""
+type Query implements Node {
+  """Get a single `Allocation`."""
+  allocation(familyId: UUID!, gymId: UUID!, id: UUID!): Allocation
+
+  """Reads a single `Allocation` using its globally unique `ID`."""
+  allocationByNodeId(
+    """
+    The globally unique `ID` to be used in selecting a single `Allocation`.
+    """
+    nodeId: ID!
+  ): Allocation
+
+  """Reads and enables pagination through a set of `Allocation`."""
+  allocations(
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: AllocationCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """The method to use when ordering `Allocation`."""
+    orderBy: [AllocationsOrderBy!] = [PRIMARY_KEY_ASC]
+  ): AllocationsConnection
+
+  """Reads a set of `Allocation`."""
+  allocationsList(
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: AllocationCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Skip the first `n` values."""
+    offset: Int
+
+    """The method to use when ordering `Allocation`."""
+    orderBy: [AllocationsOrderBy!]
+  ): [Allocation!]
+
+  """Reads and enables pagination through a set of `Family`."""
+  families(
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: FamilyCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """The method to use when ordering `Family`."""
+    orderBy: [FamiliesOrderBy!] = [PRIMARY_KEY_ASC]
+  ): FamiliesConnection
+
+  """Reads a set of `Family`."""
+  familiesList(
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: FamilyCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Skip the first `n` values."""
+    offset: Int
+
+    """The method to use when ordering `Family`."""
+    orderBy: [FamiliesOrderBy!]
+  ): [Family!]
+
+  """Get a single `Family`."""
+  family(gymId: UUID!, id: UUID!): Family
+
+  """Get a single `Family`."""
+  familyByName(gymId: UUID!, name: String!): Family
+
+  """Reads a single `Family` using its globally unique `ID`."""
+  familyByNodeId(
+    """The globally unique `ID` to be used in selecting a single `Family`."""
+    nodeId: ID!
+  ): Family
+
+  """Get a single `Gym`."""
+  gym(id: UUID!): Gym
+
+  """Reads a single `Gym` using its globally unique `ID`."""
+  gymByNodeId(
+    """The globally unique `ID` to be used in selecting a single `Gym`."""
+    nodeId: ID!
+  ): Gym
+
+  """Get a single `GymLink`."""
+  gymLink(id: UUID!): GymLink
+
+  """Reads a single `GymLink` using its globally unique `ID`."""
+  gymLinkByNodeId(
+    """The globally unique `ID` to be used in selecting a single `GymLink`."""
+    nodeId: ID!
+  ): GymLink
+
+  """Reads and enables pagination through a set of `GymLink`."""
+  gymLinks(
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: GymLinkCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """The method to use when ordering `GymLink`."""
+    orderBy: [GymLinksOrderBy!] = [PRIMARY_KEY_ASC]
+  ): GymLinksConnection
+
+  """Reads a set of `GymLink`."""
+  gymLinksList(
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: GymLinkCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Skip the first `n` values."""
+    offset: Int
+
+    """The method to use when ordering `GymLink`."""
+    orderBy: [GymLinksOrderBy!]
+  ): [GymLink!]
+
+  """Get a single `GymSubscription`."""
+  gymSubscription(familyId: UUID!, gymId: UUID!, id: UUID!): GymSubscription
+
+  """Reads a single `GymSubscription` using its globally unique `ID`."""
+  gymSubscriptionByNodeId(
+    """
+    The globally unique `ID` to be used in selecting a single `GymSubscription`.
+    """
+    nodeId: ID!
+  ): GymSubscription
+
+  """Reads and enables pagination through a set of `GymSubscription`."""
+  gymSubscriptions(
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: GymSubscriptionCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """The method to use when ordering `GymSubscription`."""
+    orderBy: [GymSubscriptionsOrderBy!] = [PRIMARY_KEY_ASC]
+  ): GymSubscriptionsConnection
+
+  """Reads a set of `GymSubscription`."""
+  gymSubscriptionsList(
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: GymSubscriptionCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Skip the first `n` values."""
+    offset: Int
+
+    """The method to use when ordering `GymSubscription`."""
+    orderBy: [GymSubscriptionsOrderBy!]
+  ): [GymSubscription!]
+
+  """Reads and enables pagination through a set of `Gym`."""
+  gyms(
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: GymCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """The method to use when ordering `Gym`."""
+    orderBy: [GymsOrderBy!] = [PRIMARY_KEY_ASC]
+  ): GymsConnection
+
+  """Reads a set of `Gym`."""
+  gymsList(
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: GymCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Skip the first `n` values."""
+    offset: Int
+
+    """The method to use when ordering `Gym`."""
+    orderBy: [GymsOrderBy!]
+  ): [Gym!]
+
+  """Get a single `Membership`."""
+  membership(familyId: UUID!, gymId: UUID!, id: UUID!): Membership
+
+  """Get a single `MembershipAllocation`."""
+  membershipAllocation(allocationId: UUID!, familyId: UUID!, gymId: UUID!, membershipId: UUID!): MembershipAllocation
+
+  """Reads a single `MembershipAllocation` using its globally unique `ID`."""
+  membershipAllocationByNodeId(
+    """
+    The globally unique `ID` to be used in selecting a single `MembershipAllocation`.
+    """
+    nodeId: ID!
+  ): MembershipAllocation
+
+  """Reads and enables pagination through a set of `MembershipAllocation`."""
+  membershipAllocations(
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: MembershipAllocationCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """The method to use when ordering `MembershipAllocation`."""
+    orderBy: [MembershipAllocationsOrderBy!] = [PRIMARY_KEY_ASC]
+  ): MembershipAllocationsConnection
+
+  """Reads a set of `MembershipAllocation`."""
+  membershipAllocationsList(
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: MembershipAllocationCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Skip the first `n` values."""
+    offset: Int
+
+    """The method to use when ordering `MembershipAllocation`."""
+    orderBy: [MembershipAllocationsOrderBy!]
+  ): [MembershipAllocation!]
+
+  """Reads a single `Membership` using its globally unique `ID`."""
+  membershipByNodeId(
+    """
+    The globally unique `ID` to be used in selecting a single `Membership`.
+    """
+    nodeId: ID!
+  ): Membership
+
+  """Reads and enables pagination through a set of `Membership`."""
+  memberships(
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: MembershipCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """The method to use when ordering `Membership`."""
+    orderBy: [MembershipsOrderBy!] = [PRIMARY_KEY_ASC]
+  ): MembershipsConnection
+
+  """Reads a set of `Membership`."""
+  membershipsList(
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: MembershipCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Skip the first `n` values."""
+    offset: Int
+
+    """The method to use when ordering `Membership`."""
+    orderBy: [MembershipsOrderBy!]
+  ): [Membership!]
+
+  """Fetches an object given its globally unique `ID`."""
+  node(
+    """The globally unique `ID`."""
+    nodeId: ID!
+  ): Node
+
+  """
+  The root query type must be a `Node` to work well with Relay 1 mutations. This just resolves to `query`.
+  """
+  nodeId: ID!
+
+  """Get a single `ProductVariant`."""
+  productVariant(productId: UUID!, variantId: UUID!): ProductVariant
+
+  """Reads a single `ProductVariant` using its globally unique `ID`."""
+  productVariantByNodeId(
+    """
+    The globally unique `ID` to be used in selecting a single `ProductVariant`.
+    """
+    nodeId: ID!
+  ): ProductVariant
+
+  """Reads and enables pagination through a set of `ProductVariant`."""
+  productVariants(
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: ProductVariantCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """The method to use when ordering `ProductVariant`."""
+    orderBy: [ProductVariantsOrderBy!] = [PRIMARY_KEY_ASC]
+  ): ProductVariantsConnection
+
+  """Reads a set of `ProductVariant`."""
+  productVariantsList(
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: ProductVariantCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Skip the first `n` values."""
+    offset: Int
+
+    """The method to use when ordering `ProductVariant`."""
+    orderBy: [ProductVariantsOrderBy!]
+  ): [ProductVariant!]
+
+  """
+  Exposes the root query type nested one level down. This is helpful for Relay 1
+  which can only query top level fields if they are in a particular form.
+  """
+  query: Query!
+
+  """Get a single `VariantReference`."""
+  variantReference(id: UUID!): VariantReference
+
+  """Reads a single `VariantReference` using its globally unique `ID`."""
+  variantReferenceByNodeId(
+    """
+    The globally unique `ID` to be used in selecting a single `VariantReference`.
+    """
+    nodeId: ID!
+  ): VariantReference
+
+  """Reads and enables pagination through a set of `VariantReference`."""
+  variantReferences(
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: VariantReferenceCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """The method to use when ordering `VariantReference`."""
+    orderBy: [VariantReferencesOrderBy!] = [PRIMARY_KEY_ASC]
+  ): VariantReferencesConnection
+
+  """Reads a set of `VariantReference`."""
+  variantReferencesList(
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: VariantReferenceCondition
+
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Skip the first `n` values."""
+    offset: Int
+
+    """The method to use when ordering `VariantReference`."""
+    orderBy: [VariantReferencesOrderBy!]
+  ): [VariantReference!]
+}
+
+"""
+A universally unique identifier as defined by [RFC 4122](https://tools.ietf.org/html/rfc4122).
+"""
+scalar UUID
+
+type VariantReference implements Node {
+  id: UUID!
+
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+  productId: UUID!
+
+  """
+  Reads a single `ProductVariant` that is related to this `VariantReference`.
+  """
+  productVariant: ProductVariant
+  variantId: UUID!
+}
+
+"""
+A condition to be used against `VariantReference` object types. All fields are
+tested for equality and combined with a logical ‘and.’
+"""
+input VariantReferenceCondition {
+  """Checks for equality with the object’s `id` field."""
+  id: UUID
+
+  """Checks for equality with the object’s `productId` field."""
+  productId: UUID
+
+  """Checks for equality with the object’s `variantId` field."""
+  variantId: UUID
+}
+
+"""A connection to a list of `VariantReference` values."""
+type VariantReferencesConnection {
+  """
+  A list of edges which contains the `VariantReference` and cursor to aid in pagination.
+  """
+  edges: [VariantReferencesEdge]!
+
+  """A list of `VariantReference` objects."""
+  nodes: [VariantReference]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """
+  The count of *all* `VariantReference` you could get from the connection.
+  """
+  totalCount: Int!
+}
+
+"""A `VariantReference` edge in the connection."""
+type VariantReferencesEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `VariantReference` at the end of the edge."""
+  node: VariantReference
+}
+
+"""Methods to use when ordering `VariantReference`."""
+enum VariantReferencesOrderBy {
+  ID_ASC
+  ID_DESC
+  NATURAL
+  PRIMARY_KEY_ASC
+  PRIMARY_KEY_DESC
+  PRODUCT_ID_ASC
+  PRODUCT_ID_DESC
+  VARIANT_ID_ASC
+  VARIANT_ID_DESC
+}

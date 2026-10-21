@@ -1,0 +1,593 @@
+--- unsimplified
++++ simplified
+@@ -1,17 +1,14 @@
+ type Allocation implements Node {
+   description: String!
++  familyId: UUID!
+ 
+   """Reads a single `Family` that is related to this `Allocation`."""
+-  familyByGymIdAndFamilyId: Family
+-  familyId: UUID!
++  gymFamily: Family
+   gymId: UUID!
+-
+-  """Reads a single `GymSubscription` that is related to this `Allocation`."""
+-  gymSubscriptionByFamilyIdAndGymIdAndSubscriptionId: GymSubscription
+   id: UUID!
+ 
+   """Reads and enables pagination through a set of `MembershipAllocation`."""
+-  membershipAllocationsByGymIdAndFamilyIdAndAllocationId(
++  membershipAllocations(
+     """Read all values in the set after (below) this cursor."""
+     after: Cursor
+ 
+@@ -40,7 +37,7 @@
+   ): MembershipAllocationsConnection!
+ 
+   """Reads and enables pagination through a set of `MembershipAllocation`."""
+-  membershipAllocationsByGymIdAndFamilyIdAndAllocationIdList(
++  membershipAllocationsList(
+     """
+     A condition to be used in determining which values should be returned by the collection.
+     """
+@@ -60,6 +57,9 @@
+   A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+   """
+   nodeId: ID!
++
++  """Reads a single `GymSubscription` that is related to this `Allocation`."""
++  subscription: GymSubscription
+   subscriptionId: UUID!
+ }
+ 
+@@ -217,7 +217,7 @@
+   ): [Allocation!]!
+ 
+   """Reads a single `Gym` that is related to this `Family`."""
+-  gymByGymId: Gym
++  gym: Gym
+   gymId: UUID!
+ 
+   """Reads and enables pagination through a set of `GymSubscription`."""
+@@ -336,7 +336,7 @@
+ 
+ type Gym implements Node {
+   """Reads and enables pagination through a set of `Family`."""
+-  familiesByGymId(
++  families(
+     """Read all values in the set after (below) this cursor."""
+     after: Cursor
+ 
+@@ -365,7 +365,7 @@
+   ): FamiliesConnection!
+ 
+   """Reads and enables pagination through a set of `Family`."""
+-  familiesByGymIdList(
++  familiesList(
+     """
+     A condition to be used in determining which values should be returned by the collection.
+     """
+@@ -447,14 +447,15 @@
+ }
+ 
+ type GymLink implements Node {
+-  """Reads a single `Gym` that is related to this `GymLink`."""
+-  gymByTargetGymId: Gym
+   id: UUID!
+ 
+   """
+   A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+   """
+   nodeId: ID!
++
++  """Reads a single `Gym` that is related to this `GymLink`."""
++  targetGym: Gym
+   targetGymId: UUID
+ }
+ 
+@@ -508,7 +509,7 @@
+ 
+ type GymSubscription implements Node {
+   """Reads and enables pagination through a set of `Allocation`."""
+-  allocationsByFamilyIdAndGymIdAndSubscriptionId(
++  allocations(
+     """Read all values in the set after (below) this cursor."""
+     after: Cursor
+ 
+@@ -537,7 +538,7 @@
+   ): AllocationsConnection!
+ 
+   """Reads and enables pagination through a set of `Allocation`."""
+-  allocationsByFamilyIdAndGymIdAndSubscriptionIdList(
++  allocationsList(
+     """
+     A condition to be used in determining which values should be returned by the collection.
+     """
+@@ -553,10 +554,10 @@
+     orderBy: [AllocationsOrderBy!]
+   ): [Allocation!]!
+   description: String!
++  familyId: UUID!
+ 
+   """Reads a single `Family` that is related to this `GymSubscription`."""
+-  familyByGymIdAndFamilyId: Family
+-  familyId: UUID!
++  gymFamily: Family
+   gymId: UUID!
+   id: UUID!
+ 
+@@ -665,14 +666,15 @@
+ }
+ 
+ type Membership implements Node {
+-  """Reads a single `Family` that is related to this `Membership`."""
+-  familyByGymIdAndFamilyId: Family
+   familyId: UUID!
++
++  """Reads a single `Family` that is related to this `Membership`."""
++  gymFamily: Family
+   gymId: UUID!
+   id: UUID!
+ 
+   """Reads and enables pagination through a set of `MembershipAllocation`."""
+-  membershipAllocationsByGymIdAndFamilyIdAndMembershipId(
++  membershipAllocations(
+     """Read all values in the set after (below) this cursor."""
+     after: Cursor
+ 
+@@ -701,7 +703,7 @@
+   ): MembershipAllocationsConnection!
+ 
+   """Reads and enables pagination through a set of `MembershipAllocation`."""
+-  membershipAllocationsByGymIdAndFamilyIdAndMembershipIdList(
++  membershipAllocationsList(
+     """
+     A condition to be used in determining which values should be returned by the collection.
+     """
+@@ -728,7 +730,7 @@
+   """
+   Reads a single `Allocation` that is related to this `MembershipAllocation`.
+   """
+-  allocationByGymIdAndFamilyIdAndAllocationId: Allocation
++  allocation: Allocation
+   allocationId: UUID!
+   familyId: UUID!
+   gymId: UUID!
+@@ -736,7 +738,7 @@
+   """
+   Reads a single `Membership` that is related to this `MembershipAllocation`.
+   """
+-  membershipByGymIdAndFamilyIdAndMembershipId: Membership
++  membership: Membership
+   membershipId: UUID!
+ 
+   """
+@@ -897,7 +899,7 @@
+   variantId: UUID!
+ 
+   """Reads and enables pagination through a set of `VariantReference`."""
+-  variantReferencesByProductIdAndVariantId(
++  variantReferences(
+     """Read all values in the set after (below) this cursor."""
+     after: Cursor
+ 
+@@ -926,7 +928,7 @@
+   ): VariantReferencesConnection!
+ 
+   """Reads and enables pagination through a set of `VariantReference`."""
+-  variantReferencesByProductIdAndVariantIdList(
++  variantReferencesList(
+     """
+     A condition to be used in determining which values should be returned by the collection.
+     """
+@@ -994,8 +996,19 @@
+ 
+ """The root query type which gives access points into the data universe."""
+ type Query implements Node {
++  """Get a single `Allocation`."""
++  allocation(familyId: UUID!, gymId: UUID!, id: UUID!): Allocation
++
++  """Reads a single `Allocation` using its globally unique `ID`."""
++  allocationByNodeId(
++    """
++    The globally unique `ID` to be used in selecting a single `Allocation`.
++    """
++    nodeId: ID!
++  ): Allocation
++
+   """Reads and enables pagination through a set of `Allocation`."""
+-  allAllocations(
++  allocations(
+     """Read all values in the set after (below) this cursor."""
+     after: Cursor
+ 
+@@ -1024,7 +1037,7 @@
+   ): AllocationsConnection
+ 
+   """Reads a set of `Allocation`."""
+-  allAllocationsList(
++  allocationsList(
+     """
+     A condition to be used in determining which values should be returned by the collection.
+     """
+@@ -1041,7 +1054,7 @@
+   ): [Allocation!]
+ 
+   """Reads and enables pagination through a set of `Family`."""
+-  allFamilies(
++  families(
+     """Read all values in the set after (below) this cursor."""
+     after: Cursor
+ 
+@@ -1070,7 +1083,7 @@
+   ): FamiliesConnection
+ 
+   """Reads a set of `Family`."""
+-  allFamiliesList(
++  familiesList(
+     """
+     A condition to be used in determining which values should be returned by the collection.
+     """
+@@ -1086,8 +1099,38 @@
+     orderBy: [FamiliesOrderBy!]
+   ): [Family!]
+ 
++  """Get a single `Family`."""
++  family(gymId: UUID!, id: UUID!): Family
++
++  """Get a single `Family`."""
++  familyByName(gymId: UUID!, name: String!): Family
++
++  """Reads a single `Family` using its globally unique `ID`."""
++  familyByNodeId(
++    """The globally unique `ID` to be used in selecting a single `Family`."""
++    nodeId: ID!
++  ): Family
++
++  """Get a single `Gym`."""
++  gym(id: UUID!): Gym
++
++  """Reads a single `Gym` using its globally unique `ID`."""
++  gymByNodeId(
++    """The globally unique `ID` to be used in selecting a single `Gym`."""
++    nodeId: ID!
++  ): Gym
++
++  """Get a single `GymLink`."""
++  gymLink(id: UUID!): GymLink
++
++  """Reads a single `GymLink` using its globally unique `ID`."""
++  gymLinkByNodeId(
++    """The globally unique `ID` to be used in selecting a single `GymLink`."""
++    nodeId: ID!
++  ): GymLink
++
+   """Reads and enables pagination through a set of `GymLink`."""
+-  allGymLinks(
++  gymLinks(
+     """Read all values in the set after (below) this cursor."""
+     after: Cursor
+ 
+@@ -1116,7 +1159,7 @@
+   ): GymLinksConnection
+ 
+   """Reads a set of `GymLink`."""
+-  allGymLinksList(
++  gymLinksList(
+     """
+     A condition to be used in determining which values should be returned by the collection.
+     """
+@@ -1132,8 +1175,19 @@
+     orderBy: [GymLinksOrderBy!]
+   ): [GymLink!]
+ 
++  """Get a single `GymSubscription`."""
++  gymSubscription(familyId: UUID!, gymId: UUID!, id: UUID!): GymSubscription
++
++  """Reads a single `GymSubscription` using its globally unique `ID`."""
++  gymSubscriptionByNodeId(
++    """
++    The globally unique `ID` to be used in selecting a single `GymSubscription`.
++    """
++    nodeId: ID!
++  ): GymSubscription
++
+   """Reads and enables pagination through a set of `GymSubscription`."""
+-  allGymSubscriptions(
++  gymSubscriptions(
+     """Read all values in the set after (below) this cursor."""
+     after: Cursor
+ 
+@@ -1162,7 +1216,7 @@
+   ): GymSubscriptionsConnection
+ 
+   """Reads a set of `GymSubscription`."""
+-  allGymSubscriptionsList(
++  gymSubscriptionsList(
+     """
+     A condition to be used in determining which values should be returned by the collection.
+     """
+@@ -1179,7 +1233,7 @@
+   ): [GymSubscription!]
+ 
+   """Reads and enables pagination through a set of `Gym`."""
+-  allGyms(
++  gyms(
+     """Read all values in the set after (below) this cursor."""
+     after: Cursor
+ 
+@@ -1208,7 +1262,7 @@
+   ): GymsConnection
+ 
+   """Reads a set of `Gym`."""
+-  allGymsList(
++  gymsList(
+     """
+     A condition to be used in determining which values should be returned by the collection.
+     """
+@@ -1224,8 +1278,22 @@
+     orderBy: [GymsOrderBy!]
+   ): [Gym!]
+ 
++  """Get a single `Membership`."""
++  membership(familyId: UUID!, gymId: UUID!, id: UUID!): Membership
++
++  """Get a single `MembershipAllocation`."""
++  membershipAllocation(allocationId: UUID!, familyId: UUID!, gymId: UUID!, membershipId: UUID!): MembershipAllocation
++
++  """Reads a single `MembershipAllocation` using its globally unique `ID`."""
++  membershipAllocationByNodeId(
++    """
++    The globally unique `ID` to be used in selecting a single `MembershipAllocation`.
++    """
++    nodeId: ID!
++  ): MembershipAllocation
++
+   """Reads and enables pagination through a set of `MembershipAllocation`."""
+-  allMembershipAllocations(
++  membershipAllocations(
+     """Read all values in the set after (below) this cursor."""
+     after: Cursor
+ 
+@@ -1254,7 +1322,7 @@
+   ): MembershipAllocationsConnection
+ 
+   """Reads a set of `MembershipAllocation`."""
+-  allMembershipAllocationsList(
++  membershipAllocationsList(
+     """
+     A condition to be used in determining which values should be returned by the collection.
+     """
+@@ -1270,8 +1338,16 @@
+     orderBy: [MembershipAllocationsOrderBy!]
+   ): [MembershipAllocation!]
+ 
++  """Reads a single `Membership` using its globally unique `ID`."""
++  membershipByNodeId(
++    """
++    The globally unique `ID` to be used in selecting a single `Membership`.
++    """
++    nodeId: ID!
++  ): Membership
++
+   """Reads and enables pagination through a set of `Membership`."""
+-  allMemberships(
++  memberships(
+     """Read all values in the set after (below) this cursor."""
+     after: Cursor
+ 
+@@ -1300,7 +1376,7 @@
+   ): MembershipsConnection
+ 
+   """Reads a set of `Membership`."""
+-  allMembershipsList(
++  membershipsList(
+     """
+     A condition to be used in determining which values should be returned by the collection.
+     """
+@@ -1316,8 +1392,30 @@
+     orderBy: [MembershipsOrderBy!]
+   ): [Membership!]
+ 
++  """Fetches an object given its globally unique `ID`."""
++  node(
++    """The globally unique `ID`."""
++    nodeId: ID!
++  ): Node
++
++  """
++  The root query type must be a `Node` to work well with Relay 1 mutations. This just resolves to `query`.
++  """
++  nodeId: ID!
++
++  """Get a single `ProductVariant`."""
++  productVariant(productId: UUID!, variantId: UUID!): ProductVariant
++
++  """Reads a single `ProductVariant` using its globally unique `ID`."""
++  productVariantByNodeId(
++    """
++    The globally unique `ID` to be used in selecting a single `ProductVariant`.
++    """
++    nodeId: ID!
++  ): ProductVariant
++
+   """Reads and enables pagination through a set of `ProductVariant`."""
+-  allProductVariants(
++  productVariants(
+     """Read all values in the set after (below) this cursor."""
+     after: Cursor
+ 
+@@ -1346,7 +1444,7 @@
+   ): ProductVariantsConnection
+ 
+   """Reads a set of `ProductVariant`."""
+-  allProductVariantsList(
++  productVariantsList(
+     """
+     A condition to be used in determining which values should be returned by the collection.
+     """
+@@ -1362,8 +1460,25 @@
+     orderBy: [ProductVariantsOrderBy!]
+   ): [ProductVariant!]
+ 
++  """
++  Exposes the root query type nested one level down. This is helpful for Relay 1
++  which can only query top level fields if they are in a particular form.
++  """
++  query: Query!
++
++  """Get a single `VariantReference`."""
++  variantReference(id: UUID!): VariantReference
++
++  """Reads a single `VariantReference` using its globally unique `ID`."""
++  variantReferenceByNodeId(
++    """
++    The globally unique `ID` to be used in selecting a single `VariantReference`.
++    """
++    nodeId: ID!
++  ): VariantReference
++
+   """Reads and enables pagination through a set of `VariantReference`."""
+-  allVariantReferences(
++  variantReferences(
+     """Read all values in the set after (below) this cursor."""
+     after: Cursor
+ 
+@@ -1392,7 +1507,7 @@
+   ): VariantReferencesConnection
+ 
+   """Reads a set of `VariantReference`."""
+-  allVariantReferencesList(
++  variantReferencesList(
+     """
+     A condition to be used in determining which values should be returned by the collection.
+     """
+@@ -1407,119 +1522,6 @@
+     """The method to use when ordering `VariantReference`."""
+     orderBy: [VariantReferencesOrderBy!]
+   ): [VariantReference!]
+-
+-  """Reads a single `Allocation` using its globally unique `ID`."""
+-  allocation(
+-    """
+-    The globally unique `ID` to be used in selecting a single `Allocation`.
+-    """
+-    nodeId: ID!
+-  ): Allocation
+-
+-  """Get a single `Allocation`."""
+-  allocationByGymIdAndFamilyIdAndId(familyId: UUID!, gymId: UUID!, id: UUID!): Allocation
+-
+-  """Reads a single `Family` using its globally unique `ID`."""
+-  family(
+-    """The globally unique `ID` to be used in selecting a single `Family`."""
+-    nodeId: ID!
+-  ): Family
+-
+-  """Get a single `Family`."""
+-  familyByGymIdAndId(gymId: UUID!, id: UUID!): Family
+-
+-  """Get a single `Family`."""
+-  familyByGymIdAndName(gymId: UUID!, name: String!): Family
+-
+-  """Reads a single `Gym` using its globally unique `ID`."""
+-  gym(
+-    """The globally unique `ID` to be used in selecting a single `Gym`."""
+-    nodeId: ID!
+-  ): Gym
+-
+-  """Get a single `Gym`."""
+-  gymById(id: UUID!): Gym
+-
+-  """Reads a single `GymLink` using its globally unique `ID`."""
+-  gymLink(
+-    """The globally unique `ID` to be used in selecting a single `GymLink`."""
+-    nodeId: ID!
+-  ): GymLink
+-
+-  """Get a single `GymLink`."""
+-  gymLinkById(id: UUID!): GymLink
+-
+-  """Reads a single `GymSubscription` using its globally unique `ID`."""
+-  gymSubscription(
+-    """
+-    The globally unique `ID` to be used in selecting a single `GymSubscription`.
+-    """
+-    nodeId: ID!
+-  ): GymSubscription
+-
+-  """Get a single `GymSubscription`."""
+-  gymSubscriptionByGymIdAndFamilyIdAndId(familyId: UUID!, gymId: UUID!, id: UUID!): GymSubscription
+-
+-  """Reads a single `Membership` using its globally unique `ID`."""
+-  membership(
+-    """
+-    The globally unique `ID` to be used in selecting a single `Membership`.
+-    """
+-    nodeId: ID!
+-  ): Membership
+-
+-  """Reads a single `MembershipAllocation` using its globally unique `ID`."""
+-  membershipAllocation(
+-    """
+-    The globally unique `ID` to be used in selecting a single `MembershipAllocation`.
+-    """
+-    nodeId: ID!
+-  ): MembershipAllocation
+-
+-  """Get a single `MembershipAllocation`."""
+-  membershipAllocationByGymIdAndFamilyIdAndMembershipIdAndAllocationId(allocationId: UUID!, familyId: UUID!, gymId: UUID!, membershipId: UUID!): MembershipAllocation
+-
+-  """Get a single `Membership`."""
+-  membershipByGymIdAndFamilyIdAndId(familyId: UUID!, gymId: UUID!, id: UUID!): Membership
+-
+-  """Fetches an object given its globally unique `ID`."""
+-  node(
+-    """The globally unique `ID`."""
+-    nodeId: ID!
+-  ): Node
+-
+-  """
+-  The root query type must be a `Node` to work well with Relay 1 mutations. This just resolves to `query`.
+-  """
+-  nodeId: ID!
+-
+-  """Reads a single `ProductVariant` using its globally unique `ID`."""
+-  productVariant(
+-    """
+-    The globally unique `ID` to be used in selecting a single `ProductVariant`.
+-    """
+-    nodeId: ID!
+-  ): ProductVariant
+-
+-  """Get a single `ProductVariant`."""
+-  productVariantByProductIdAndVariantId(productId: UUID!, variantId: UUID!): ProductVariant
+-
+-  """
+-  Exposes the root query type nested one level down. This is helpful for Relay 1
+-  which can only query top level fields if they are in a particular form.
+-  """
+-  query: Query!
+-
+-  """Reads a single `VariantReference` using its globally unique `ID`."""
+-  variantReference(
+-    """
+-    The globally unique `ID` to be used in selecting a single `VariantReference`.
+-    """
+-    nodeId: ID!
+-  ): VariantReference
+-
+-  """Get a single `VariantReference`."""
+-  variantReferenceById(id: UUID!): VariantReference
+ }
+ 
+ """
+@@ -1539,7 +1541,7 @@
+   """
+   Reads a single `ProductVariant` that is related to this `VariantReference`.
+   """
+-  productVariantByProductIdAndVariantId: ProductVariant
++  productVariant: ProductVariant
+   variantId: UUID!
+ }
+ 

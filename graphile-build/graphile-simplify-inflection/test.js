@@ -115,6 +115,56 @@ async function runTests(pool, dir) {
 
     const before = await getSchema(client, false, settings);
     const after = await getSchema(client, true, settings);
+    if (dir === "gym_franchise") {
+      const allocationFields = after.getType("Allocation").getFields();
+      assert(allocationFields.subscription, "expected Allocation.subscription");
+      const withoutTenancySettings = {
+        ...settings,
+        graphileBuildOptions: {
+          ...settings.graphileBuildOptions,
+          pgMultiTenancy: undefined,
+        },
+      };
+      const withoutTenancy = await getSchema(
+        client,
+        true,
+        withoutTenancySettings,
+      );
+      assert(
+        withoutTenancy.getType("Allocation").getFields().familyGymSubscription,
+        "expected existing composite relationship naming with tenancy disabled",
+      );
+      assert(
+        after.getQueryType().getFields().familyByName,
+        "expected tenancy columns to be omitted from unique lookup names",
+      );
+      assert(
+        withoutTenancy.getQueryType().getFields().familyByGymIdAndName,
+        "expected unique lookup naming to remain unchanged when tenancy is disabled",
+      );
+      const gymLinkFields = after.getType("GymLink").getFields();
+      assert(
+        gymLinkFields.targetGym,
+        "expected explicit target_gym_id relationship to retain its name",
+      );
+      const membershipFields = after.getType("Membership").getFields();
+      assert(
+        membershipFields.membershipAllocations,
+        "expected tenancy columns to be omitted from reverse relationship names",
+      );
+      const joinFields = after.getType("MembershipAllocation").getFields();
+      assert(
+        joinFields.membership && joinFields.allocation,
+        "expected many-to-many join relationships to retain entity identifiers",
+      );
+      const variantReferenceFields = after
+        .getType("VariantReference")
+        .getFields();
+      assert(
+        variantReferenceFields.productVariant,
+        "expected unrelated composite foreign keys to retain their key names",
+      );
+    }
     const beforePath = `${ROOT}/${dir}/schema.unsimplified.graphql`;
     const afterPath = `${ROOT}/${dir}/schema.simplified.graphql`;
     const diffPath = `${ROOT}/${dir}/schema.graphql.diff`;
@@ -189,7 +239,7 @@ async function main() {
   const specifiedDir = specified
     ? allDirs.filter((d) => d === specified)
     : null;
-  const dirs = specifiedDir ? [specifiedDir] : allDirs;
+  const dirs = specifiedDir ?? allDirs;
   for (const dir of dirs) {
     const stat = await fsp.stat(`${ROOT}/${dir}`);
     if (stat.isDirectory()) {

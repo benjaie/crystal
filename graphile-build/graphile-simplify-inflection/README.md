@@ -45,6 +45,31 @@ as you see fit.
 Alternatively, you can
 [write your own inflection plugin](https://postgraphile.org/postgraphile/next/inflection).
 
+## Tenancy-aware relationships
+
+For schemas that use composite foreign keys to enforce tenant boundaries, you
+can configure the local column names that identify each tenancy scope. These
+columns are removed from relationship names when another key column remains. The
+foreign keys and GraphQL fields themselves are unchanged.
+
+```ts
+const preset = {
+  extends: [PgSimplifyInflectionPreset],
+  schema: {
+    pgMultiTenancy: [
+      { table: "gyms", columns: ["gym_id"] },
+      { table: "families", columns: ["gym_id", "family_id"] },
+    ],
+  },
+};
+```
+
+`table` may include a schema name, for example `app_public.families`. A column
+is treated as tenancy context only when it participates in a foreign key to the
+configured table. For example, a composite key containing `gym_id`, `family_id`,
+and `subscription_id` can be named using `subscription_id` alone. If all key
+columns are tenancy columns, the existing name is retained.
+
 ## Changes:
 
 Given these tables:

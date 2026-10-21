@@ -1,0 +1,10 @@
+{
+  "disableDefaultMutations": true,
+  "subscriptions": false,
+  "graphileBuildOptions": {
+    "pgMultiTenancy": [
+      { "table": "gyms", "columns": ["gym_id"] },
+      { "table": "families", "columns": ["gym_id", "family_id"] }
+    ]
+  }
+}
