@@ -1,7 +1,10 @@
 import type { PgCodec, PgRegistry } from "@dataplan/pg";
-import type { GraphileConfig } from "graphile-config";
-import { getPgMultiTenancyColumns } from "graphile-build-pg";
 import type { TenantScope } from "graphile-build-pg";
+import {
+  getPgImplicitMultiTenancyColumns,
+  isPgMultiTenancyRelation,
+} from "graphile-build-pg";
+import type { GraphileConfig } from "graphile-config";
 
 declare global {
   namespace GraphileConfig {
@@ -50,17 +53,18 @@ export const PgTenantsPlugin: GraphileConfig.Plugin = {
           callback(behavior, relation, build) {
             const scopes = build.options.pgMultiTenancy;
             if (!scopes?.length) return behavior;
-            const remoteName = getTableName(relation.remoteResource.codec);
-            for (const scope of scopes) {
-              if (!matchesTable(remoteName, scope.table)) continue;
-              const implicit = scope.implicit ?? scope.columns.map(() => false);
-              if (
-                implicit.length === scope.columns.length &&
-                implicit.every(Boolean) &&
-                sameSet(relation.localAttributes, scope.columns)
-              ) {
-                return [behavior, "-*"];
-              }
+            const registry = (build as any).input.pgRegistry;
+            if (
+              isPgMultiTenancyRelation(relation, scopes) &&
+              relation.localAttributes.every((column: string) =>
+                getPgImplicitMultiTenancyColumns(
+                  relation.localCodec,
+                  registry,
+                  scopes,
+                ).has(column),
+              )
+            ) {
+              return [behavior, "-*"];
             }
             return behavior;
           },
@@ -75,53 +79,12 @@ function getImplicitColumns(
   registry: PgRegistry,
   scopes: readonly TenantScope[] | undefined,
 ): ReadonlySet<string> {
-  const classified = getPgMultiTenancyColumns(codec, registry, scopes);
-  if (!scopes?.length || !codec.attributes) return EMPTY;
-  const implicit = new Set<string>();
-  for (const map of Object.values(registry.pgRelations)) {
-    for (const relation of Object.values(map)) {
-      if (relation.localCodec !== codec) continue;
-      const remoteName = getTableName(relation.remoteResource.codec);
-      for (const scope of scopes) {
-        if (!matchesTable(remoteName, scope.table)) continue;
-        const flags = scope.implicit ?? scope.columns.map(() => false);
-        for (let i = 0; i < relation.localAttributes.length; i++) {
-          const column = relation.localAttributes[i];
-          const index = scope.columns.indexOf(column);
-          if (index !== -1 && flags[index] && classified.has(column)) {
-            implicit.add(column);
-          }
-        }
-      }
-    }
-  }
-  return implicit;
+  return getPgImplicitMultiTenancyColumns(codec, registry, scopes);
 }
-
-function getTableName(codec: PgCodec): string {
-  const pg = codec.extensions?.pg as
-    | { schemaName?: string; name?: string }
-    | undefined;
-  return pg?.schemaName && pg.name ? `${pg.schemaName}.${pg.name}` : codec.name;
-}
-
-function matchesTable(actual: string, expected: string): boolean {
-  const normalize = (name: string) => name.replaceAll('"', "");
-  const normalized = normalize(expected);
-  return (
-    normalize(actual) === normalized ||
-    (!normalized.includes(".") && normalize(actual).endsWith(`.${normalized}`))
-  );
-}
-
-function sameSet(a: readonly string[], b: readonly string[]): boolean {
-  return a.length === b.length && b.every((item) => a.includes(item));
-}
-
-const EMPTY: ReadonlySet<string> = new Set();
 
 export const TenantPreset: GraphileConfig.Preset = {
   plugins: [PgTenantsPlugin],
+  schema: { pgEnableTenants: true },
 };
 
 export default TenantPreset;

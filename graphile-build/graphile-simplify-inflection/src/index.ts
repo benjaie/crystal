@@ -1,8 +1,8 @@
 import type { PgCodec, PgResourceUnique } from "@dataplan/pg";
 import type {} from "graphile-build";
 import type {} from "graphile-build-pg";
-import type { GraphileConfig } from "graphile-config";
 import { getPgMultiTenancyColumns } from "graphile-build-pg";
+import type { GraphileConfig } from "graphile-config";
 
 declare global {
   namespace GraphileConfig {
@@ -107,6 +107,7 @@ function fixChangePlural(
 // Users can add 'listSuffix === "omit"`/`"include"` smart tags, this handles
 // that.
 let globalPgOmitListSuffix: boolean | null = null;
+let latestPgRegistry: any;
 
 function overrideListSuffix(
   listSuffix: string | true | Array<string | true> | null | undefined,
@@ -220,10 +221,10 @@ const PgSimplifyInflectionPlugin: GraphileConfig.Plugin = {
       },
 
       _pgMultiTenancyColumns(_preset, codec, registry, schemaOptions) {
-        return registry
+        return registry || latestPgRegistry
           ? getPgMultiTenancyColumns(
               codec,
-              registry,
+              registry ?? latestPgRegistry,
               schemaOptions?.pgMultiTenancy,
             )
           : new Set();
@@ -734,17 +735,16 @@ const PgSimplifyInflectionPlugin: GraphileConfig.Plugin = {
   schema: {
     hooks: {
       init(_, build) {
+        const registry = (build as any).input.pgRegistry;
+        latestPgRegistry = registry;
         const scopes = build.options.pgMultiTenancy;
         if (scopes?.length) {
-          const registry = (build as any).input.pgRegistry;
-          for (const relationMap of Object.values(registry.pgRelations) as any[]) {
+          for (const relationMap of Object.values(
+            registry.pgRelations,
+          ) as any[]) {
             for (const relation of Object.values(relationMap) as any[]) {
               if (!relation.isReferencee) {
-                getPgMultiTenancyColumns(
-                  relation.localCodec,
-                  registry,
-                  scopes,
-                );
+                getPgMultiTenancyColumns(relation.localCodec, registry, scopes);
               }
             }
           }

@@ -10,6 +10,7 @@ import type { FieldArgs } from "grafast";
 import { EXPORTABLE } from "graphile-build";
 import te, { isSafeObjectPropertyName } from "tamedevil";
 
+import { getPgImplicitMultiTenancyColumns } from "../multiTenancy.ts";
 import { tagToString } from "../utils.ts";
 import { version } from "../version.ts";
 
@@ -103,7 +104,7 @@ export const PgRowByUniquePlugin: GraphileConfig.Plugin = {
         return resources.reduce(
           (outerMemo, rawResource) =>
             build.recoverable(outerMemo, () =>
-              (rawResource.uniques as PgResourceUnique[]).reduce(
+              publicUniqueConstraints(build, rawResource).reduce(
                 (memo, unique) => {
                   const resource = rawResource as PgResource<
                     any,
@@ -113,6 +114,7 @@ export const PgRowByUniquePlugin: GraphileConfig.Plugin = {
                     any
                   >;
                   const uniqueKeys = unique.attributes as string[];
+                  const lookupResource = resourceWithUnique(resource, unique);
                   const fieldName = build.inflection.rowByUnique({
                     unique,
                     resource,
@@ -179,7 +181,7 @@ return function (resource) {
     ", ",
   )} });
 }` as any,
-                        [resource],
+                        [lookupResource],
                       )
                     : EXPORTABLE(
                         (detailsByAttributeName, resource) =>
@@ -193,7 +195,7 @@ return function (resource) {
                             }
                             return resource.get(spec);
                           },
-                        [detailsByAttributeName, resource],
+                        [detailsByAttributeName, lookupResource],
                       );
 
                   const fieldBehaviorScope = "query:resource:single";
@@ -260,3 +262,50 @@ return function (resource) {
     },
   },
 };
+
+function publicUniqueConstraints(
+  build: GraphileBuild.Build,
+  resource: PgResource<any, any, any, any, any, any, any>,
+): PgResourceUnique[] {
+  if (!build.options.pgEnableTenants || !build.options.pgMultiTenancy?.length) {
+    return resource.uniques as PgResourceUnique[];
+  }
+  const implicit = getPgImplicitMultiTenancyColumns(
+    resource.codec as PgCodecWithAttributes,
+    (build as any).input.pgRegistry,
+    build.options.pgMultiTenancy,
+  );
+  const byIdentity = new Map<string, PgResourceUnique>();
+  for (const unique of resource.uniques as PgResourceUnique[]) {
+    const attributes = unique.attributes.filter(
+      (attribute) => !implicit.has(attribute),
+    );
+    if (!attributes.length) continue;
+    const key = [...attributes].sort().join("\0");
+    const previous = byIdentity.get(key);
+    if (!previous || unique.isPrimary) {
+      byIdentity.set(key, { ...unique, attributes });
+    }
+  }
+  return [...byIdentity.values()];
+}
+
+function resourceWithUnique(
+  resource: PgResource<any, any, any, any, any, any, any>,
+  unique: PgResourceUnique,
+): PgResource<any, any, any, any, any, any, any> {
+  if (
+    resource.uniques.some(
+      (candidate: PgResourceUnique) =>
+        candidate.attributes.length === unique.attributes.length &&
+        candidate.attributes.every((attribute: string) =>
+          unique.attributes.includes(attribute),
+        ),
+    )
+  ) {
+    return resource;
+  }
+  return Object.assign(Object.create(resource), {
+    uniques: [...resource.uniques, unique],
+  });
+}

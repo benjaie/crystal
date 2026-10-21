@@ -89,9 +89,7 @@ create table members (
 const preset = {
   extends: [PgSimplifyInflectionPreset],
   schema: {
-    pgMultiTenancy: [
-      { table: "gyms", columns: ["gym_id"], implicit: [true] },
-    ],
+    pgMultiTenancy: [{ table: "gyms", columns: ["gym_id"], implicit: [true] }],
   },
 };
 ```

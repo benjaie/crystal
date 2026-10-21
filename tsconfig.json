@@ -46,6 +46,7 @@
     { "path": "graphile-build/graphile-build" },
     { "path": "graphile-build/graphile-build-pg" },
     { "path": "graphile-build/graphile-simplify-inflection" },
+    { "path": "graphile-build/graphile-tenants" },
     { "path": "grafast/grafast" },
     { "path": "utils/graphile-export" },
     { "path": "utils/graphile-config" },
