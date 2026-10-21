@@ -1,0 +1,24 @@
+{
+  "name": "@graphile/tenants",
+  "version": "9.0.0",
+  "description": "Database-managed multi-tenancy preset for PostGraphile",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build-package": "yarn build",
+    "build": "tsc -b"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/graphile/crystal.git"
+  },
+  "license": "MIT",
+  "files": ["dist"],
+  "peerDependencies": {
+    "@dataplan/pg": "workspace:^1.0.0-rc.7",
+    "grafast": "workspace:^1.0.0-rc.8",
+    "graphile-build": "workspace:^5.0.0-rc.5",
+    "graphile-build-pg": "workspace:^",
+    "graphile-config": "workspace:^1.0.0-rc.5"
+  }
+}

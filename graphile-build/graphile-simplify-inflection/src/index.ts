@@ -2,6 +2,7 @@ import type { PgCodec, PgResourceUnique } from "@dataplan/pg";
 import type {} from "graphile-build";
 import type {} from "graphile-build-pg";
 import type { GraphileConfig } from "graphile-config";
+import { getPgMultiTenancyColumns } from "graphile-build-pg";
 
 declare global {
   namespace GraphileConfig {
@@ -73,7 +74,6 @@ declare global {
       pgSimplifyAllRows?: boolean;
       pgShortPk?: boolean;
       pgSimplifyMultikeyRelations?: boolean;
-      pgMultiTenancy?: Array<{ table: string; columns: string[] }>;
     }
   }
 }
@@ -103,42 +103,6 @@ function fixChangePlural(
   const suffix = str.substring(suffixIndex);
   return `${prefix}${previous!(word)}${suffix}`;
 }
-
-function normalizePgTableName(name: string): string {
-  const parts: string[] = [];
-  let part = "";
-  let quoted = false;
-  for (let i = 0; i < name.length; i++) {
-    const char = name[i];
-    if (char === '"') {
-      if (quoted && name[i + 1] === '"') {
-        part += '"';
-        i++;
-      } else {
-        quoted = !quoted;
-      }
-    } else if (char === "." && !quoted) {
-      parts.push(part);
-      part = "";
-    } else {
-      part += char;
-    }
-  }
-  parts.push(part);
-  return parts.slice(-2).join(".");
-}
-
-interface PgMultiTenancyMatch {
-  columns: Set<string>;
-  finalColumns: Set<string>;
-  scopeIndex: number;
-}
-
-const multiTenancyColumnsByRegistry = new WeakMap<
-  object,
-  Map<string, PgMultiTenancyMatch>
->();
-const latestMultiTenancyColumnsByCodec = new WeakMap<object, Set<string>>();
 
 // Users can add 'listSuffix === "omit"`/`"include"` smart tags, this handles
 // that.
@@ -256,143 +220,13 @@ const PgSimplifyInflectionPlugin: GraphileConfig.Plugin = {
       },
 
       _pgMultiTenancyColumns(_preset, codec, registry, schemaOptions) {
-        const scopes = schemaOptions?.pgMultiTenancy;
-        if (!scopes?.length) return new Set();
-        if (!registry) {
-          return latestMultiTenancyColumnsByCodec.get(codec) ?? new Set();
-        }
-        let columnsByCodec = multiTenancyColumnsByRegistry.get(registry);
-        if (!columnsByCodec) {
-          columnsByCodec = new Map();
-          const relations: any[] = [];
-          const getName = (codec: any) => {
-            const pg = codec.extensions?.pg;
-            return pg ? `${pg.schemaName}.${pg.name}` : codec.name;
-          };
-          for (const codecRelations of Object.values(
-            registry.pgRelations,
-          ) as any[]) {
-            for (const relation of Object.values(codecRelations) as any[]) {
-              if (!relation.isReferencee) relations.push(relation);
-            }
-          }
-          const getPrimaryKeyAttribute = (codec: any) =>
-            (codec.uniques as PgResourceUnique[] | undefined)?.find(
-              (unique) => unique.isPrimary,
-            )?.attributes[0];
-          const considerMatch = (
-            name: string,
-            candidate: PgMultiTenancyMatch,
-          ) => {
-            const current = columnsByCodec!.get(name);
-            if (
-              !current ||
-              candidate.columns.size > current.columns.size ||
-              (candidate.columns.size === current.columns.size &&
-                candidate.finalColumns.size > current.finalColumns.size) ||
-              (candidate.columns.size === current.columns.size &&
-                candidate.finalColumns.size === current.finalColumns.size &&
-                candidate.scopeIndex < current.scopeIndex)
-            ) {
-              columnsByCodec!.set(name, candidate);
-              return true;
-            }
-            return false;
-          };
-          let changed = true;
-          while (changed) {
-            changed = false;
-            for (const relation of relations) {
-              const localName = getName(relation.localCodec);
-              const remoteName = getName(relation.remoteResource.codec);
-              for (
-                let scopeIndex = 0;
-                scopeIndex < scopes.length;
-                scopeIndex++
-              ) {
-                const scope = scopes[scopeIndex];
-                const scopeTable = normalizePgTableName(scope.table);
-                if (
-                  remoteName === scopeTable ||
-                  (!scopeTable.includes(".") &&
-                    remoteName.endsWith(`.${scopeTable}`))
-                ) {
-                  const targetBaseName = this._singularizedCodecName(
-                    relation.remoteResource.codec,
-                  );
-                  const matchedColumns = new Set<string>();
-                  const finalColumns = new Set<string>();
-                  for (let i = 0; i < relation.localAttributes.length; i++) {
-                    const attribute = relation.localAttributes[i];
-                    if (!scope.columns.includes(attribute)) continue;
-                    const attributeBaseName = this._getBaseName(attribute);
-                    if (
-                      attribute !== relation.remoteAttributes[i] &&
-                      (!attributeBaseName ||
-                        !this._baseNameMatches(
-                          attributeBaseName,
-                          targetBaseName,
-                        ))
-                    ) {
-                      continue;
-                    }
-                    matchedColumns.add(attribute);
-                    if (
-                      relation.remoteAttributes[i] ===
-                      getPrimaryKeyAttribute(relation.remoteResource.codec)
-                    ) {
-                      finalColumns.add(attribute);
-                    }
-                  }
-                  if (matchedColumns.size) {
-                    changed =
-                      considerMatch(localName, {
-                        columns: matchedColumns,
-                        finalColumns,
-                        scopeIndex,
-                      }) || changed;
-                  }
-                }
-              }
-              const remoteMatch = columnsByCodec.get(remoteName);
-              if (remoteMatch) {
-                const matchedColumns = new Set<string>();
-                const finalColumns = new Set<string>();
-                for (let i = 0; i < relation.localAttributes.length; i++) {
-                  const remoteAttribute = relation.remoteAttributes[i];
-                  if (remoteMatch.columns.has(remoteAttribute)) {
-                    const attribute = relation.localAttributes[i];
-                    matchedColumns.add(attribute);
-                    if (remoteMatch.finalColumns.has(remoteAttribute)) {
-                      finalColumns.add(attribute);
-                    }
-                  }
-                }
-                if (matchedColumns.size) {
-                  changed =
-                    considerMatch(localName, {
-                      columns: matchedColumns,
-                      finalColumns,
-                      scopeIndex: remoteMatch.scopeIndex,
-                    }) || changed;
-                }
-              }
-            }
-          }
-          for (const relation of relations) {
-            const match = columnsByCodec.get(getName(relation.localCodec));
-            if (match) {
-              latestMultiTenancyColumnsByCodec.set(
-                relation.localCodec,
-                match.columns,
-              );
-            }
-          }
-          multiTenancyColumnsByRegistry.set(registry, columnsByCodec);
-        }
-        const pg = (codec.extensions as any)?.pg;
-        const name = pg ? `${pg.schemaName}.${pg.name}` : codec.name;
-        return columnsByCodec.get(name)?.columns ?? new Set();
+        return registry
+          ? getPgMultiTenancyColumns(
+              codec,
+              registry,
+              schemaOptions?.pgMultiTenancy,
+            )
+          : new Set();
       },
     },
     ignoreReplaceIfNotExists: ["deletedNodeId"],
@@ -894,6 +728,28 @@ const PgSimplifyInflectionPlugin: GraphileConfig.Plugin = {
         } else {
           return previous!(details);
         }
+      },
+    },
+  },
+  schema: {
+    hooks: {
+      init(_, build) {
+        const scopes = build.options.pgMultiTenancy;
+        if (scopes?.length) {
+          const registry = (build as any).input.pgRegistry;
+          for (const relationMap of Object.values(registry.pgRelations) as any[]) {
+            for (const relation of Object.values(relationMap) as any[]) {
+              if (!relation.isReferencee) {
+                getPgMultiTenancyColumns(
+                  relation.localCodec,
+                  registry,
+                  scopes,
+                );
+              }
+            }
+          }
+        }
+        return _;
       },
     },
   },

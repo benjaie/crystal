@@ -38,6 +38,9 @@
     "postgraphile": "workspace:^",
     "typescript": "^5.9.3"
   },
+  "peerDependencies": {
+    "graphile-build-pg": "workspace:^"
+  },
   "publishConfig": {
     "directory": "release",
     "access": "public"

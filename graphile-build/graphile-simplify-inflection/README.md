@@ -89,7 +89,9 @@ create table members (
 const preset = {
   extends: [PgSimplifyInflectionPreset],
   schema: {
-    pgMultiTenancy: [{ table: "gyms", columns: ["gym_id"] }],
+    pgMultiTenancy: [
+      { table: "gyms", columns: ["gym_id"], implicit: [true] },
+    ],
   },
 };
 ```
@@ -146,7 +148,11 @@ const preset = {
   schema: {
     pgMultiTenancy: [
       { table: "gyms", columns: ["gym_id"] },
-      { table: "families", columns: ["gym_id", "family_id"] },
+      {
+        table: "families",
+        columns: ["gym_id", "family_id"],
+        implicit: [true, false],
+      },
     ],
   },
 };
@@ -156,14 +162,13 @@ With this, there will be `SubscriptionUsage.subscription` and
 `Subscription.subscriptionUsages` fields, despite the foreign key constraint
 actually including 3 columns.
 
-Note: If multiple tenancy matches are found for a particular relationship
-(keeping in mind that at least one column must be omitted), the one with the
-most matching columns will be used. If there are still multiple matches, the
-"best" matching entry in `pgMultiTenancy` will be chosen, where best is the one
-with the most "final" columns excluded, and if there are still multiple matches
-the first best matching entry in `pgMultiTenancy` will be used. This matching is
-deterministic, but makes the order in which `pgMultiTenancy` is defined
-significant - reordering that list could be a breaking change.
+`implicit` defaults to `false` for every column and does not affect Simplify
+Inflection. The shared tenancy metadata is also used by the separate
+`@graphile/tenants` preset, which hides columns marked `true` and suppresses
+direct relationships to those scopes. Only configure a column as implicit when
+the database supplies it and enforces tenant isolation for every relevant
+operation (typically using transaction-local context and row-level security).
+The presets do not create policies, defaults, or triggers.
 
 ## Changes:
 

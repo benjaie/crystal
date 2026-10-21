@@ -3,10 +3,11 @@
   "subscriptions": false,
   "graphileBuildOptions": {
     "pgMultiTenancy": [
-      { "table": "gyms", "columns": ["gym_id"] },
+      { "table": "gyms", "columns": ["gym_id"], "implicit": [true] },
       {
         "table": "\"app_public\".\"families\"",
-        "columns": ["gym_id", "family_id"]
+        "columns": ["gym_id", "family_id"],
+        "implicit": [true, false]
       }
     ]
   }
