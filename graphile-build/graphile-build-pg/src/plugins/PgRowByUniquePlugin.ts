@@ -10,7 +10,6 @@ import type { FieldArgs } from "grafast";
 import { EXPORTABLE } from "graphile-build";
 import te, { isSafeObjectPropertyName } from "tamedevil";
 
-import { getPgImplicitMultiTenancyColumns } from "../multiTenancy.ts";
 import { tagToString } from "../utils.ts";
 import { version } from "../version.ts";
 
@@ -269,10 +268,8 @@ function publicUniqueConstraints(
   if (!build.options.pgEnableTenants || !build.options.pgMultiTenancy?.length) {
     return resource.uniques as PgResourceUnique[];
   }
-  const implicit = getPgImplicitMultiTenancyColumns(
+  const implicit = build.getPgImplicitMultiTenancyColumns(
     resource.codec as PgCodecWithAttributes,
-    (build as any).input.pgRegistry,
-    build.options.pgMultiTenancy,
   );
   return (resource.uniques as PgResourceUnique[]).filter(
     (unique) => !unique.attributes.some((attribute) => implicit.has(attribute)),

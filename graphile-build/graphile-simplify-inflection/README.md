@@ -81,7 +81,7 @@ create table members (
   unique (gym_id, id),
   -- Using the tenant ID as part of foreign key constraints enforces
   -- relationships remain within the tenant.
-  foreign key fk_family (gym_id, family_id) references families (gym_id, id)
+  constraint fk_family foreign key (gym_id, family_id) references families (gym_id, id)
 );
 ```
 
@@ -124,7 +124,7 @@ create table subscriptions (
   family_id uuid not null,
   subscription_tier text not null,
   unique (gym_id, family_id, id),
-  foreign key fk_family (gym_id, family_id) references families (gym_id, id)
+  constraint fk_family foreign key (gym_id, family_id) references families (gym_id, id)
 );
 create table subscription_usage (
   id uuid primary key,
@@ -135,8 +135,8 @@ create table subscription_usage (
   amount_used int not null,
   date timestamptz not null default now(),
   unique (gym_id, id),
-  foreign key fk_family (gym_id, family_id) references families (gym_id, id),
-  foreign key fk_subscription (gym_id, family_id, subscription_id) references subscriptions (gym_id, family_id, id)
+  constraint fk_family foreign key (gym_id, family_id) references families (gym_id, id),
+  constraint fk_subscription foreign key (gym_id, family_id, subscription_id) references subscriptions (gym_id, family_id, id)
 );
 ```
 
@@ -145,7 +145,7 @@ const preset = {
   extends: [PgSimplifyInflectionPreset],
   schema: {
     pgMultiTenancy: [
-      { table: "gyms", columns: ["gym_id"] },
+      { table: "gyms", columns: ["gym_id"], implicit: [true] },
       {
         table: "families",
         columns: ["gym_id", "family_id"],

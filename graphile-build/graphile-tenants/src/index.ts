@@ -1,9 +1,6 @@
-import type { PgCodec, PgRegistry } from "@dataplan/pg";
 import { gatherConfig } from "graphile-build";
-import type { TenantScope } from "graphile-build-pg";
 import {
   classifyPgMultiTenancyRelations,
-  getPgImplicitMultiTenancyColumns,
   isPgMultiTenancyRelation,
 } from "graphile-build-pg";
 import type { GraphileConfig } from "graphile-config";
@@ -152,12 +149,7 @@ export const PgTenantsPlugin: GraphileConfig.Plugin = {
           after: ["inferred"],
           provides: ["pgTenantImplicit"],
           callback(behavior, [codec, attributeName], build) {
-            const scopes = build.options.pgMultiTenancy;
-            const implicit = getImplicitColumns(
-              codec,
-              (build as any).input.pgRegistry,
-              scopes,
-            );
+            const implicit = build.getPgImplicitMultiTenancyColumns(codec);
             return implicit.has(attributeName)
               ? [
                   behavior,
@@ -180,15 +172,12 @@ export const PgTenantsPlugin: GraphileConfig.Plugin = {
           callback(behavior, relation, build) {
             const scopes = build.options.pgMultiTenancy;
             if (!scopes?.length) return behavior;
-            const registry = (build as any).input.pgRegistry;
             if (
               isPgMultiTenancyRelation(relation, scopes) &&
               relation.localAttributes.every((column: string) =>
-                getPgImplicitMultiTenancyColumns(
-                  relation.localCodec,
-                  registry,
-                  scopes,
-                ).has(column),
+                build
+                  .getPgImplicitMultiTenancyColumns(relation.localCodec)
+                  .has(column),
               )
             ) {
               return [behavior, "-*"];
@@ -200,14 +189,6 @@ export const PgTenantsPlugin: GraphileConfig.Plugin = {
     },
   },
 };
-
-function getImplicitColumns(
-  codec: PgCodec,
-  registry: PgRegistry,
-  scopes: readonly TenantScope[] | undefined,
-): ReadonlySet<string> {
-  return getPgImplicitMultiTenancyColumns(codec, registry, scopes);
-}
 
 export const TenantPreset: GraphileConfig.Preset = {
   plugins: [PgTenantsPlugin],

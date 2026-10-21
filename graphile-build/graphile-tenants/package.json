@@ -5,6 +5,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
+    "prepack": "node ../../scripts/build-release.mts",
     "build-package": "yarn build",
     "build": "tsc -b"
   },
@@ -16,11 +17,18 @@
   "files": [
     "dist"
   ],
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  },
   "peerDependencies": {
     "@dataplan/pg": "workspace:^1.0.0-rc.7",
     "grafast": "workspace:^1.0.0-rc.8",
     "graphile-build": "workspace:^5.0.0-rc.5",
-    "graphile-build-pg": "workspace:^",
+    "graphile-build-pg": "workspace:^5.1.5",
     "graphile-config": "workspace:^1.0.0-rc.5"
+  },
+  "publishConfig": {
+    "directory": "release",
+    "access": "public"
   }
 }

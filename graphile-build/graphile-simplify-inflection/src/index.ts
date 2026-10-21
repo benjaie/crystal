@@ -1,4 +1,4 @@
-import type { PgCodec, PgResourceUnique } from "@dataplan/pg";
+import type { PgCodec, PgRegistry, PgResourceUnique } from "@dataplan/pg";
 import type {} from "graphile-build";
 import type {} from "graphile-build-pg";
 import { getPgMultiTenancyColumns } from "graphile-build-pg";
@@ -64,7 +64,7 @@ declare global {
       _pgMultiTenancyColumns(
         this: GraphileBuild.Inflection,
         codec: PgCodec<any, any, any, any, any, any, any>,
-        registry: any,
+        registry: PgRegistry,
         schemaOptions: GraphileConfig.ResolvedPreset["schema"],
       ): ReadonlySet<string>;
     }
@@ -107,7 +107,6 @@ function fixChangePlural(
 // Users can add 'listSuffix === "omit"`/`"include"` smart tags, this handles
 // that.
 let globalPgOmitListSuffix: boolean | null = null;
-let latestPgRegistry: any;
 
 function overrideListSuffix(
   listSuffix: string | true | Array<string | true> | null | undefined,
@@ -221,13 +220,11 @@ const PgSimplifyInflectionPlugin: GraphileConfig.Plugin = {
       },
 
       _pgMultiTenancyColumns(_preset, codec, registry, schemaOptions) {
-        return registry || latestPgRegistry
-          ? getPgMultiTenancyColumns(
-              codec,
-              registry ?? latestPgRegistry,
-              schemaOptions?.pgMultiTenancy,
-            )
-          : new Set();
+        return getPgMultiTenancyColumns(
+          codec,
+          registry,
+          schemaOptions?.pgMultiTenancy,
+        );
       },
     },
     ignoreReplaceIfNotExists: ["deletedNodeId"],
@@ -578,7 +575,7 @@ const PgSimplifyInflectionPlugin: GraphileConfig.Plugin = {
         }
         const tenancyColumns = this._pgMultiTenancyColumns(
           resource.codec,
-          undefined,
+          resource.registry,
           options.schema,
         );
         const remainingAttributes = unique.attributes.filter(
@@ -610,7 +607,7 @@ const PgSimplifyInflectionPlugin: GraphileConfig.Plugin = {
         }
         const tenancyColumns = this._pgMultiTenancyColumns(
           resource.codec,
-          undefined,
+          resource.registry,
           options.schema,
         );
         const attributes = unique.attributes.filter(
@@ -638,7 +635,7 @@ const PgSimplifyInflectionPlugin: GraphileConfig.Plugin = {
         }
         const tenancyColumns = this._pgMultiTenancyColumns(
           resource.codec,
-          undefined,
+          resource.registry,
           options.schema,
         );
         const attributes = unique.attributes.filter(
@@ -668,7 +665,7 @@ const PgSimplifyInflectionPlugin: GraphileConfig.Plugin = {
         }
         const tenancyColumns = this._pgMultiTenancyColumns(
           resource.codec,
-          undefined,
+          resource.registry,
           options.schema,
         );
         if (
@@ -698,7 +695,7 @@ const PgSimplifyInflectionPlugin: GraphileConfig.Plugin = {
         }
         const tenancyColumns = this._pgMultiTenancyColumns(
           resource.codec,
-          undefined,
+          resource.registry,
           options.schema,
         );
         if (
@@ -756,27 +753,6 @@ const PgSimplifyInflectionPlugin: GraphileConfig.Plugin = {
         } else {
           return previous!(details);
         }
-      },
-    },
-  },
-  schema: {
-    hooks: {
-      init(_, build) {
-        const registry = (build as any).input.pgRegistry;
-        latestPgRegistry = registry;
-        const scopes = build.options.pgMultiTenancy;
-        if (scopes?.length) {
-          for (const relationMap of Object.values(
-            registry.pgRelations,
-          ) as any[]) {
-            for (const relation of Object.values(relationMap) as any[]) {
-              if (!relation.isReferencee) {
-                getPgMultiTenancyColumns(relation.localCodec, registry, scopes);
-              }
-            }
-          }
-        }
-        return _;
       },
     },
   },

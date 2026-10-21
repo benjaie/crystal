@@ -91,28 +91,33 @@ async function getSchema(
       ...(keepPool ? { pgSettings: (ctx) => ctx.pgSettings } : null),
     }),
   ];
-  const result = await makeSchema({
-    extends: [
-      PostGraphileAmberPreset,
-      makeV4Preset({
-        simpleCollections: "both",
-        ...settings,
-      }),
-      ...(withSimplify ? [PgSimplifyInflectionPreset] : []),
-      ...(withTenants ? [TenantPreset] : []),
-    ],
-    pgServices,
-  });
-  // TODO: solve this better!
-  // Hack to release the pool
-  if (!keepPool) {
-    pgServices[0].adaptorSettings.pool.end();
-    return result.schema;
+  let keepPoolOpen = false;
+  try {
+    const result = await makeSchema({
+      extends: [
+        PostGraphileAmberPreset,
+        makeV4Preset({
+          simpleCollections: "both",
+          ...settings,
+        }),
+        ...(withSimplify ? [PgSimplifyInflectionPreset] : []),
+        ...(withTenants ? [TenantPreset] : []),
+      ],
+      pgServices,
+    });
+    keepPoolOpen = keepPool;
+    return keepPool
+      ? {
+          ...result,
+          close: () => pgServices[0].adaptorSettings.pool.end(),
+        }
+      : result.schema;
+  } finally {
+    // Failed schema builds (including expected conflicts) must release the pool.
+    if (!keepPoolOpen) {
+      await pgServices[0].adaptorSettings.pool.end();
+    }
   }
-  return {
-    ...result,
-    close: () => pgServices[0].adaptorSettings.pool.end(),
-  };
 }
 
 async function runTests(pool, dir) {
@@ -389,6 +394,7 @@ async function runTests(pool, dir) {
     if (dir === "gym_franchise") {
       await runTenantNamingRegressionTests(client, settings);
       await runTenantRuntimeTests(client, settings);
+      await runTenantCacheIsolationTests(client, settings);
     }
   });
 }
@@ -457,6 +463,109 @@ async function runTenantNamingRegressionTests(client, settings) {
       );
     }
   }
+}
+
+async function runTenantCacheIsolationTests(client, settings) {
+  await client.query(`
+    create table app_public.tenant_cache_records (
+      id int primary key,
+      gym_id uuid not null,
+      name text not null,
+      unique (gym_id, name),
+      constraint tenant_fk foreign key (gym_id) references app_public.gyms (id)
+    );
+  `);
+  const builds = [];
+  const cacheSettings = {
+    ...settings,
+    disableDefaultMutations: false,
+    appendPlugins: [
+      {
+        name: "CaptureTenantCacheBuildPlugin",
+        schema: {
+          hooks: {
+            build(build) {
+              builds.push(build);
+              return build;
+            },
+          },
+        },
+      },
+    ],
+  };
+  const before = await getSchema(client, true, cacheSettings, true);
+  assert(!before.getType("TenantCacheRecord").getFields().gymId);
+  assert(before.getQueryType().getFields().tenantCacheRecordByName);
+  const oldBuild = builds[0];
+  const oldResource = Object.values(oldBuild.pgResources).find(
+    (resource) =>
+      resource.codec.extensions?.pg?.name === "tenant_cache_records",
+  );
+  const oldUnique = oldResource.uniques.find((unique) =>
+    unique.attributes.includes("name"),
+  );
+
+  await client.query(`
+    alter table app_public.tenant_cache_records drop constraint tenant_fk;
+  `);
+  const after = await getSchema(client, true, cacheSettings, true);
+  assert(
+    after.getType("TenantCacheRecord").getFields().gymId,
+    "removing the tenant FK must restore the column on the next build",
+  );
+  assert(
+    after.getQueryType().getFields().tenantCacheRecordByGymIdAndName,
+    "removing the tenant FK must restore the full unique lookup",
+  );
+  for (const mode of ["update", "delete"]) {
+    assert(
+      after.getMutationType().getFields()[
+        `${mode}TenantCacheRecordByGymIdAndName`
+      ],
+      "removing the tenant FK must restore unique mutations with all their keys",
+    );
+  }
+  assert(
+    oldBuild.getPgImplicitMultiTenancyColumns(oldResource.codec).has("gym_id"),
+    "a later build must not change the original build's classification",
+  );
+  assert.equal(
+    oldBuild.inflection.rowByUnique({
+      resource: oldResource,
+      unique: oldUnique,
+    }),
+    "tenantCacheRecordByName",
+    "inflectors must use their resource's registry after another schema is built",
+  );
+  // Exercise the naming-only preset, which retains the full database unique.
+  await client.query(`
+    alter table app_public.tenant_cache_records add constraint tenant_fk
+      foreign key (gym_id) references app_public.gyms (id);
+  `);
+  await getSchema(client, true, cacheSettings);
+  const namingBuild = builds[2];
+  const namingResource = Object.values(namingBuild.pgResources).find(
+    (resource) =>
+      resource.codec.extensions?.pg?.name === "tenant_cache_records",
+  );
+  const namingUnique = namingResource.uniques.find((unique) =>
+    unique.attributes.includes("name"),
+  );
+  await client.query(`
+    alter table app_public.tenant_cache_records drop constraint tenant_fk;
+  `);
+  const namingAfter = await getSchema(client, true, cacheSettings);
+  assert(
+    namingAfter.getQueryType().getFields().tenantCacheRecordByGymIdAndName,
+  );
+  assert.equal(
+    namingBuild.inflection.rowByUnique({
+      resource: namingResource,
+      unique: namingUnique,
+    }),
+    "tenantCacheRecordByName",
+    "naming-only inflection must remain tied to the original resource registry",
+  );
 }
 
 async function runTenantRuntimeTests(client, settings) {

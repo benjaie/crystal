@@ -141,36 +141,21 @@ export function classifyPgMultiTenancyRelations(
   return { columnsByName, implicitByName };
 }
 
-/**
- * Classifies local FK columns participating in configured scopes. Scope
- * matching is exact and order-independent; subsequent relationships propagate
- * those classifications using PostgreSQL's FK attribute mappings.
- */
-export function getPgMultiTenancyColumns(
-  codec: PgCodec,
-  registry: PgRegistry | undefined,
+/** Classifies the codecs in one registry without retaining any global state. */
+export function classifyPgMultiTenancy(
+  registry: PgRegistry,
   scopes: readonly TenantScope[] | undefined,
-): ReadonlySet<string> {
-  if (!scopes?.length) return EMPTY;
-  const scopeKey = JSON.stringify(scopes);
-  if (!registry) {
-    return (
-      latestByName.get(`${scopeKey}:${codecName(codec)}`) ??
-      latestByName.get(`${scopeKey}:${codec.name}`) ??
-      EMPTY
+): {
+  columnsByCodec: Map<PgCodec, ReadonlySet<string>>;
+  implicitColumnsByCodec: Map<PgCodec, ReadonlySet<string>>;
+} {
+  const columnsByCodec = new Map<PgCodec, ReadonlySet<string>>();
+  const implicitColumnsByCodec = new Map<PgCodec, ReadonlySet<string>>();
+  if (scopes?.length) {
+    const relations = Object.values(registry.pgRelations).flatMap((map) =>
+      Object.values(map).filter((relation) => !relation.isReferencee),
     );
-  }
-  const caches = cache.get(registry as object) ?? new Map();
-  let byCodec = caches.get(scopeKey);
-  if (!byCodec) {
-    byCodec = new Map();
-    const relations: any[] = [];
-    for (const map of Object.values(registry.pgRelations)) {
-      for (const relation of Object.values(map)) {
-        if (!(relation as any).isReferencee) relations.push(relation);
-      }
-    }
-    const classified = classifyPgMultiTenancyRelations(
+    const { columnsByName, implicitByName } = classifyPgMultiTenancyRelations(
       relations.map((relation) => ({
         localName: codecName(relation.localCodec),
         remoteName: codecName(relation.remoteResource.codec),
@@ -179,65 +164,36 @@ export function getPgMultiTenancyColumns(
       })),
       scopes,
     );
-    const { columnsByName: byName, implicitByName } = classified;
-    byCodec = new Map();
-    caches.set(scopeKey, byCodec);
-    cache.set(registry as object, caches);
-    const implicitByCodec = new Map<PgCodec, ReadonlySet<string>>();
-    const implicitByScope = implicitCache.get(registry as object) ?? new Map();
-    implicitByScope.set(scopeKey, implicitByCodec);
-    implicitCache.set(registry as object, implicitByScope);
     for (const relation of relations) {
-      const local = relation.localCodec as PgCodec;
-      const name = codecName(local);
-      if (!byCodec.has(local)) {
-        const columns = byName.get(name) ?? EMPTY;
-        byCodec.set(local, columns);
-        latestByName.set(`${scopeKey}:${name}`, columns);
-        latestByName.set(`${scopeKey}:${local.name}`, columns);
-        const implicitColumns = new Set(
+      const codec = relation.localCodec;
+      if (columnsByCodec.has(codec)) continue;
+      const name = codecName(codec);
+      columnsByCodec.set(codec, columnsByName.get(name) ?? new Set());
+      implicitColumnsByCodec.set(
+        codec,
+        new Set(
           [...(implicitByName.get(name) ?? [])]
-            .filter(([, value]) => value)
+            .filter(([, implicit]) => implicit)
             .map(([column]) => column),
-        );
-        implicitByCodec.set(local, implicitColumns);
-        latestImplicitByName.set(`${scopeKey}:${name}`, implicitColumns);
-        latestImplicitByName.set(`${scopeKey}:${local.name}`, implicitColumns);
-      }
+        ),
+      );
     }
   }
-  return (
-    byCodec.get(codec) ??
-    latestByName.get(`${JSON.stringify(scopes)}:${codecName(codec)}`) ??
-    latestByName.get(`${JSON.stringify(scopes)}:${codec.name}`) ??
-    EMPTY
-  );
+  return { columnsByCodec, implicitColumnsByCodec };
 }
 
-/** Returns the classified columns whose values are database-managed. */
-export function getPgImplicitMultiTenancyColumns(
+/**
+ * Stateless lookup for inflectors, which run outside the schema build hooks.
+ * Schema plugins should use the cached build.getPgMultiTenancyColumns method.
+ */
+export function getPgMultiTenancyColumns(
   codec: PgCodec,
-  registry: PgRegistry | undefined,
+  registry: PgRegistry,
   scopes: readonly TenantScope[] | undefined,
 ): ReadonlySet<string> {
-  if (!scopes?.length) return EMPTY;
-  const scopeKey = JSON.stringify(scopes);
-  if (!registry) {
-    return (
-      latestImplicitByName.get(`${scopeKey}:${codecName(codec)}`) ??
-      latestImplicitByName.get(`${scopeKey}:${codec.name}`) ??
-      EMPTY
-    );
-  }
-  getPgMultiTenancyColumns(codec, registry, scopes);
   return (
-    implicitCache
-      .get(registry as object)
-      ?.get(scopeKey)
-      ?.get(codec) ??
-    latestImplicitByName.get(`${scopeKey}:${codecName(codec)}`) ??
-    latestImplicitByName.get(`${scopeKey}:${codec.name}`) ??
-    EMPTY
+    classifyPgMultiTenancy(registry, scopes).columnsByCodec.get(codec) ??
+    new Set()
   );
 }
 
@@ -264,15 +220,3 @@ export function isPgMultiTenancyRelation(
     );
   });
 }
-
-const EMPTY: ReadonlySet<string> = new Set();
-const cache = new WeakMap<
-  object,
-  Map<string, Map<PgCodec, ReadonlySet<string>>>
->();
-const implicitCache = new WeakMap<
-  object,
-  Map<string, Map<PgCodec, ReadonlySet<string>>>
->();
-const latestByName = new Map<string, ReadonlySet<string>>();
-const latestImplicitByName = new Map<string, ReadonlySet<string>>();

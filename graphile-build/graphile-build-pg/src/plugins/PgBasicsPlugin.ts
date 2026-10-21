@@ -16,6 +16,7 @@ import type { PgSQL, SQL } from "pg-sql2";
 import { getBehavior } from "../behavior.ts";
 import type { PgCodecMetaLookup } from "../inputUtils.ts";
 import { getCodecMetaLookupFromInput, makePgCodecMeta } from "../inputUtils.ts";
+import { classifyPgMultiTenancy } from "../multiTenancy.ts";
 import { version } from "../version.ts";
 
 declare global {
@@ -77,6 +78,11 @@ declare global {
     ) => void;
 
     interface Build {
+      /** Local foreign-key columns participating in configured tenant scopes. */
+      getPgMultiTenancyColumns(codec: PgCodec): ReadonlySet<string>;
+      /** Tenant columns whose values are managed by the database/context. */
+      getPgImplicitMultiTenancyColumns(codec: PgCodec): ReadonlySet<string>;
+
       /**
        * A copy of `import * from "@dataplan/pg"` so that plugins don't need to
        * import it directly.
@@ -449,6 +455,14 @@ export const PgBasicsPlugin: GraphileConfig.Plugin = {
           input: { pgRegistry },
         } = build;
 
+        const { columnsByCodec, implicitColumnsByCodec } =
+          classifyPgMultiTenancy(pgRegistry, build.options.pgMultiTenancy);
+        const emptyColumns: ReadonlySet<string> = new Set();
+        const getPgMultiTenancyColumns = (codec: PgCodec) =>
+          columnsByCodec.get(codec) ?? emptyColumns;
+        const getPgImplicitMultiTenancyColumns = (codec: PgCodec) =>
+          implicitColumnsByCodec.get(codec) ?? emptyColumns;
+
         // Implement DX shortcuts
         const firstExecutorName = Object.keys(pgRegistry.pgExecutors)[0];
         build.pgExecutor = pgRegistry.pgExecutors[firstExecutorName];
@@ -596,6 +610,8 @@ export const PgBasicsPlugin: GraphileConfig.Plugin = {
             dataplanPg,
             dataplanJson,
             pgCodecMetaLookup,
+            getPgMultiTenancyColumns,
+            getPgImplicitMultiTenancyColumns,
             getGraphQLTypeNameByPgCodec,
             getGraphQLTypeByPgCodec,
             hasGraphQLTypeForPgCodec,

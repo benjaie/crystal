@@ -39,7 +39,7 @@
     "typescript": "^5.9.3"
   },
   "peerDependencies": {
-    "graphile-build-pg": "workspace:^"
+    "graphile-build-pg": "workspace:^5.1.5"
   },
   "publishConfig": {
     "directory": "release",

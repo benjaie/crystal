@@ -24,7 +24,6 @@ import type { GraphQLFieldConfigMap, GraphQLObjectType } from "grafast/graphql";
 import { EXPORTABLE } from "graphile-build";
 import te, { isSafeObjectPropertyName } from "tamedevil";
 
-import { getPgImplicitMultiTenancyColumns } from "../multiTenancy.ts";
 import { tagToString } from "../utils.ts";
 import { version } from "../version.ts";
 
@@ -984,11 +983,7 @@ function getSpecs(
     build.behavior.pgResourceUniqueMatches([resource, unique], constraintMode),
   );
   if (build.options.pgEnableTenants && build.options.pgMultiTenancy?.length) {
-    const implicit = getPgImplicitMultiTenancyColumns(
-      resource.codec,
-      (build as any).input.pgRegistry,
-      build.options.pgMultiTenancy,
-    );
+    const implicit = build.getPgImplicitMultiTenancyColumns(resource.codec);
     candidates = candidates.filter(
       (unique: PgResourceUnique) =>
         !unique.attributes.some((attribute: string) => implicit.has(attribute)),
