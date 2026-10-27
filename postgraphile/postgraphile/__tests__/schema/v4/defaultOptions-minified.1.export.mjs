@@ -1758,13 +1758,11 @@ const registry = makeRegistry({
   },
   pgCodecs: {
     __proto__: null,
-    text: TYPES.text,
-    varchar: TYPES.varchar,
-    bpchar: TYPES.bpchar,
     int4: TYPES.int,
     void: TYPES.void,
     compoundTypeArray: compoundTypeArrayCodec,
     compoundType: compoundTypeCodec,
+    text: TYPES.text,
     color: colorCodec,
     uuid: TYPES.uuid,
     enumCaps: enumCapsCodec,
@@ -1788,6 +1786,7 @@ const registry = makeRegistry({
     }),
     authPayload: authPayloadCodec,
     guid: guidCodec,
+    varchar: TYPES.varchar,
     uuidArray: LIST_TYPES.uuid,
     types: typesCodec,
     int2: TYPES.int2,
@@ -1843,10 +1842,10 @@ const registry = makeRegistry({
     leftArm: leftArmCodec,
     float8: TYPES.float,
     compoundKey: compoundKeyCodec,
-    edgeCase: edgeCaseCodec,
     int4Array: LIST_TYPES.int,
     dateArray: LIST_TYPES.date,
     timestamptzArray: LIST_TYPES.timestamptz,
+    edgeCase: edgeCaseCodec,
     floatrange: floatrangeCodec,
     int8Array: LIST_TYPES.bigint,
     postArray: postArrayCodec,
@@ -1861,6 +1860,15 @@ const registry = makeRegistry({
     reservedInput: reservedInputCodec,
     similarTable1: similarTable1Codec,
     similarTable2: similarTable2Codec,
+    testview: testviewCodec,
+    uniqueForeignKey: uniqueForeignKeyCodec,
+    viewTable: viewTableCodec,
+    lists: listsCodec,
+    updatableView: updatableViewCodec,
+    myTable: myTableCodec,
+    nullTestRecord: nullTestRecordCodec,
+    personSecret: personSecretCodec,
+    unlogged: unloggedCodec,
     tablefuncCrosstab2: recordCodec({
       name: "tablefuncCrosstab2",
       identifier: sql.identifier("a", "tablefunc_crosstab_2"),
@@ -1920,210 +1928,6 @@ const registry = makeRegistry({
       },
       extensions: {},
       executor: executor
-    }),
-    testview: testviewCodec,
-    uniqueForeignKey: uniqueForeignKeyCodec,
-    viewTable: viewTableCodec,
-    lists: listsCodec,
-    updatableView: updatableViewCodec,
-    myTable: myTableCodec,
-    nullTestRecord: nullTestRecordCodec,
-    personSecret: personSecretCodec,
-    unlogged: unloggedCodec,
-    LetterAToDEnum: enumCodec({
-      name: "LetterAToDEnum",
-      identifier: TYPES.text.sqlType,
-      values: [{
-        value: "A",
-        description: "The letter A"
-      }, {
-        value: "B",
-        description: "The letter B"
-      }, {
-        value: "C",
-        description: "The letter C"
-      }, {
-        value: "D",
-        description: "The letter D"
-      }],
-      extensions: {}
-    }),
-    LetterAToDViaViewEnum: enumCodec({
-      name: "LetterAToDViaViewEnum",
-      identifier: TYPES.text.sqlType,
-      values: [{
-        value: "A",
-        description: "The letter A"
-      }, {
-        value: "B",
-        description: "The letter B"
-      }, {
-        value: "C",
-        description: "The letter C"
-      }, {
-        value: "D",
-        description: "The letter D"
-      }],
-      extensions: {}
-    }),
-    EmptyEnumEnum: enumCodec({
-      name: "EmptyEnumEnum",
-      identifier: TYPES.text.sqlType,
-      values: [],
-      extensions: {}
-    }),
-    EnumTheFirstEnum: enumCodec({
-      name: "EnumTheFirstEnum",
-      identifier: TYPES.text.sqlType,
-      values: [{
-        value: "a1",
-        description: "Desc A1"
-      }, {
-        value: "a2",
-        description: "Desc A2"
-      }, {
-        value: "a3",
-        description: "Desc A3"
-      }, {
-        value: "a4",
-        description: "Desc A4"
-      }],
-      extensions: {}
-    }),
-    EnumTheSecondEnum: enumCodec({
-      name: "EnumTheSecondEnum",
-      identifier: TYPES.varchar.sqlType,
-      values: [{
-        value: "b1",
-        description: "Desc B1"
-      }, {
-        value: "b2",
-        description: "Desc B2"
-      }, {
-        value: "b3",
-        description: "Desc B3"
-      }, {
-        value: "b4",
-        description: "Desc B4"
-      }],
-      extensions: {}
-    }),
-    LotsOfEnumsEnum3Enum: enumCodec({
-      name: "LotsOfEnumsEnum3Enum",
-      identifier: TYPES.bpchar.sqlType,
-      values: [{
-        value: "c1",
-        description: "Desc C1"
-      }, {
-        value: "c2",
-        description: "Desc C2"
-      }, {
-        value: "c3",
-        description: "Desc C3"
-      }, {
-        value: "c4",
-        description: "Desc C4"
-      }],
-      extensions: {}
-    }),
-    LotsOfEnumsEnum4Enum: enumCodec({
-      name: "LotsOfEnumsEnum4Enum",
-      identifier: TYPES.text.sqlType,
-      values: [{
-        value: "d1",
-        description: "Desc D1"
-      }, {
-        value: "d2",
-        description: "Desc D2"
-      }, {
-        value: "d3",
-        description: "Desc D3"
-      }, {
-        value: "d4",
-        description: "Desc D4"
-      }],
-      extensions: {}
-    }),
-    SimpleEnumEnum: enumCodec({
-      name: "SimpleEnumEnum",
-      identifier: TYPES.text.sqlType,
-      values: [{
-        value: "Foo",
-        description: "The first metasyntactic variable"
-      }, {
-        value: "Bar",
-        description: null
-      }, {
-        value: "Baz",
-        description: "The third metasyntactic variable, very similar to its predecessor"
-      }, {
-        value: "Qux",
-        description: null
-      }],
-      extensions: {}
-    }),
-    EntityKindsEnum: enumCodec({
-      name: "EntityKindsEnum",
-      identifier: TYPES.text.sqlType,
-      values: [{
-        value: "photos",
-        description: undefined
-      }, {
-        value: "locations",
-        description: undefined
-      }, {
-        value: "profiles",
-        description: undefined
-      }],
-      extensions: {}
-    }),
-    EnumTableTransportationEnum: enumCodec({
-      name: "EnumTableTransportationEnum",
-      identifier: TYPES.text.sqlType,
-      values: [{
-        value: "CAR",
-        description: undefined
-      }, {
-        value: "BIKE",
-        description: undefined
-      }, {
-        value: "SUBWAY",
-        description: undefined
-      }],
-      extensions: {}
-    }),
-    LengthStatusEnum: enumCodec({
-      name: "LengthStatusEnum",
-      identifier: TYPES.text.sqlType,
-      values: [{
-        value: "ok",
-        description: undefined
-      }, {
-        value: "too_short",
-        description: undefined
-      }],
-      extensions: {}
-    }),
-    StageOptionsEnum: enumCodec({
-      name: "StageOptionsEnum",
-      identifier: TYPES.text.sqlType,
-      values: [{
-        value: "pending",
-        description: undefined
-      }, {
-        value: "round 1",
-        description: undefined
-      }, {
-        value: "round 2",
-        description: undefined
-      }, {
-        value: "rejected",
-        description: undefined
-      }, {
-        value: "hired",
-        description: undefined
-      }],
-      extensions: {}
     }),
     FuncOutComplexRecord: registryConfig_pgCodecs_FuncOutComplexRecord_FuncOutComplexRecord,
     FuncOutComplexSetofRecord: registryConfig_pgCodecs_FuncOutComplexSetofRecord_FuncOutComplexSetofRecord,
@@ -4831,16 +4635,6 @@ const registry = makeRegistry({
         isUnique: true
       }
     },
-    authPayload: {
-      __proto__: null,
-      personByMyId: {
-        localCodec: authPayloadCodec,
-        remoteResourceOptions: person_resourceOptionsConfig,
-        localAttributes: ["id"],
-        remoteAttributes: ["id"],
-        isUnique: true
-      }
-    },
     types: {
       __proto__: null,
       postByMySmallint: {
@@ -4959,6 +4753,16 @@ const registry = makeRegistry({
         isUnique: true,
         description: "The `Person` this `PersonSecret` belongs to.",
         extensions: {}
+      }
+    },
+    authPayload: {
+      __proto__: null,
+      personByMyId: {
+        localCodec: authPayloadCodec,
+        remoteResourceOptions: person_resourceOptionsConfig,
+        localAttributes: ["id"],
+        remoteAttributes: ["id"],
+        isUnique: true
       }
     }
   }

@@ -1,5 +1,5 @@
-import { LIST_TYPES, PgDeleteSingleStep, PgExecutor, PgResource, PgSelectSingleStep, PgSelectStep, TYPES, assertPgClassSingleStep, domainOfCodec, enumCodec, listOfCodec, makeRegistry, pgClassExpression, pgDeleteSingle, pgFromExpression, pgInsertSingle, pgSelectFromRecord, pgSelectFromRecords, pgSelectSingleFromRecord, pgUpdateSingle, rangeOfCodec, recordCodec, sqlFromArgDigests, sqlValueWithCodec } from "@dataplan/pg";
-import { ConnectionStep, EdgeStep, ObjectStep, __ValueStep, access, assertStep, bakedInput, bakedInputRuntime, connection, constant, context, createObjectAndApplyChildren, first, get as get2, inhibitOnNull, inspect, lambda, list, makeDecodeNodeId, makeGrafastSchema, markSyncAndSafe, object, operationPlan, specFromNodeId, stepAMayDependOnStepB, trap } from "grafast";
+import { LIST_TYPES, PgDeleteSingleStep, PgExecutor, PgResource, PgSelectStep, TYPES, assertPgClassSingleStep, domainOfCodec, enumCodec, listOfCodec, makeRegistry, pgDeleteSingle, pgInsertSingle, pgSelectFromRecord, pgSelectFromRecords, pgSelectSingleFromRecord, pgUpdateSingle, rangeOfCodec, recordCodec, sqlFromArgDigests, sqlValueWithCodec } from "@dataplan/pg";
+import { ConnectionStep, EdgeStep, ObjectStep, __ValueStep, access, assertStep, bakedInput, bakedInputRuntime, connection, constant, context, createObjectAndApplyChildren, first, get as get2, inhibitOnNull, inspect, lambda, list, makeDecodeNodeId, makeGrafastSchema, markSyncAndSafe, object, operationPlan, specFromNodeId, trap } from "grafast";
 import { GraphQLError, GraphQLInt, GraphQLString, Kind, valueFromASTUntyped } from "graphql";
 import { sql } from "pg-sql2";
 const EMPTY_OBJECT = Object.freeze({});
@@ -63,97 +63,6 @@ const executor = new PgExecutor({
       pgSettings: ctx.get("pgSettings"),
       withPgClient: ctx.get("withPgClient")
     });
-  }
-});
-const compoundTypeIdentifier = sql.identifier("c", "compound_type");
-const colorCodec = enumCodec({
-  name: "color",
-  identifier: sql.identifier("b", "color"),
-  values: ["red", "green", "blue"],
-  description: "Represents the colours red, green and blue.",
-  extensions: {
-    pg: {
-      serviceName: "main",
-      schemaName: "b",
-      name: "color"
-    }
-  }
-});
-const enumCapsCodec = enumCodec({
-  name: "enumCaps",
-  identifier: sql.identifier("b", "enum_caps"),
-  values: ["FOO_BAR", "BAR_FOO", "BAZ_QUX", "0_BAR"],
-  description: undefined,
-  extensions: {
-    pg: {
-      serviceName: "main",
-      schemaName: "b",
-      name: "enum_caps"
-    }
-  }
-});
-const enumWithEmptyStringCodec = enumCodec({
-  name: "enumWithEmptyString",
-  identifier: sql.identifier("b", "enum_with_empty_string"),
-  values: ["", "one", "two"],
-  description: undefined,
-  extensions: {
-    pg: {
-      serviceName: "main",
-      schemaName: "b",
-      name: "enum_with_empty_string"
-    }
-  }
-});
-const compoundTypeCodec = recordCodec({
-  name: "compoundType",
-  identifier: compoundTypeIdentifier,
-  attributes: {
-    __proto__: null,
-    a: {
-      codec: TYPES.int
-    },
-    b: {
-      codec: TYPES.text
-    },
-    c: {
-      codec: colorCodec
-    },
-    d: {
-      codec: TYPES.uuid
-    },
-    e: {
-      codec: enumCapsCodec
-    },
-    f: {
-      codec: enumWithEmptyStringCodec
-    },
-    g: {
-      codec: TYPES.interval
-    },
-    foo_bar: {
-      codec: TYPES.int
-    }
-  },
-  extensions: {
-    isTableLike: false,
-    pg: {
-      serviceName: "main",
-      schemaName: "c",
-      name: "compound_type"
-    }
-  },
-  executor: executor,
-  description: "Awesome feature!"
-});
-const compoundTypeArrayCodec = listOfCodec(compoundTypeCodec, {
-  name: "compoundTypeArray",
-  extensions: {
-    pg: {
-      serviceName: "main",
-      schemaName: "c",
-      name: "_compound_type"
-    }
   }
 });
 const postIdentifier = sql.identifier("a", "post");
@@ -250,10 +159,111 @@ const postCodec = recordCodec({
   },
   executor: executor
 });
-const jwtTokenIdentifier = sql.identifier("b", "jwt_token");
+const leftArmIdentifier = sql.identifier("c", "left_arm");
+const leftArmCodec = recordCodec({
+  name: "leftArm",
+  identifier: leftArmIdentifier,
+  attributes: {
+    __proto__: null,
+    id: {
+      codec: TYPES.int,
+      notNull: true,
+      hasDefault: true
+    },
+    person_id: {
+      codec: TYPES.int,
+      hasDefault: true
+    },
+    length_in_metres: {
+      codec: TYPES.float
+    },
+    mood: {
+      codec: TYPES.text,
+      notNull: true,
+      hasDefault: true
+    }
+  },
+  extensions: {
+    isTableLike: true,
+    pg: {
+      serviceName: "main",
+      schemaName: "c",
+      name: "left_arm"
+    }
+  },
+  executor: executor,
+  description: "Tracks metadata about the left arms of various people"
+});
+const compoundKeyIdentifier = sql.identifier("c", "compound_key");
+const compoundKeyCodec = recordCodec({
+  name: "compoundKey",
+  identifier: compoundKeyIdentifier,
+  attributes: {
+    __proto__: null,
+    person_id_2: {
+      codec: TYPES.int,
+      notNull: true
+    },
+    person_id_1: {
+      codec: TYPES.int,
+      notNull: true
+    },
+    extra: {
+      codec: TYPES.boolean
+    }
+  },
+  extensions: {
+    isTableLike: true,
+    pg: {
+      serviceName: "main",
+      schemaName: "c",
+      name: "compound_key"
+    }
+  },
+  executor: executor
+});
+const emailCodec = domainOfCodec(TYPES.text, "email", sql.identifier("b", "email"), {
+  extensions: {
+    pg: {
+      serviceName: "main",
+      schemaName: "b",
+      name: "email"
+    }
+  }
+});
+const notNullUrlCodec = domainOfCodec(TYPES.varchar, "notNullUrl", sql.identifier("b", "not_null_url"), {
+  extensions: {
+    pg: {
+      serviceName: "main",
+      schemaName: "b",
+      name: "not_null_url"
+    }
+  },
+  notNull: true
+});
+const wrappedUrlCodec = recordCodec({
+  name: "wrappedUrl",
+  identifier: sql.identifier("b", "wrapped_url"),
+  attributes: {
+    __proto__: null,
+    url: {
+      codec: notNullUrlCodec,
+      notNull: true
+    }
+  },
+  extensions: {
+    isTableLike: false,
+    pg: {
+      serviceName: "main",
+      schemaName: "b",
+      name: "wrapped_url"
+    }
+  },
+  executor: executor
+});
 const jwtTokenCodec = recordCodec({
   name: "jwtToken",
-  identifier: jwtTokenIdentifier,
+  identifier: sql.identifier("b", "jwt_token"),
   attributes: {
     __proto__: null,
     role: {
@@ -282,47 +292,19 @@ const jwtTokenCodec = recordCodec({
   },
   executor: executor
 });
-const authPayloadIdentifier = sql.identifier("b", "auth_payload");
-const authPayloadCodec = recordCodec({
-  name: "authPayload",
-  identifier: authPayloadIdentifier,
-  attributes: {
-    __proto__: null,
-    jwt: {
-      codec: jwtTokenCodec
-    },
-    id: {
-      codec: TYPES.int
-    },
-    admin: {
-      codec: TYPES.boolean
-    }
-  },
-  extensions: {
-    isTableLike: false,
-    pg: {
-      serviceName: "main",
-      schemaName: "b",
-      name: "auth_payload"
-    },
-    tags: {
-      __proto__: null,
-      foreignKey: "(id) references c.person"
-    }
-  },
-  executor: executor
-});
-const guidCodec = domainOfCodec(TYPES.varchar, "guid", sql.identifier("b", "guid"), {
+const colorCodec = enumCodec({
+  name: "color",
+  identifier: sql.identifier("b", "color"),
+  values: ["red", "green", "blue"],
+  description: "Represents the colours red, green and blue.",
   extensions: {
     pg: {
       serviceName: "main",
       schemaName: "b",
-      name: "guid"
+      name: "color"
     }
-  },
-  hasDefault: true
+  }
 });
-const typesIdentifier = sql.identifier("b", "types");
 const colorArrayCodec = listOfCodec(colorCodec, {
   name: "colorArray",
   extensions: {
@@ -330,6 +312,83 @@ const colorArrayCodec = listOfCodec(colorCodec, {
       serviceName: "main",
       schemaName: "b",
       name: "_color"
+    }
+  }
+});
+const enumCapsCodec = enumCodec({
+  name: "enumCaps",
+  identifier: sql.identifier("b", "enum_caps"),
+  values: ["FOO_BAR", "BAR_FOO", "BAZ_QUX", "0_BAR"],
+  description: undefined,
+  extensions: {
+    pg: {
+      serviceName: "main",
+      schemaName: "b",
+      name: "enum_caps"
+    }
+  }
+});
+const enumWithEmptyStringCodec = enumCodec({
+  name: "enumWithEmptyString",
+  identifier: sql.identifier("b", "enum_with_empty_string"),
+  values: ["", "one", "two"],
+  description: undefined,
+  extensions: {
+    pg: {
+      serviceName: "main",
+      schemaName: "b",
+      name: "enum_with_empty_string"
+    }
+  }
+});
+const compoundTypeCodec = recordCodec({
+  name: "compoundType",
+  identifier: sql.identifier("c", "compound_type"),
+  attributes: {
+    __proto__: null,
+    a: {
+      codec: TYPES.int
+    },
+    b: {
+      codec: TYPES.text
+    },
+    c: {
+      codec: colorCodec
+    },
+    d: {
+      codec: TYPES.uuid
+    },
+    e: {
+      codec: enumCapsCodec
+    },
+    f: {
+      codec: enumWithEmptyStringCodec
+    },
+    g: {
+      codec: TYPES.interval
+    },
+    foo_bar: {
+      codec: TYPES.int
+    }
+  },
+  extensions: {
+    isTableLike: false,
+    pg: {
+      serviceName: "main",
+      schemaName: "c",
+      name: "compound_type"
+    }
+  },
+  executor: executor,
+  description: "Awesome feature!"
+});
+const compoundTypeArrayCodec = listOfCodec(compoundTypeCodec, {
+  name: "compoundTypeArray",
+  extensions: {
+    pg: {
+      serviceName: "main",
+      schemaName: "c",
+      name: "_compound_type"
     }
   }
 });
@@ -423,7 +482,7 @@ const int8ArrayDomainCodec = domainOfCodec(LIST_TYPES.bigint, "int8ArrayDomain",
     }
   }
 });
-const spec_types_attributes_ltree_codec_ltree = {
+const registryConfig_pgCodecs_ltree_ltree = {
   name: "ltree",
   sqlType: sql`ltree`,
   toPg(str) {
@@ -435,261 +494,19 @@ const spec_types_attributes_ltree_codec_ltree = {
   executor: null,
   attributes: undefined
 };
-const spec_types_attributes_ltree_array_codec_ltree_ = listOfCodec(spec_types_attributes_ltree_codec_ltree);
-const typesCodec = recordCodec({
-  name: "types",
-  identifier: typesIdentifier,
-  attributes: {
-    __proto__: null,
-    id: {
-      codec: TYPES.int,
-      notNull: true,
-      hasDefault: true
-    },
-    smallint: {
-      codec: TYPES.int2,
-      notNull: true
-    },
-    bigint: {
-      codec: TYPES.bigint,
-      notNull: true
-    },
-    numeric: {
-      codec: TYPES.numeric,
-      notNull: true
-    },
-    decimal: {
-      codec: TYPES.numeric,
-      notNull: true
-    },
-    boolean: {
-      codec: TYPES.boolean,
-      notNull: true
-    },
-    varchar: {
-      codec: TYPES.varchar,
-      notNull: true
-    },
-    enum: {
-      codec: colorCodec,
-      notNull: true
-    },
-    enum_array: {
-      codec: colorArrayCodec,
-      notNull: true
-    },
-    domain: {
-      codec: anIntCodec,
-      notNull: true
-    },
-    domain2: {
-      codec: anotherIntCodec,
-      notNull: true
-    },
-    text_array: {
-      codec: LIST_TYPES.text,
-      notNull: true
-    },
-    json: {
-      codec: TYPES.json,
-      notNull: true
-    },
-    jsonb: {
-      codec: TYPES.jsonb,
-      notNull: true
-    },
-    jsonpath: {
-      codec: TYPES.jsonpath
-    },
-    nullable_range: {
-      codec: numrangeCodec
-    },
-    numrange: {
-      codec: numrangeCodec,
-      notNull: true
-    },
-    daterange: {
-      codec: daterangeCodec,
-      notNull: true
-    },
-    an_int_range: {
-      codec: anIntRangeCodec,
-      notNull: true
-    },
-    timestamp: {
-      codec: TYPES.timestamp,
-      notNull: true
-    },
-    timestamptz: {
-      codec: TYPES.timestamptz,
-      notNull: true
-    },
-    date: {
-      codec: TYPES.date,
-      notNull: true
-    },
-    time: {
-      codec: TYPES.time,
-      notNull: true
-    },
-    timetz: {
-      codec: TYPES.timetz,
-      notNull: true
-    },
-    interval: {
-      codec: TYPES.interval,
-      notNull: true
-    },
-    interval_array: {
-      codec: LIST_TYPES.interval,
-      notNull: true
-    },
-    money: {
-      codec: TYPES.money,
-      notNull: true
-    },
-    compound_type: {
-      codec: compoundTypeCodec,
-      notNull: true
-    },
-    nested_compound_type: {
-      codec: nestedCompoundTypeCodec,
-      notNull: true
-    },
-    nullable_compound_type: {
-      codec: compoundTypeCodec
-    },
-    nullable_nested_compound_type: {
-      codec: nestedCompoundTypeCodec
-    },
-    point: {
-      codec: TYPES.point,
-      notNull: true
-    },
-    nullablePoint: {
-      codec: TYPES.point
-    },
-    inet: {
-      codec: TYPES.inet
-    },
-    cidr: {
-      codec: TYPES.cidr
-    },
-    macaddr: {
-      codec: TYPES.macaddr
-    },
-    oid: {
-      codec: TYPES.oid
-    },
-    regproc: {
-      codec: TYPES.regproc
-    },
-    regprocedure: {
-      codec: TYPES.regprocedure
-    },
-    regoper: {
-      codec: TYPES.regoper
-    },
-    regoperator: {
-      codec: TYPES.regoperator
-    },
-    regclass: {
-      codec: TYPES.regclass
-    },
-    regtype: {
-      codec: TYPES.regtype
-    },
-    regconfig: {
-      codec: TYPES.regconfig
-    },
-    regdictionary: {
-      codec: TYPES.regdictionary
-    },
-    text_array_domain: {
-      codec: textArrayDomainCodec
-    },
-    int8_array_domain: {
-      codec: int8ArrayDomainCodec
-    },
-    bytea: {
-      codec: TYPES.bytea
-    },
-    bytea_array: {
-      codec: LIST_TYPES.bytea
-    },
-    ltree: {
-      codec: spec_types_attributes_ltree_codec_ltree
-    },
-    ltree_array: {
-      codec: spec_types_attributes_ltree_array_codec_ltree_
-    },
-    tsvector: {
-      codec: TYPES.tsvector
-    },
-    tsvector_array: {
-      codec: LIST_TYPES.tsvector
-    },
-    tsquery: {
-      codec: TYPES.tsquery
-    },
-    tsquery_array: {
-      codec: LIST_TYPES.tsquery
-    }
-  },
+const registryConfig_pgCodecs_ltree_ltree_ = listOfCodec(registryConfig_pgCodecs_ltree_ltree);
+const notNullTimestampCodec = domainOfCodec(TYPES.timestamptz, "notNullTimestamp", sql.identifier("c", "not_null_timestamp"), {
   extensions: {
-    isTableLike: true,
     pg: {
       serviceName: "main",
-      schemaName: "b",
-      name: "types"
-    },
-    tags: {
-      __proto__: null,
-      foreignKey: ["(smallint) references a.post", "(id) references a.post"]
+      schemaName: "c",
+      name: "not_null_timestamp"
     }
   },
-  executor: executor
+  notNull: true,
+  hasDefault: true
 });
 const personIdentifier = sql.identifier("c", "person");
-const emailCodec = domainOfCodec(TYPES.text, "email", sql.identifier("b", "email"), {
-  extensions: {
-    pg: {
-      serviceName: "main",
-      schemaName: "b",
-      name: "email"
-    }
-  }
-});
-const notNullUrlCodec = domainOfCodec(TYPES.varchar, "notNullUrl", sql.identifier("b", "not_null_url"), {
-  extensions: {
-    pg: {
-      serviceName: "main",
-      schemaName: "b",
-      name: "not_null_url"
-    }
-  },
-  notNull: true
-});
-const wrappedUrlCodec = recordCodec({
-  name: "wrappedUrl",
-  identifier: sql.identifier("b", "wrapped_url"),
-  attributes: {
-    __proto__: null,
-    url: {
-      codec: notNullUrlCodec,
-      notNull: true
-    }
-  },
-  extensions: {
-    isTableLike: false,
-    pg: {
-      serviceName: "main",
-      schemaName: "b",
-      name: "wrapped_url"
-    }
-  },
-  executor: executor
-});
 const personCodec = recordCodec({
   name: "person",
   identifier: personIdentifier,
@@ -759,66 +576,24 @@ const personCodec = recordCodec({
   executor: executor,
   description: "Person test comment"
 });
-const issue756Identifier = sql.identifier("c", "issue756");
-const notNullTimestampCodec = domainOfCodec(TYPES.timestamptz, "notNullTimestamp", sql.identifier("c", "not_null_timestamp"), {
-  extensions: {
-    pg: {
-      serviceName: "main",
-      schemaName: "c",
-      name: "not_null_timestamp"
-    }
-  },
-  notNull: true,
-  hasDefault: true
-});
-const issue756Codec = recordCodec({
-  name: "issue756",
-  identifier: issue756Identifier,
+const personSecretIdentifier = sql.identifier("c", "person_secret");
+const personSecretCodec = recordCodec({
+  name: "personSecret",
+  identifier: personSecretIdentifier,
   attributes: {
     __proto__: null,
-    id: {
-      codec: TYPES.int,
-      notNull: true,
-      hasDefault: true
-    },
-    ts: {
-      codec: notNullTimestampCodec,
-      notNull: true,
-      hasDefault: true
-    }
-  },
-  extensions: {
-    isTableLike: true,
-    pg: {
-      serviceName: "main",
-      schemaName: "c",
-      name: "issue756"
-    }
-  },
-  executor: executor
-});
-const leftArmIdentifier = sql.identifier("c", "left_arm");
-const leftArmCodec = recordCodec({
-  name: "leftArm",
-  identifier: leftArmIdentifier,
-  attributes: {
-    __proto__: null,
-    id: {
-      codec: TYPES.int,
-      notNull: true,
-      hasDefault: true
-    },
     person_id: {
       codec: TYPES.int,
-      hasDefault: true
+      notNull: true
     },
-    length_in_metres: {
-      codec: TYPES.float
-    },
-    mood: {
+    sekrit: {
       codec: TYPES.text,
-      notNull: true,
-      hasDefault: true
+      description: "A secret held by the associated Person",
+      extensions: {
+        tags: {
+          name: "secret"
+        }
+      }
     }
   },
   extensions: {
@@ -826,86 +601,15 @@ const leftArmCodec = recordCodec({
     pg: {
       serviceName: "main",
       schemaName: "c",
-      name: "left_arm"
+      name: "person_secret"
+    },
+    tags: {
+      __proto__: null,
+      deprecated: "This is deprecated (comment on table c.person_secret)."
     }
   },
   executor: executor,
-  description: "Tracks metadata about the left arms of various people"
-});
-const compoundKeyIdentifier = sql.identifier("c", "compound_key");
-const compoundKeyCodec = recordCodec({
-  name: "compoundKey",
-  identifier: compoundKeyIdentifier,
-  attributes: {
-    __proto__: null,
-    person_id_2: {
-      codec: TYPES.int,
-      notNull: true
-    },
-    person_id_1: {
-      codec: TYPES.int,
-      notNull: true
-    },
-    extra: {
-      codec: TYPES.boolean
-    }
-  },
-  extensions: {
-    isTableLike: true,
-    pg: {
-      serviceName: "main",
-      schemaName: "c",
-      name: "compound_key"
-    }
-  },
-  executor: executor
-});
-const edgeCaseIdentifier = sql.identifier("c", "edge_case");
-const edgeCaseCodec = recordCodec({
-  name: "edgeCase",
-  identifier: edgeCaseIdentifier,
-  attributes: {
-    __proto__: null,
-    not_null_has_default: {
-      codec: TYPES.boolean,
-      notNull: true,
-      hasDefault: true
-    },
-    wont_cast_easy: {
-      codec: TYPES.int2
-    },
-    row_id: {
-      codec: TYPES.int
-    }
-  },
-  extensions: {
-    isTableLike: true,
-    pg: {
-      serviceName: "main",
-      schemaName: "c",
-      name: "edge_case"
-    }
-  },
-  executor: executor
-});
-const floatrangeCodec = rangeOfCodec(TYPES.float, "floatrange", sql.identifier("c", "floatrange"), {
-  extensions: {
-    pg: {
-      serviceName: "main",
-      schemaName: "c",
-      name: "floatrange"
-    }
-  }
-});
-const postArrayCodec = listOfCodec(postCodec, {
-  name: "postArray",
-  extensions: {
-    pg: {
-      serviceName: "main",
-      schemaName: "a",
-      name: "_post"
-    }
-  }
+  description: "Tracks the person's secret"
 });
 const defaultValueIdentifier = sql.identifier("a", "default_value");
 const defaultValueCodec = recordCodec({
@@ -1264,6 +968,35 @@ const viewTableCodec = recordCodec({
   },
   executor: executor
 });
+const authPayloadCodec = recordCodec({
+  name: "authPayload",
+  identifier: sql.identifier("b", "auth_payload"),
+  attributes: {
+    __proto__: null,
+    jwt: {
+      codec: jwtTokenCodec
+    },
+    id: {
+      codec: TYPES.int
+    },
+    admin: {
+      codec: TYPES.boolean
+    }
+  },
+  extensions: {
+    isTableLike: false,
+    pg: {
+      serviceName: "main",
+      schemaName: "b",
+      name: "auth_payload"
+    },
+    tags: {
+      __proto__: null,
+      foreignKey: "(id) references c.person"
+    }
+  },
+  executor: executor
+});
 const listsIdentifier = sql.identifier("b", "lists");
 const listsCodec = recordCodec({
   name: "lists",
@@ -1342,6 +1075,221 @@ const listsCodec = recordCodec({
   },
   executor: executor
 });
+const typesIdentifier = sql.identifier("b", "types");
+const typesCodec = recordCodec({
+  name: "types",
+  identifier: typesIdentifier,
+  attributes: {
+    __proto__: null,
+    id: {
+      codec: TYPES.int,
+      notNull: true,
+      hasDefault: true
+    },
+    smallint: {
+      codec: TYPES.int2,
+      notNull: true
+    },
+    bigint: {
+      codec: TYPES.bigint,
+      notNull: true
+    },
+    numeric: {
+      codec: TYPES.numeric,
+      notNull: true
+    },
+    decimal: {
+      codec: TYPES.numeric,
+      notNull: true
+    },
+    boolean: {
+      codec: TYPES.boolean,
+      notNull: true
+    },
+    varchar: {
+      codec: TYPES.varchar,
+      notNull: true
+    },
+    enum: {
+      codec: colorCodec,
+      notNull: true
+    },
+    enum_array: {
+      codec: colorArrayCodec,
+      notNull: true
+    },
+    domain: {
+      codec: anIntCodec,
+      notNull: true
+    },
+    domain2: {
+      codec: anotherIntCodec,
+      notNull: true
+    },
+    text_array: {
+      codec: LIST_TYPES.text,
+      notNull: true
+    },
+    json: {
+      codec: TYPES.json,
+      notNull: true
+    },
+    jsonb: {
+      codec: TYPES.jsonb,
+      notNull: true
+    },
+    jsonpath: {
+      codec: TYPES.jsonpath
+    },
+    nullable_range: {
+      codec: numrangeCodec
+    },
+    numrange: {
+      codec: numrangeCodec,
+      notNull: true
+    },
+    daterange: {
+      codec: daterangeCodec,
+      notNull: true
+    },
+    an_int_range: {
+      codec: anIntRangeCodec,
+      notNull: true
+    },
+    timestamp: {
+      codec: TYPES.timestamp,
+      notNull: true
+    },
+    timestamptz: {
+      codec: TYPES.timestamptz,
+      notNull: true
+    },
+    date: {
+      codec: TYPES.date,
+      notNull: true
+    },
+    time: {
+      codec: TYPES.time,
+      notNull: true
+    },
+    timetz: {
+      codec: TYPES.timetz,
+      notNull: true
+    },
+    interval: {
+      codec: TYPES.interval,
+      notNull: true
+    },
+    interval_array: {
+      codec: LIST_TYPES.interval,
+      notNull: true
+    },
+    money: {
+      codec: TYPES.money,
+      notNull: true
+    },
+    compound_type: {
+      codec: compoundTypeCodec,
+      notNull: true
+    },
+    nested_compound_type: {
+      codec: nestedCompoundTypeCodec,
+      notNull: true
+    },
+    nullable_compound_type: {
+      codec: compoundTypeCodec
+    },
+    nullable_nested_compound_type: {
+      codec: nestedCompoundTypeCodec
+    },
+    point: {
+      codec: TYPES.point,
+      notNull: true
+    },
+    nullablePoint: {
+      codec: TYPES.point
+    },
+    inet: {
+      codec: TYPES.inet
+    },
+    cidr: {
+      codec: TYPES.cidr
+    },
+    macaddr: {
+      codec: TYPES.macaddr
+    },
+    oid: {
+      codec: TYPES.oid
+    },
+    regproc: {
+      codec: TYPES.regproc
+    },
+    regprocedure: {
+      codec: TYPES.regprocedure
+    },
+    regoper: {
+      codec: TYPES.regoper
+    },
+    regoperator: {
+      codec: TYPES.regoperator
+    },
+    regclass: {
+      codec: TYPES.regclass
+    },
+    regtype: {
+      codec: TYPES.regtype
+    },
+    regconfig: {
+      codec: TYPES.regconfig
+    },
+    regdictionary: {
+      codec: TYPES.regdictionary
+    },
+    text_array_domain: {
+      codec: textArrayDomainCodec
+    },
+    int8_array_domain: {
+      codec: int8ArrayDomainCodec
+    },
+    bytea: {
+      codec: TYPES.bytea
+    },
+    bytea_array: {
+      codec: LIST_TYPES.bytea
+    },
+    ltree: {
+      codec: registryConfig_pgCodecs_ltree_ltree
+    },
+    ltree_array: {
+      codec: registryConfig_pgCodecs_ltree_ltree_
+    },
+    tsvector: {
+      codec: TYPES.tsvector
+    },
+    tsvector_array: {
+      codec: LIST_TYPES.tsvector
+    },
+    tsquery: {
+      codec: TYPES.tsquery
+    },
+    tsquery_array: {
+      codec: LIST_TYPES.tsquery
+    }
+  },
+  extensions: {
+    isTableLike: true,
+    pg: {
+      serviceName: "main",
+      schemaName: "b",
+      name: "types"
+    },
+    tags: {
+      __proto__: null,
+      foreignKey: ["(smallint) references a.post", "(id) references a.post"]
+    }
+  },
+  executor: executor
+});
 const updatableViewIdentifier = sql.identifier("b", "updatable_view");
 const updatableViewCodec = recordCodec({
   name: "updatableView",
@@ -1377,6 +1325,61 @@ const updatableViewCodec = recordCodec({
   },
   executor: executor,
   description: "YOYOYO!!"
+});
+const edgeCaseIdentifier = sql.identifier("c", "edge_case");
+const edgeCaseCodec = recordCodec({
+  name: "edgeCase",
+  identifier: edgeCaseIdentifier,
+  attributes: {
+    __proto__: null,
+    not_null_has_default: {
+      codec: TYPES.boolean,
+      notNull: true,
+      hasDefault: true
+    },
+    wont_cast_easy: {
+      codec: TYPES.int2
+    },
+    row_id: {
+      codec: TYPES.int
+    }
+  },
+  extensions: {
+    isTableLike: true,
+    pg: {
+      serviceName: "main",
+      schemaName: "c",
+      name: "edge_case"
+    }
+  },
+  executor: executor
+});
+const issue756Identifier = sql.identifier("c", "issue756");
+const issue756Codec = recordCodec({
+  name: "issue756",
+  identifier: issue756Identifier,
+  attributes: {
+    __proto__: null,
+    id: {
+      codec: TYPES.int,
+      notNull: true,
+      hasDefault: true
+    },
+    ts: {
+      codec: notNullTimestampCodec,
+      notNull: true,
+      hasDefault: true
+    }
+  },
+  extensions: {
+    isTableLike: true,
+    pg: {
+      serviceName: "main",
+      schemaName: "c",
+      name: "issue756"
+    }
+  },
+  executor: executor
 });
 const myTableIdentifier = sql.identifier("c", "my_table");
 const myTableCodec = recordCodec({
@@ -1435,41 +1438,6 @@ const nullTestRecordCodec = recordCodec({
   },
   executor: executor
 });
-const personSecretIdentifier = sql.identifier("c", "person_secret");
-const personSecretCodec = recordCodec({
-  name: "personSecret",
-  identifier: personSecretIdentifier,
-  attributes: {
-    __proto__: null,
-    person_id: {
-      codec: TYPES.int,
-      notNull: true
-    },
-    sekrit: {
-      codec: TYPES.text,
-      description: "A secret held by the associated Person",
-      extensions: {
-        tags: {
-          name: "secret"
-        }
-      }
-    }
-  },
-  extensions: {
-    isTableLike: true,
-    pg: {
-      serviceName: "main",
-      schemaName: "c",
-      name: "person_secret"
-    },
-    tags: {
-      __proto__: null,
-      deprecated: "This is deprecated (comment on table c.person_secret)."
-    }
-  },
-  executor: executor,
-  description: "Tracks the person's secret"
-});
 const unloggedIdentifier = sql.identifier("c", "unlogged");
 const unloggedCodec = recordCodec({
   name: "unlogged",
@@ -1496,568 +1464,92 @@ const unloggedCodec = recordCodec({
   },
   executor: executor
 });
-const registryConfig_pgCodecs_FuncOutComplexRecord_FuncOutComplexRecord = recordCodec({
-  name: "FuncOutComplexRecord",
-  identifier: sql`ANONYMOUS_TYPE_DO_NOT_REFERENCE`,
-  attributes: {
-    __proto__: null,
-    x: {
-      codec: TYPES.int,
-      extensions: {
-        argIndex: 2,
-        argName: "x"
-      }
-    },
-    y: {
-      codec: compoundTypeCodec,
-      extensions: {
-        argIndex: 3,
-        argName: "y"
-      }
-    },
-    z: {
-      codec: personCodec,
-      extensions: {
-        argIndex: 4,
-        argName: "z"
-      }
+const postUniques = [{
+  attributes: ["id"],
+  isPrimary: true
+}];
+const post_resourceOptionsConfig = {
+  executor: executor,
+  name: "post",
+  identifier: "main.a.post",
+  from: postIdentifier,
+  codec: postCodec,
+  extensions: {
+    pg: {
+      serviceName: "main",
+      schemaName: "a",
+      name: "post"
     }
   },
-  executor,
-  isAnonymous: true
-});
-const registryConfig_pgCodecs_FuncOutComplexSetofRecord_FuncOutComplexSetofRecord = recordCodec({
-  name: "FuncOutComplexSetofRecord",
-  identifier: sql`ANONYMOUS_TYPE_DO_NOT_REFERENCE`,
-  attributes: {
-    __proto__: null,
-    x: {
-      codec: TYPES.int,
-      extensions: {
-        argIndex: 2,
-        argName: "x"
-      }
-    },
-    y: {
-      codec: compoundTypeCodec,
-      extensions: {
-        argIndex: 3,
-        argName: "y"
-      }
-    },
-    z: {
-      codec: personCodec,
-      extensions: {
-        argIndex: 4,
-        argName: "z"
-      }
+  uniques: postUniques
+};
+const left_armUniques = [{
+  attributes: ["id"],
+  isPrimary: true
+}, {
+  attributes: ["person_id"]
+}];
+const left_arm_resourceOptionsConfig = {
+  executor: executor,
+  name: "left_arm",
+  identifier: "main.c.left_arm",
+  from: leftArmIdentifier,
+  codec: leftArmCodec,
+  extensions: {
+    pg: {
+      serviceName: "main",
+      schemaName: "c",
+      name: "left_arm"
     }
   },
-  executor,
-  isAnonymous: true
-});
-const registryConfig_pgCodecs_FuncOutOutRecord_FuncOutOutRecord = recordCodec({
-  name: "FuncOutOutRecord",
-  identifier: sql`ANONYMOUS_TYPE_DO_NOT_REFERENCE`,
-  attributes: {
-    __proto__: null,
-    first_out: {
-      codec: TYPES.int,
-      extensions: {
-        argIndex: 0,
-        argName: "first_out"
-      }
-    },
-    second_out: {
-      codec: TYPES.text,
-      extensions: {
-        argIndex: 1,
-        argName: "second_out"
-      }
+  uniques: left_armUniques,
+  description: "Tracks metadata about the left arms of various people"
+};
+const personUniques = [{
+  attributes: ["id"],
+  isPrimary: true
+}, {
+  attributes: ["email"]
+}];
+const person_resourceOptionsConfig = {
+  executor: executor,
+  name: "person",
+  identifier: "main.c.person",
+  from: personIdentifier,
+  codec: personCodec,
+  extensions: {
+    pg: {
+      serviceName: "main",
+      schemaName: "c",
+      name: "person"
     }
   },
-  executor,
-  isAnonymous: true
-});
-const registryConfig_pgCodecs_FuncOutOutCompoundTypeRecord_FuncOutOutCompoundTypeRecord = recordCodec({
-  name: "FuncOutOutCompoundTypeRecord",
-  identifier: sql`ANONYMOUS_TYPE_DO_NOT_REFERENCE`,
-  attributes: {
-    __proto__: null,
-    o1: {
-      codec: TYPES.int,
-      extensions: {
-        argIndex: 1,
-        argName: "o1"
-      }
+  uniques: personUniques,
+  description: "Person test comment"
+};
+const person_secretUniques = [{
+  attributes: ["person_id"],
+  isPrimary: true
+}];
+const person_secret_resourceOptionsConfig = {
+  executor: executor,
+  name: "person_secret",
+  identifier: "main.c.person_secret",
+  from: personSecretIdentifier,
+  codec: personSecretCodec,
+  extensions: {
+    pg: {
+      serviceName: "main",
+      schemaName: "c",
+      name: "person_secret"
     },
-    o2: {
-      codec: compoundTypeCodec,
-      extensions: {
-        argIndex: 2,
-        argName: "o2"
-      }
+    tags: {
+      deprecated: "This is deprecated (comment on table c.person_secret)."
     }
   },
-  executor,
-  isAnonymous: true
-});
-const registryConfig_pgCodecs_FuncOutOutSetofRecord_FuncOutOutSetofRecord = recordCodec({
-  name: "FuncOutOutSetofRecord",
-  identifier: sql`ANONYMOUS_TYPE_DO_NOT_REFERENCE`,
-  attributes: {
-    __proto__: null,
-    o1: {
-      codec: TYPES.int,
-      extensions: {
-        argIndex: 0,
-        argName: "o1"
-      }
-    },
-    o2: {
-      codec: TYPES.text,
-      extensions: {
-        argIndex: 1,
-        argName: "o2"
-      }
-    }
-  },
-  executor,
-  isAnonymous: true
-});
-const registryConfig_pgCodecs_FuncOutOutUnnamedRecord_FuncOutOutUnnamedRecord = recordCodec({
-  name: "FuncOutOutUnnamedRecord",
-  identifier: sql`ANONYMOUS_TYPE_DO_NOT_REFERENCE`,
-  attributes: {
-    __proto__: null,
-    column1: {
-      codec: TYPES.int,
-      extensions: {
-        argIndex: 0,
-        argName: undefined
-      }
-    },
-    column2: {
-      codec: TYPES.text,
-      extensions: {
-        argIndex: 1,
-        argName: undefined
-      }
-    }
-  },
-  executor,
-  isAnonymous: true
-});
-const registryConfig_pgCodecs_FuncOutUnnamedOutOutUnnamedRecord_FuncOutUnnamedOutOutUnnamedRecord = recordCodec({
-  name: "FuncOutUnnamedOutOutUnnamedRecord",
-  identifier: sql`ANONYMOUS_TYPE_DO_NOT_REFERENCE`,
-  attributes: {
-    __proto__: null,
-    column1: {
-      codec: TYPES.int,
-      extensions: {
-        argIndex: 0,
-        argName: ""
-      }
-    },
-    o2: {
-      codec: TYPES.text,
-      extensions: {
-        argIndex: 1,
-        argName: "o2"
-      }
-    },
-    column3: {
-      codec: TYPES.int,
-      extensions: {
-        argIndex: 2,
-        argName: ""
-      }
-    }
-  },
-  executor,
-  isAnonymous: true
-});
-const registryConfig_pgCodecs_FuncReturnsTableMultiColRecord_FuncReturnsTableMultiColRecord = recordCodec({
-  name: "FuncReturnsTableMultiColRecord",
-  identifier: sql`ANONYMOUS_TYPE_DO_NOT_REFERENCE`,
-  attributes: {
-    __proto__: null,
-    col1: {
-      codec: TYPES.int,
-      extensions: {
-        argIndex: 3,
-        argName: "col1"
-      }
-    },
-    col2: {
-      codec: TYPES.text,
-      extensions: {
-        argIndex: 4,
-        argName: "col2"
-      }
-    }
-  },
-  executor,
-  isAnonymous: true
-});
-const registryConfig_pgCodecs_MutationOutComplexRecord_MutationOutComplexRecord = recordCodec({
-  name: "MutationOutComplexRecord",
-  identifier: sql`ANONYMOUS_TYPE_DO_NOT_REFERENCE`,
-  attributes: {
-    __proto__: null,
-    x: {
-      codec: TYPES.int,
-      extensions: {
-        argIndex: 2,
-        argName: "x"
-      }
-    },
-    y: {
-      codec: compoundTypeCodec,
-      extensions: {
-        argIndex: 3,
-        argName: "y"
-      }
-    },
-    z: {
-      codec: personCodec,
-      extensions: {
-        argIndex: 4,
-        argName: "z"
-      }
-    }
-  },
-  executor,
-  isAnonymous: true
-});
-const registryConfig_pgCodecs_MutationOutComplexSetofRecord_MutationOutComplexSetofRecord = recordCodec({
-  name: "MutationOutComplexSetofRecord",
-  identifier: sql`ANONYMOUS_TYPE_DO_NOT_REFERENCE`,
-  attributes: {
-    __proto__: null,
-    x: {
-      codec: TYPES.int,
-      extensions: {
-        argIndex: 2,
-        argName: "x"
-      }
-    },
-    y: {
-      codec: compoundTypeCodec,
-      extensions: {
-        argIndex: 3,
-        argName: "y"
-      }
-    },
-    z: {
-      codec: personCodec,
-      extensions: {
-        argIndex: 4,
-        argName: "z"
-      }
-    }
-  },
-  executor,
-  isAnonymous: true
-});
-const registryConfig_pgCodecs_MutationOutOutRecord_MutationOutOutRecord = recordCodec({
-  name: "MutationOutOutRecord",
-  identifier: sql`ANONYMOUS_TYPE_DO_NOT_REFERENCE`,
-  attributes: {
-    __proto__: null,
-    first_out: {
-      codec: TYPES.int,
-      extensions: {
-        argIndex: 0,
-        argName: "first_out"
-      }
-    },
-    second_out: {
-      codec: TYPES.text,
-      extensions: {
-        argIndex: 1,
-        argName: "second_out"
-      }
-    }
-  },
-  executor,
-  isAnonymous: true
-});
-const registryConfig_pgCodecs_MutationOutOutCompoundTypeRecord_MutationOutOutCompoundTypeRecord = recordCodec({
-  name: "MutationOutOutCompoundTypeRecord",
-  identifier: sql`ANONYMOUS_TYPE_DO_NOT_REFERENCE`,
-  attributes: {
-    __proto__: null,
-    o1: {
-      codec: TYPES.int,
-      extensions: {
-        argIndex: 1,
-        argName: "o1"
-      }
-    },
-    o2: {
-      codec: compoundTypeCodec,
-      extensions: {
-        argIndex: 2,
-        argName: "o2"
-      }
-    }
-  },
-  executor,
-  isAnonymous: true
-});
-const registryConfig_pgCodecs_MutationOutOutSetofRecord_MutationOutOutSetofRecord = recordCodec({
-  name: "MutationOutOutSetofRecord",
-  identifier: sql`ANONYMOUS_TYPE_DO_NOT_REFERENCE`,
-  attributes: {
-    __proto__: null,
-    o1: {
-      codec: TYPES.int,
-      extensions: {
-        argIndex: 0,
-        argName: "o1"
-      }
-    },
-    o2: {
-      codec: TYPES.text,
-      extensions: {
-        argIndex: 1,
-        argName: "o2"
-      }
-    }
-  },
-  executor,
-  isAnonymous: true
-});
-const registryConfig_pgCodecs_MutationOutOutUnnamedRecord_MutationOutOutUnnamedRecord = recordCodec({
-  name: "MutationOutOutUnnamedRecord",
-  identifier: sql`ANONYMOUS_TYPE_DO_NOT_REFERENCE`,
-  attributes: {
-    __proto__: null,
-    column1: {
-      codec: TYPES.int,
-      extensions: {
-        argIndex: 0,
-        argName: undefined
-      }
-    },
-    column2: {
-      codec: TYPES.text,
-      extensions: {
-        argIndex: 1,
-        argName: undefined
-      }
-    }
-  },
-  executor,
-  isAnonymous: true
-});
-const registryConfig_pgCodecs_MutationOutUnnamedOutOutUnnamedRecord_MutationOutUnnamedOutOutUnnamedRecord = recordCodec({
-  name: "MutationOutUnnamedOutOutUnnamedRecord",
-  identifier: sql`ANONYMOUS_TYPE_DO_NOT_REFERENCE`,
-  attributes: {
-    __proto__: null,
-    column1: {
-      codec: TYPES.int,
-      extensions: {
-        argIndex: 0,
-        argName: ""
-      }
-    },
-    o2: {
-      codec: TYPES.text,
-      extensions: {
-        argIndex: 1,
-        argName: "o2"
-      }
-    },
-    column3: {
-      codec: TYPES.int,
-      extensions: {
-        argIndex: 2,
-        argName: ""
-      }
-    }
-  },
-  executor,
-  isAnonymous: true
-});
-const registryConfig_pgCodecs_MutationReturnsTableMultiColRecord_MutationReturnsTableMultiColRecord = recordCodec({
-  name: "MutationReturnsTableMultiColRecord",
-  identifier: sql`ANONYMOUS_TYPE_DO_NOT_REFERENCE`,
-  attributes: {
-    __proto__: null,
-    col1: {
-      codec: TYPES.int,
-      extensions: {
-        argIndex: 1,
-        argName: "col1"
-      }
-    },
-    col2: {
-      codec: TYPES.text,
-      extensions: {
-        argIndex: 2,
-        argName: "col2"
-      }
-    }
-  },
-  executor,
-  isAnonymous: true
-});
-const registryConfig_pgCodecs_PersonComputedComplexRecord_PersonComputedComplexRecord = recordCodec({
-  name: "PersonComputedComplexRecord",
-  identifier: sql`ANONYMOUS_TYPE_DO_NOT_REFERENCE`,
-  attributes: {
-    __proto__: null,
-    x: {
-      codec: TYPES.int,
-      extensions: {
-        argIndex: 3,
-        argName: "x"
-      }
-    },
-    y: {
-      codec: compoundTypeCodec,
-      extensions: {
-        argIndex: 4,
-        argName: "y"
-      }
-    },
-    z: {
-      codec: personCodec,
-      extensions: {
-        argIndex: 5,
-        argName: "z"
-      }
-    }
-  },
-  executor,
-  isAnonymous: true
-});
-const registryConfig_pgCodecs_PersonComputedFirstArgInoutOutRecord_PersonComputedFirstArgInoutOutRecord = recordCodec({
-  name: "PersonComputedFirstArgInoutOutRecord",
-  identifier: sql`ANONYMOUS_TYPE_DO_NOT_REFERENCE`,
-  attributes: {
-    __proto__: null,
-    person: {
-      codec: personCodec,
-      extensions: {
-        argIndex: 0,
-        argName: "person"
-      }
-    },
-    o: {
-      codec: TYPES.int,
-      extensions: {
-        argIndex: 1,
-        argName: "o"
-      }
-    }
-  },
-  executor,
-  isAnonymous: true
-});
-const registryConfig_pgCodecs_PersonComputedInoutOutRecord_PersonComputedInoutOutRecord = recordCodec({
-  name: "PersonComputedInoutOutRecord",
-  identifier: sql`ANONYMOUS_TYPE_DO_NOT_REFERENCE`,
-  attributes: {
-    __proto__: null,
-    ino: {
-      codec: TYPES.text,
-      extensions: {
-        argIndex: 1,
-        argName: "ino"
-      }
-    },
-    o: {
-      codec: TYPES.text,
-      extensions: {
-        argIndex: 2,
-        argName: "o"
-      }
-    }
-  },
-  executor,
-  isAnonymous: true
-});
-const registryConfig_pgCodecs_PersonComputedOutOutRecord_PersonComputedOutOutRecord = recordCodec({
-  name: "PersonComputedOutOutRecord",
-  identifier: sql`ANONYMOUS_TYPE_DO_NOT_REFERENCE`,
-  attributes: {
-    __proto__: null,
-    o1: {
-      codec: TYPES.text,
-      extensions: {
-        argIndex: 1,
-        argName: "o1"
-      }
-    },
-    o2: {
-      codec: TYPES.text,
-      extensions: {
-        argIndex: 2,
-        argName: "o2"
-      }
-    }
-  },
-  executor,
-  isAnonymous: true
-});
-const registryConfig_pgCodecs_QueryOutputTwoRowsRecord_QueryOutputTwoRowsRecord = recordCodec({
-  name: "QueryOutputTwoRowsRecord",
-  identifier: sql`ANONYMOUS_TYPE_DO_NOT_REFERENCE`,
-  attributes: {
-    __proto__: null,
-    txt: {
-      codec: TYPES.text,
-      extensions: {
-        argIndex: 2,
-        argName: "txt"
-      }
-    },
-    left_arm: {
-      codec: leftArmCodec,
-      extensions: {
-        argIndex: 3,
-        argName: "left_arm"
-      }
-    },
-    post: {
-      codec: postCodec,
-      extensions: {
-        argIndex: 4,
-        argName: "post"
-      }
-    }
-  },
-  executor,
-  isAnonymous: true
-});
-const registryConfig_pgCodecs_SearchTestSummariesRecord_SearchTestSummariesRecord = recordCodec({
-  name: "SearchTestSummariesRecord",
-  identifier: sql`ANONYMOUS_TYPE_DO_NOT_REFERENCE`,
-  attributes: {
-    __proto__: null,
-    id: {
-      codec: TYPES.int,
-      extensions: {
-        argIndex: 0,
-        argName: "id"
-      }
-    },
-    total_duration: {
-      codec: TYPES.interval,
-      extensions: {
-        argIndex: 1,
-        argName: "total_duration"
-      }
-    }
-  },
-  executor,
-  isAnonymous: true
-});
+  uniques: person_secretUniques,
+  description: "Tracks the person's secret"
+};
 const default_valueUniques = [{
   attributes: ["id"],
   isPrimary: true
@@ -2087,25 +1579,6 @@ const patchsUniques = [{
   attributes: ["id"],
   isPrimary: true
 }];
-const postUniques = [{
-  attributes: ["id"],
-  isPrimary: true
-}];
-const post_resourceOptionsConfig = {
-  executor: executor,
-  name: "post",
-  identifier: "main.a.post",
-  from: postIdentifier,
-  codec: postCodec,
-  extensions: {
-    pg: {
-      serviceName: "main",
-      schemaName: "a",
-      name: "post"
-    }
-  },
-  uniques: postUniques
-};
 const reservedUniques = [{
   attributes: ["id"],
   isPrimary: true
@@ -2210,43 +1683,6 @@ const issue756Uniques = [{
   attributes: ["id"],
   isPrimary: true
 }];
-const issue756_resourceOptionsConfig = {
-  executor: executor,
-  name: "issue756",
-  identifier: "main.c.issue756",
-  from: issue756Identifier,
-  codec: issue756Codec,
-  extensions: {
-    pg: {
-      serviceName: "main",
-      schemaName: "c",
-      name: "issue756"
-    }
-  },
-  uniques: issue756Uniques
-};
-const left_armUniques = [{
-  attributes: ["id"],
-  isPrimary: true
-}, {
-  attributes: ["person_id"]
-}];
-const left_arm_resourceOptionsConfig = {
-  executor: executor,
-  name: "left_arm",
-  identifier: "main.c.left_arm",
-  from: leftArmIdentifier,
-  codec: leftArmCodec,
-  extensions: {
-    pg: {
-      serviceName: "main",
-      schemaName: "c",
-      name: "left_arm"
-    }
-  },
-  uniques: left_armUniques,
-  description: "Tracks metadata about the left arms of various people"
-};
 const my_tableUniques = [{
   attributes: ["id"],
   isPrimary: true
@@ -2255,229 +1691,11 @@ const null_test_recordUniques = [{
   attributes: ["id"],
   isPrimary: true
 }];
-const personUniques = [{
-  attributes: ["id"],
-  isPrimary: true
-}, {
-  attributes: ["email"]
-}];
-const person_resourceOptionsConfig = {
-  executor: executor,
-  name: "person",
-  identifier: "main.c.person",
-  from: personIdentifier,
-  codec: personCodec,
-  extensions: {
-    pg: {
-      serviceName: "main",
-      schemaName: "c",
-      name: "person"
-    }
-  },
-  uniques: personUniques,
-  description: "Person test comment"
-};
-const person_secretUniques = [{
-  attributes: ["person_id"],
-  isPrimary: true
-}];
-const person_secret_resourceOptionsConfig = {
-  executor: executor,
-  name: "person_secret",
-  identifier: "main.c.person_secret",
-  from: personSecretIdentifier,
-  codec: personSecretCodec,
-  extensions: {
-    pg: {
-      serviceName: "main",
-      schemaName: "c",
-      name: "person_secret"
-    },
-    tags: {
-      deprecated: "This is deprecated (comment on table c.person_secret)."
-    }
-  },
-  uniques: person_secretUniques,
-  description: "Tracks the person's secret"
-};
-const add_1_mutationFunctionIdentifer = sql.identifier("a", "add_1_mutation");
-const add_1_queryFunctionIdentifer = sql.identifier("a", "add_1_query");
-const add_2_mutationFunctionIdentifer = sql.identifier("a", "add_2_mutation");
-const add_2_queryFunctionIdentifer = sql.identifier("a", "add_2_query");
-const add_3_mutationFunctionIdentifer = sql.identifier("a", "add_3_mutation");
-const add_3_queryFunctionIdentifer = sql.identifier("a", "add_3_query");
-const add_4_mutationFunctionIdentifer = sql.identifier("a", "add_4_mutation");
-const add_4_mutation_errorFunctionIdentifer = sql.identifier("a", "add_4_mutation_error");
-const add_4_queryFunctionIdentifer = sql.identifier("a", "add_4_query");
-const assert_somethingFunctionIdentifer = sql.identifier("a", "assert_something");
-const assert_something_nxFunctionIdentifer = sql.identifier("a", "assert_something_nx");
-const mutation_compound_type_arrayFunctionIdentifer = sql.identifier("a", "mutation_compound_type_array");
-const compound_type_resourceOptionsConfig = {
-  executor: executor,
-  name: "compound_type",
-  identifier: "main.c.compound_type",
-  from: compoundTypeIdentifier,
-  codec: compoundTypeCodec,
-  extensions: {
-    pg: {
-      serviceName: "main",
-      schemaName: "c",
-      name: "compound_type"
-    },
-    isInsertable: false,
-    isUpdatable: false,
-    isDeletable: false
-  },
-  isVirtual: true,
-  description: "Awesome feature!"
-};
-const mutation_interval_arrayFunctionIdentifer = sql.identifier("a", "mutation_interval_array");
-const mutation_interval_setFunctionIdentifer = sql.identifier("a", "mutation_interval_set");
-const mutation_text_arrayFunctionIdentifer = sql.identifier("a", "mutation_text_array");
-const optional_missing_middle_1FunctionIdentifer = sql.identifier("a", "optional_missing_middle_1");
-const optional_missing_middle_2FunctionIdentifer = sql.identifier("a", "optional_missing_middle_2");
-const optional_missing_middle_3FunctionIdentifer = sql.identifier("a", "optional_missing_middle_3");
-const optional_missing_middle_4FunctionIdentifer = sql.identifier("a", "optional_missing_middle_4");
-const optional_missing_middle_5FunctionIdentifer = sql.identifier("a", "optional_missing_middle_5");
-const post_computed_compound_type_arrayFunctionIdentifer = sql.identifier("a", "post_computed_compound_type_array");
-const post_computed_interval_arrayFunctionIdentifer = sql.identifier("a", "post_computed_interval_array");
-const post_computed_interval_setFunctionIdentifer = sql.identifier("a", "post_computed_interval_set");
-const post_computed_text_arrayFunctionIdentifer = sql.identifier("a", "post_computed_text_array");
-const post_computed_with_optional_argFunctionIdentifer = sql.identifier("a", "post_computed_with_optional_arg");
-const post_computed_with_required_argFunctionIdentifer = sql.identifier("a", "post_computed_with_required_arg");
-const post_headline_trimmedFunctionIdentifer = sql.identifier("a", "post_headline_trimmed");
-const post_headline_trimmed_no_defaultsFunctionIdentifer = sql.identifier("a", "post_headline_trimmed_no_defaults");
-const post_headline_trimmed_strictFunctionIdentifer = sql.identifier("a", "post_headline_trimmed_strict");
-const post_manyFunctionIdentifer = sql.identifier("a", "post_many");
 const post_with_suffixFunctionIdentifer = sql.identifier("a", "post_with_suffix");
-const query_compound_type_arrayFunctionIdentifer = sql.identifier("a", "query_compound_type_array");
-const query_interval_arrayFunctionIdentifer = sql.identifier("a", "query_interval_array");
-const query_interval_setFunctionIdentifer = sql.identifier("a", "query_interval_set");
-const query_text_arrayFunctionIdentifer = sql.identifier("a", "query_text_array");
-const return_void_mutationFunctionIdentifer = sql.identifier("a", "return_void_mutation");
-const static_big_integerFunctionIdentifer = sql.identifier("a", "static_big_integer");
-const authenticateFunctionIdentifer = sql.identifier("b", "authenticate");
-const jwt_token_resourceOptionsConfig = {
-  executor: executor,
-  name: "jwt_token",
-  identifier: "main.b.jwt_token",
-  from: jwtTokenIdentifier,
-  codec: jwtTokenCodec,
-  extensions: {
-    pg: {
-      serviceName: "main",
-      schemaName: "b",
-      name: "jwt_token"
-    },
-    isInsertable: false,
-    isUpdatable: false,
-    isDeletable: false
-  },
-  isVirtual: true
-};
-const authenticate_failFunctionIdentifer = sql.identifier("b", "authenticate_fail");
-const authenticate_manyFunctionIdentifer = sql.identifier("b", "authenticate_many");
-const authenticate_payloadFunctionIdentifer = sql.identifier("b", "authenticate_payload");
-const compound_type_array_mutationFunctionIdentifer = sql.identifier("b", "compound_type_array_mutation");
-const compound_type_array_queryFunctionIdentifer = sql.identifier("b", "compound_type_array_query");
-const compound_type_mutationFunctionIdentifer = sql.identifier("b", "compound_type_mutation");
-const compound_type_queryFunctionIdentifer = sql.identifier("b", "compound_type_query");
-const compound_type_set_mutationFunctionIdentifer = sql.identifier("b", "compound_type_set_mutation");
-const guid_fnFunctionIdentifer = sql.identifier("b", "guid_fn");
-const list_bde_mutationFunctionIdentifer = sql.identifier("b", "list_bde_mutation");
-const mult_1FunctionIdentifer = sql.identifier("b", "mult_1");
-const mult_2FunctionIdentifer = sql.identifier("b", "mult_2");
-const mult_3FunctionIdentifer = sql.identifier("b", "mult_3");
-const mult_4FunctionIdentifer = sql.identifier("b", "mult_4");
-const type_functionFunctionIdentifer = sql.identifier("b", "type_function");
-const type_function_connectionFunctionIdentifer = sql.identifier("b", "type_function_connection");
-const type_function_connection_mutationFunctionIdentifer = sql.identifier("b", "type_function_connection_mutation");
-const type_function_listFunctionIdentifer = sql.identifier("b", "type_function_list");
-const type_function_list_mutationFunctionIdentifer = sql.identifier("b", "type_function_list_mutation");
-const type_function_mutationFunctionIdentifer = sql.identifier("b", "type_function_mutation");
-const type_identityFunctionIdentifer = sql.identifier("b", "type_identity");
-const badly_behaved_functionFunctionIdentifer = sql.identifier("c", "badly_behaved_function");
-const compound_type_computed_fieldFunctionIdentifer = sql.identifier("c", "compound_type_computed_field");
-const compound_type_set_queryFunctionIdentifer = sql.identifier("c", "compound_type_set_query");
 const current_user_idFunctionIdentifer = sql.identifier("c", "current_user_id");
-const edge_case_computedFunctionIdentifer = sql.identifier("c", "edge_case_computed");
-const func_in_inoutFunctionIdentifer = sql.identifier("c", "func_in_inout");
-const func_in_outFunctionIdentifer = sql.identifier("c", "func_in_out");
-const func_outFunctionIdentifer = sql.identifier("c", "func_out");
-const func_out_complexFunctionIdentifer = sql.identifier("c", "func_out_complex");
-const func_out_complex_setofFunctionIdentifer = sql.identifier("c", "func_out_complex_setof");
-const func_out_outFunctionIdentifer = sql.identifier("c", "func_out_out");
-const func_out_out_compound_typeFunctionIdentifer = sql.identifier("c", "func_out_out_compound_type");
-const func_out_out_setofFunctionIdentifer = sql.identifier("c", "func_out_out_setof");
-const func_out_out_unnamedFunctionIdentifer = sql.identifier("c", "func_out_out_unnamed");
-const func_out_setofFunctionIdentifer = sql.identifier("c", "func_out_setof");
-const func_out_tableFunctionIdentifer = sql.identifier("c", "func_out_table");
-const func_out_table_setofFunctionIdentifer = sql.identifier("c", "func_out_table_setof");
-const func_out_unnamedFunctionIdentifer = sql.identifier("c", "func_out_unnamed");
-const func_out_unnamed_out_out_unnamedFunctionIdentifer = sql.identifier("c", "func_out_unnamed_out_out_unnamed");
-const func_returns_table_multi_colFunctionIdentifer = sql.identifier("c", "func_returns_table_multi_col");
-const func_returns_table_one_colFunctionIdentifer = sql.identifier("c", "func_returns_table_one_col");
-const int_set_mutationFunctionIdentifer = sql.identifier("c", "int_set_mutation");
-const int_set_queryFunctionIdentifer = sql.identifier("c", "int_set_query");
-const issue756_mutationFunctionIdentifer = sql.identifier("c", "issue756_mutation");
-const issue756_set_mutationFunctionIdentifer = sql.identifier("c", "issue756_set_mutation");
-const json_identityFunctionIdentifer = sql.identifier("c", "json_identity");
-const json_identity_mutationFunctionIdentifer = sql.identifier("c", "json_identity_mutation");
-const jsonb_identityFunctionIdentifer = sql.identifier("c", "jsonb_identity");
-const jsonb_identity_mutationFunctionIdentifer = sql.identifier("c", "jsonb_identity_mutation");
-const jsonb_identity_mutation_plpgsqlFunctionIdentifer = sql.identifier("c", "jsonb_identity_mutation_plpgsql");
-const jsonb_identity_mutation_plpgsql_with_defaultFunctionIdentifer = sql.identifier("c", "jsonb_identity_mutation_plpgsql_with_default");
 const left_arm_identityFunctionIdentifer = sql.identifier("c", "left_arm_identity");
-const list_of_compound_types_mutationFunctionIdentifer = sql.identifier("c", "list_of_compound_types_mutation");
-const mutation_in_inoutFunctionIdentifer = sql.identifier("c", "mutation_in_inout");
-const mutation_in_outFunctionIdentifer = sql.identifier("c", "mutation_in_out");
-const mutation_outFunctionIdentifer = sql.identifier("c", "mutation_out");
-const mutation_out_complexFunctionIdentifer = sql.identifier("c", "mutation_out_complex");
-const mutation_out_complex_setofFunctionIdentifer = sql.identifier("c", "mutation_out_complex_setof");
-const mutation_out_outFunctionIdentifer = sql.identifier("c", "mutation_out_out");
-const mutation_out_out_compound_typeFunctionIdentifer = sql.identifier("c", "mutation_out_out_compound_type");
-const mutation_out_out_setofFunctionIdentifer = sql.identifier("c", "mutation_out_out_setof");
-const mutation_out_out_unnamedFunctionIdentifer = sql.identifier("c", "mutation_out_out_unnamed");
-const mutation_out_setofFunctionIdentifer = sql.identifier("c", "mutation_out_setof");
-const mutation_out_tableFunctionIdentifer = sql.identifier("c", "mutation_out_table");
-const mutation_out_table_setofFunctionIdentifer = sql.identifier("c", "mutation_out_table_setof");
-const mutation_out_unnamedFunctionIdentifer = sql.identifier("c", "mutation_out_unnamed");
-const mutation_out_unnamed_out_out_unnamedFunctionIdentifer = sql.identifier("c", "mutation_out_unnamed_out_out_unnamed");
-const mutation_returns_table_multi_colFunctionIdentifer = sql.identifier("c", "mutation_returns_table_multi_col");
-const mutation_returns_table_one_colFunctionIdentifer = sql.identifier("c", "mutation_returns_table_one_col");
-const no_args_mutationFunctionIdentifer = sql.identifier("c", "no_args_mutation");
-const no_args_queryFunctionIdentifer = sql.identifier("c", "no_args_query");
-const person_computed_complexFunctionIdentifer = sql.identifier("c", "person_computed_complex");
-const person_computed_first_arg_inoutFunctionIdentifer = sql.identifier("c", "person_computed_first_arg_inout");
-const person_computed_first_arg_inout_outFunctionIdentifer = sql.identifier("c", "person_computed_first_arg_inout_out");
-const person_computed_inoutFunctionIdentifer = sql.identifier("c", "person_computed_inout");
-const person_computed_inout_outFunctionIdentifer = sql.identifier("c", "person_computed_inout_out");
-const person_computed_outFunctionIdentifer = sql.identifier("c", "person_computed_out");
-const person_computed_out_outFunctionIdentifer = sql.identifier("c", "person_computed_out_out");
-const person_existsFunctionIdentifer = sql.identifier("c", "person_exists");
-const person_first_nameFunctionIdentifer = sql.identifier("c", "person_first_name");
-const person_first_postFunctionIdentifer = sql.identifier("c", "person_first_post");
-const person_friendsFunctionIdentifer = sql.identifier("c", "person_friends");
-const person_optional_missing_middle_1FunctionIdentifer = sql.identifier("c", "person_optional_missing_middle_1");
-const person_optional_missing_middle_2FunctionIdentifer = sql.identifier("c", "person_optional_missing_middle_2");
-const person_optional_missing_middle_3FunctionIdentifer = sql.identifier("c", "person_optional_missing_middle_3");
-const person_optional_missing_middle_4FunctionIdentifer = sql.identifier("c", "person_optional_missing_middle_4");
-const person_optional_missing_middle_5FunctionIdentifer = sql.identifier("c", "person_optional_missing_middle_5");
-const person_type_functionFunctionIdentifer = sql.identifier("c", "person_type_function");
-const person_type_function_connectionFunctionIdentifer = sql.identifier("c", "person_type_function_connection");
-const person_type_function_listFunctionIdentifer = sql.identifier("c", "person_type_function_list");
-const query_output_two_rowsFunctionIdentifer = sql.identifier("c", "query_output_two_rows");
 const read_pg_settingsFunctionIdentifer = sql.identifier("c", "read_pg_settings");
 const return_table_without_grantsFunctionIdentifer = sql.identifier("c", "return_table_without_grants");
-const search_test_summariesFunctionIdentifer = sql.identifier("c", "search_test_summaries");
-const table_mutationFunctionIdentifer = sql.identifier("c", "table_mutation");
-const table_queryFunctionIdentifer = sql.identifier("c", "table_query");
-const table_set_mutationFunctionIdentifer = sql.identifier("c", "table_set_mutation");
-const table_set_queryFunctionIdentifer = sql.identifier("c", "table_set_query");
-const table_set_query_plpgsqlFunctionIdentifer = sql.identifier("c", "table_set_query_plpgsql");
-const table_set_query_volatileFunctionIdentifer = sql.identifier("c", "table_set_query_volatile");
-const types_mutationFunctionIdentifer = sql.identifier("c", "types_mutation");
-const types_queryFunctionIdentifer = sql.identifier("c", "types_query");
 const registry = makeRegistry({
   pgExecutors: {
     __proto__: null,
@@ -2485,64 +1703,64 @@ const registry = makeRegistry({
   },
   pgCodecs: {
     __proto__: null,
-    text: TYPES.text,
-    varchar: TYPES.varchar,
-    bpchar: TYPES.bpchar,
-    int4: TYPES.int,
-    void: TYPES.void,
-    compoundTypeArray: compoundTypeArrayCodec,
-    compoundType: compoundTypeCodec,
-    color: colorCodec,
-    uuid: TYPES.uuid,
-    enumCaps: enumCapsCodec,
-    enumWithEmptyString: enumWithEmptyStringCodec,
-    interval: TYPES.interval,
-    intervalArray: LIST_TYPES.interval,
-    textArray: LIST_TYPES.text,
     post: postCodec,
+    int4: TYPES.int,
+    text: TYPES.text,
     anEnumArray: anEnumArrayCodec,
     anEnum: anEnumCodec,
     comptypeArray: comptypeArrayCodec,
     comptype: comptypeCodec,
     timestamptz: TYPES.timestamptz,
     bool: TYPES.boolean,
-    int8: TYPES.bigint,
+    leftArm: leftArmCodec,
+    float8: TYPES.float,
+    json: TYPES.json,
+    compoundKey: compoundKeyCodec,
+    varchar: TYPES.varchar,
+    textArray: LIST_TYPES.text,
+    email: emailCodec,
+    wrappedUrl: wrappedUrlCodec,
+    notNullUrl: notNullUrlCodec,
+    hstore: TYPES.hstore,
+    inet: TYPES.inet,
+    cidr: TYPES.cidr,
+    macaddr: TYPES.macaddr,
+    timestamp: TYPES.timestamp,
     jwtToken: jwtTokenCodec,
+    int8: TYPES.bigint,
     numeric: TYPES.numeric,
-    jwtTokenArray: listOfCodec(jwtTokenCodec, {
-      name: "jwtTokenArray",
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "b",
-          name: "_jwt_token"
-        }
-      }
-    }),
-    authPayload: authPayloadCodec,
-    guid: guidCodec,
-    uuidArray: LIST_TYPES.uuid,
-    types: typesCodec,
-    int2: TYPES.int2,
+    int4Array: LIST_TYPES.int,
     colorArray: colorArrayCodec,
+    color: colorCodec,
+    dateArray: LIST_TYPES.date,
+    date: TYPES.date,
+    timestamptzArray: LIST_TYPES.timestamptz,
+    compoundTypeArray: compoundTypeArrayCodec,
+    compoundType: compoundTypeCodec,
+    uuid: TYPES.uuid,
+    enumCaps: enumCapsCodec,
+    enumWithEmptyString: enumWithEmptyStringCodec,
+    interval: TYPES.interval,
+    byteaArray: LIST_TYPES.bytea,
+    bytea: TYPES.bytea,
+    tsvectorArray: LIST_TYPES.tsvector,
+    tsvector: TYPES.tsvector,
+    tsqueryArray: LIST_TYPES.tsquery,
+    tsquery: TYPES.tsquery,
+    int2: TYPES.int2,
     anInt: anIntCodec,
     anotherInt: anotherIntCodec,
-    json: TYPES.json,
     jsonb: TYPES.jsonb,
     jsonpath: TYPES.jsonpath,
     numrange: numrangeCodec,
     daterange: daterangeCodec,
-    date: TYPES.date,
     anIntRange: anIntRangeCodec,
-    timestamp: TYPES.timestamp,
     time: TYPES.time,
     timetz: TYPES.timetz,
+    intervalArray: LIST_TYPES.interval,
     money: TYPES.money,
     nestedCompoundType: nestedCompoundTypeCodec,
     point: TYPES.point,
-    inet: TYPES.inet,
-    cidr: TYPES.cidr,
-    macaddr: TYPES.macaddr,
     oid: TYPES.oid,
     regproc: TYPES.regproc,
     regprocedure: TYPES.regprocedure,
@@ -2554,41 +1772,12 @@ const registry = makeRegistry({
     regdictionary: TYPES.regdictionary,
     textArrayDomain: textArrayDomainCodec,
     int8ArrayDomain: int8ArrayDomainCodec,
-    bytea: TYPES.bytea,
-    byteaArray: LIST_TYPES.bytea,
-    ltree: spec_types_attributes_ltree_codec_ltree,
-    "ltree[]": spec_types_attributes_ltree_array_codec_ltree_,
-    tsvector: TYPES.tsvector,
-    tsvectorArray: LIST_TYPES.tsvector,
-    tsquery: TYPES.tsquery,
-    tsqueryArray: LIST_TYPES.tsquery,
-    typesArray: listOfCodec(typesCodec, {
-      name: "typesArray",
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "b",
-          name: "_types"
-        }
-      }
-    }),
-    person: personCodec,
-    email: emailCodec,
-    wrappedUrl: wrappedUrlCodec,
-    notNullUrl: notNullUrlCodec,
-    hstore: TYPES.hstore,
-    issue756: issue756Codec,
+    ltree: registryConfig_pgCodecs_ltree_ltree,
+    "ltree[]": registryConfig_pgCodecs_ltree_ltree_,
     notNullTimestamp: notNullTimestampCodec,
-    leftArm: leftArmCodec,
-    float8: TYPES.float,
-    compoundKey: compoundKeyCodec,
-    edgeCase: edgeCaseCodec,
-    int4Array: LIST_TYPES.int,
-    dateArray: LIST_TYPES.date,
-    timestamptzArray: LIST_TYPES.timestamptz,
-    floatrange: floatrangeCodec,
     int8Array: LIST_TYPES.bigint,
-    postArray: postArrayCodec,
+    person: personCodec,
+    personSecret: personSecretCodec,
     defaultValue: defaultValueCodec,
     foreignKey: foreignKeyCodec,
     inputs: inputsCodec,
@@ -2687,376 +1876,22 @@ const registry = makeRegistry({
     testview: testviewCodec,
     uniqueForeignKey: uniqueForeignKeyCodec,
     viewTable: viewTableCodec,
+    authPayload: authPayloadCodec,
     lists: listsCodec,
+    types: typesCodec,
     updatableView: updatableViewCodec,
+    edgeCase: edgeCaseCodec,
+    issue756: issue756Codec,
     myTable: myTableCodec,
     nullTestRecord: nullTestRecordCodec,
-    personSecret: personSecretCodec,
-    unlogged: unloggedCodec,
-    LetterAToDEnum: enumCodec({
-      name: "LetterAToDEnum",
-      identifier: TYPES.text.sqlType,
-      values: [{
-        value: "A",
-        description: "The letter A"
-      }, {
-        value: "B",
-        description: "The letter B"
-      }, {
-        value: "C",
-        description: "The letter C"
-      }, {
-        value: "D",
-        description: "The letter D"
-      }],
-      extensions: {
-        isEnumTableEnum: true,
-        enumTableEnumDetails: {
-          serviceName: "main",
-          schemaName: "enum_tables",
-          tableName: "abcd",
-          constraintType: "p",
-          constraintName: "abcd_pkey"
-        },
-        tags: {
-          name: "LetterAToD"
-        }
-      }
-    }),
-    LetterAToDViaViewEnum: enumCodec({
-      name: "LetterAToDViaViewEnum",
-      identifier: TYPES.text.sqlType,
-      values: [{
-        value: "A",
-        description: "The letter A"
-      }, {
-        value: "B",
-        description: "The letter B"
-      }, {
-        value: "C",
-        description: "The letter C"
-      }, {
-        value: "D",
-        description: "The letter D"
-      }],
-      extensions: {
-        isEnumTableEnum: true,
-        enumTableEnumDetails: {
-          serviceName: "main",
-          schemaName: "enum_tables",
-          tableName: "abcd_view",
-          constraintType: "p",
-          constraintName: "FAKE_enum_tables_abcd_view_primaryKey_5"
-        },
-        tags: {
-          name: "LetterAToDViaView"
-        }
-      }
-    }),
-    EmptyEnumEnum: enumCodec({
-      name: "EmptyEnumEnum",
-      identifier: TYPES.text.sqlType,
-      values: [],
-      extensions: {
-        isEnumTableEnum: true,
-        enumTableEnumDetails: {
-          serviceName: "main",
-          schemaName: "enum_tables",
-          tableName: "empty_enum",
-          constraintType: "p",
-          constraintName: "empty_enum_pkey"
-        },
-        tags: {
-          name: "EmptyEnum"
-        }
-      }
-    }),
-    EnumTheFirstEnum: enumCodec({
-      name: "EnumTheFirstEnum",
-      identifier: TYPES.text.sqlType,
-      values: [{
-        value: "a1",
-        description: "Desc A1"
-      }, {
-        value: "a2",
-        description: "Desc A2"
-      }, {
-        value: "a3",
-        description: "Desc A3"
-      }, {
-        value: "a4",
-        description: "Desc A4"
-      }],
-      extensions: {
-        isEnumTableEnum: true,
-        enumTableEnumDetails: {
-          serviceName: "main",
-          schemaName: "enum_tables",
-          tableName: "lots_of_enums",
-          constraintType: "u",
-          constraintName: "enum_1"
-        },
-        tags: {
-          name: "EnumTheFirst"
-        }
-      }
-    }),
-    EnumTheSecondEnum: enumCodec({
-      name: "EnumTheSecondEnum",
-      identifier: TYPES.varchar.sqlType,
-      values: [{
-        value: "b1",
-        description: "Desc B1"
-      }, {
-        value: "b2",
-        description: "Desc B2"
-      }, {
-        value: "b3",
-        description: "Desc B3"
-      }, {
-        value: "b4",
-        description: "Desc B4"
-      }],
-      extensions: {
-        isEnumTableEnum: true,
-        enumTableEnumDetails: {
-          serviceName: "main",
-          schemaName: "enum_tables",
-          tableName: "lots_of_enums",
-          constraintType: "u",
-          constraintName: "enum_2"
-        },
-        tags: {
-          name: "EnumTheSecond"
-        }
-      }
-    }),
-    LotsOfEnumsEnum3Enum: enumCodec({
-      name: "LotsOfEnumsEnum3Enum",
-      identifier: TYPES.bpchar.sqlType,
-      values: [{
-        value: "c1",
-        description: "Desc C1"
-      }, {
-        value: "c2",
-        description: "Desc C2"
-      }, {
-        value: "c3",
-        description: "Desc C3"
-      }, {
-        value: "c4",
-        description: "Desc C4"
-      }],
-      extensions: {
-        isEnumTableEnum: true,
-        enumTableEnumDetails: {
-          serviceName: "main",
-          schemaName: "enum_tables",
-          tableName: "lots_of_enums",
-          constraintType: "u",
-          constraintName: "enum_3"
-        },
-        tags: {
-          name: "LotsOfEnumsEnum3"
-        }
-      }
-    }),
-    LotsOfEnumsEnum4Enum: enumCodec({
-      name: "LotsOfEnumsEnum4Enum",
-      identifier: TYPES.text.sqlType,
-      values: [{
-        value: "d1",
-        description: "Desc D1"
-      }, {
-        value: "d2",
-        description: "Desc D2"
-      }, {
-        value: "d3",
-        description: "Desc D3"
-      }, {
-        value: "d4",
-        description: "Desc D4"
-      }],
-      extensions: {
-        isEnumTableEnum: true,
-        enumTableEnumDetails: {
-          serviceName: "main",
-          schemaName: "enum_tables",
-          tableName: "lots_of_enums",
-          constraintType: "u",
-          constraintName: "enum_4"
-        },
-        tags: {
-          name: "LotsOfEnumsEnum4"
-        }
-      }
-    }),
-    SimpleEnumEnum: enumCodec({
-      name: "SimpleEnumEnum",
-      identifier: TYPES.text.sqlType,
-      values: [{
-        value: "Foo",
-        description: "The first metasyntactic variable"
-      }, {
-        value: "Bar",
-        description: null
-      }, {
-        value: "Baz",
-        description: "The third metasyntactic variable, very similar to its predecessor"
-      }, {
-        value: "Qux",
-        description: null
-      }],
-      extensions: {
-        isEnumTableEnum: true,
-        enumTableEnumDetails: {
-          serviceName: "main",
-          schemaName: "enum_tables",
-          tableName: "simple_enum",
-          constraintType: "p",
-          constraintName: "simple_enum_pkey"
-        },
-        tags: {
-          name: "SimpleEnum"
-        }
-      }
-    }),
-    EntityKindsEnum: enumCodec({
-      name: "EntityKindsEnum",
-      identifier: TYPES.text.sqlType,
-      values: [{
-        value: "photos",
-        description: undefined
-      }, {
-        value: "locations",
-        description: undefined
-      }, {
-        value: "profiles",
-        description: undefined
-      }],
-      extensions: {
-        isEnumTableEnum: true,
-        enumTableEnumDetails: {
-          serviceName: "main",
-          schemaName: "partitions",
-          tableName: "entity_kinds",
-          constraintType: "p",
-          constraintName: "entity_kinds_pkey"
-        },
-        tags: {
-          name: "EntityKinds"
-        }
-      }
-    }),
-    EnumTableTransportationEnum: enumCodec({
-      name: "EnumTableTransportationEnum",
-      identifier: TYPES.text.sqlType,
-      values: [{
-        value: "CAR",
-        description: undefined
-      }, {
-        value: "BIKE",
-        description: undefined
-      }, {
-        value: "SUBWAY",
-        description: undefined
-      }],
-      extensions: {
-        isEnumTableEnum: true,
-        enumTableEnumDetails: {
-          serviceName: "main",
-          schemaName: "function_returning_enum",
-          tableName: "enum_table",
-          constraintType: "u",
-          constraintName: "transportation_enum"
-        },
-        tags: {
-          name: "EnumTableTransportation"
-        }
-      }
-    }),
-    LengthStatusEnum: enumCodec({
-      name: "LengthStatusEnum",
-      identifier: TYPES.text.sqlType,
-      values: [{
-        value: "ok",
-        description: undefined
-      }, {
-        value: "too_short",
-        description: undefined
-      }],
-      extensions: {
-        isEnumTableEnum: true,
-        enumTableEnumDetails: {
-          serviceName: "main",
-          schemaName: "function_returning_enum",
-          tableName: "length_status",
-          constraintType: "p",
-          constraintName: "length_status_pkey"
-        },
-        tags: {
-          name: "LengthStatus"
-        }
-      }
-    }),
-    StageOptionsEnum: enumCodec({
-      name: "StageOptionsEnum",
-      identifier: TYPES.text.sqlType,
-      values: [{
-        value: "pending",
-        description: undefined
-      }, {
-        value: "round 1",
-        description: undefined
-      }, {
-        value: "round 2",
-        description: undefined
-      }, {
-        value: "rejected",
-        description: undefined
-      }, {
-        value: "hired",
-        description: undefined
-      }],
-      extensions: {
-        isEnumTableEnum: true,
-        enumTableEnumDetails: {
-          serviceName: "main",
-          schemaName: "function_returning_enum",
-          tableName: "stage_options",
-          constraintType: "p",
-          constraintName: "stage_options_pkey"
-        },
-        tags: {
-          name: "StageOptions"
-        }
-      }
-    }),
-    FuncOutComplexRecord: registryConfig_pgCodecs_FuncOutComplexRecord_FuncOutComplexRecord,
-    FuncOutComplexSetofRecord: registryConfig_pgCodecs_FuncOutComplexSetofRecord_FuncOutComplexSetofRecord,
-    FuncOutOutRecord: registryConfig_pgCodecs_FuncOutOutRecord_FuncOutOutRecord,
-    FuncOutOutCompoundTypeRecord: registryConfig_pgCodecs_FuncOutOutCompoundTypeRecord_FuncOutOutCompoundTypeRecord,
-    FuncOutOutSetofRecord: registryConfig_pgCodecs_FuncOutOutSetofRecord_FuncOutOutSetofRecord,
-    FuncOutOutUnnamedRecord: registryConfig_pgCodecs_FuncOutOutUnnamedRecord_FuncOutOutUnnamedRecord,
-    FuncOutUnnamedOutOutUnnamedRecord: registryConfig_pgCodecs_FuncOutUnnamedOutOutUnnamedRecord_FuncOutUnnamedOutOutUnnamedRecord,
-    FuncReturnsTableMultiColRecord: registryConfig_pgCodecs_FuncReturnsTableMultiColRecord_FuncReturnsTableMultiColRecord,
-    MutationOutComplexRecord: registryConfig_pgCodecs_MutationOutComplexRecord_MutationOutComplexRecord,
-    MutationOutComplexSetofRecord: registryConfig_pgCodecs_MutationOutComplexSetofRecord_MutationOutComplexSetofRecord,
-    MutationOutOutRecord: registryConfig_pgCodecs_MutationOutOutRecord_MutationOutOutRecord,
-    MutationOutOutCompoundTypeRecord: registryConfig_pgCodecs_MutationOutOutCompoundTypeRecord_MutationOutOutCompoundTypeRecord,
-    MutationOutOutSetofRecord: registryConfig_pgCodecs_MutationOutOutSetofRecord_MutationOutOutSetofRecord,
-    MutationOutOutUnnamedRecord: registryConfig_pgCodecs_MutationOutOutUnnamedRecord_MutationOutOutUnnamedRecord,
-    MutationOutUnnamedOutOutUnnamedRecord: registryConfig_pgCodecs_MutationOutUnnamedOutOutUnnamedRecord_MutationOutUnnamedOutOutUnnamedRecord,
-    MutationReturnsTableMultiColRecord: registryConfig_pgCodecs_MutationReturnsTableMultiColRecord_MutationReturnsTableMultiColRecord,
-    PersonComputedComplexRecord: registryConfig_pgCodecs_PersonComputedComplexRecord_PersonComputedComplexRecord,
-    PersonComputedFirstArgInoutOutRecord: registryConfig_pgCodecs_PersonComputedFirstArgInoutOutRecord_PersonComputedFirstArgInoutOutRecord,
-    PersonComputedInoutOutRecord: registryConfig_pgCodecs_PersonComputedInoutOutRecord_PersonComputedInoutOutRecord,
-    PersonComputedOutOutRecord: registryConfig_pgCodecs_PersonComputedOutOutRecord_PersonComputedOutOutRecord,
-    QueryOutputTwoRowsRecord: registryConfig_pgCodecs_QueryOutputTwoRowsRecord_QueryOutputTwoRowsRecord,
-    SearchTestSummariesRecord: registryConfig_pgCodecs_SearchTestSummariesRecord_SearchTestSummariesRecord
+    unlogged: unloggedCodec
   },
   pgResources: {
     __proto__: null,
+    post: post_resourceOptionsConfig,
+    left_arm: left_arm_resourceOptionsConfig,
+    person: person_resourceOptionsConfig,
+    person_secret: person_secret_resourceOptionsConfig,
     default_value: {
       executor: executor,
       name: "default_value",
@@ -3138,7 +1973,6 @@ const registry = makeRegistry({
       uniques: patchsUniques,
       description: "Should output as Patch"
     },
-    post: post_resourceOptionsConfig,
     reserved: {
       executor: executor,
       name: "reserved",
@@ -3299,8 +2133,21 @@ const registry = makeRegistry({
         }
       }
     },
-    issue756: issue756_resourceOptionsConfig,
-    left_arm: left_arm_resourceOptionsConfig,
+    issue756: {
+      executor: executor,
+      name: "issue756",
+      identifier: "main.c.issue756",
+      from: issue756Identifier,
+      codec: issue756Codec,
+      extensions: {
+        pg: {
+          serviceName: "main",
+          schemaName: "c",
+          name: "issue756"
+        }
+      },
+      uniques: issue756Uniques
+    },
     my_table: {
       executor: executor,
       name: "my_table",
@@ -3331,8 +2178,6 @@ const registry = makeRegistry({
       },
       uniques: null_test_recordUniques
     },
-    person: person_resourceOptionsConfig,
-    person_secret: person_secret_resourceOptionsConfig,
     unlogged: {
       executor: executor,
       name: "unlogged",
@@ -3352,818 +2197,6 @@ const registry = makeRegistry({
         isPrimary: true
       }]
     },
-    add_1_mutation: {
-      executor: executor,
-      name: "add_1_mutation",
-      identifier: "main.a.add_1_mutation(int4,int4)",
-      from(...args) {
-        return sql`${add_1_mutationFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: null,
-        codec: TYPES.int,
-        notNull: true
-      }, {
-        name: null,
-        codec: TYPES.int,
-        notNull: true
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "add_1_mutation"
-        },
-        tags: {
-          notNull: true
-        }
-      },
-      isUnique: true,
-      isMutation: true,
-      description: "lol, add some stuff 1 mutation"
-    },
-    add_1_query: {
-      executor: executor,
-      name: "add_1_query",
-      identifier: "main.a.add_1_query(int4,int4)",
-      from(...args) {
-        return sql`${add_1_queryFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: null,
-        codec: TYPES.int,
-        notNull: true
-      }, {
-        name: null,
-        codec: TYPES.int,
-        notNull: true
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "add_1_query"
-        }
-      },
-      isUnique: true,
-      description: "lol, add some stuff 1 query"
-    },
-    add_2_mutation: {
-      executor: executor,
-      name: "add_2_mutation",
-      identifier: "main.a.add_2_mutation(int4,int4)",
-      from(...args) {
-        return sql`${add_2_mutationFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "a",
-        codec: TYPES.int,
-        notNull: true
-      }, {
-        name: "b",
-        codec: TYPES.int,
-        optional: true,
-        notNull: true
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "add_2_mutation"
-        }
-      },
-      isUnique: true,
-      isMutation: true,
-      description: "lol, add some stuff 2 mutation"
-    },
-    add_2_query: {
-      executor: executor,
-      name: "add_2_query",
-      identifier: "main.a.add_2_query(int4,int4)",
-      from(...args) {
-        return sql`${add_2_queryFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "a",
-        codec: TYPES.int,
-        notNull: true
-      }, {
-        name: "b",
-        codec: TYPES.int,
-        optional: true,
-        notNull: true
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "add_2_query"
-        }
-      },
-      isUnique: true,
-      description: "lol, add some stuff 2 query"
-    },
-    add_3_mutation: {
-      executor: executor,
-      name: "add_3_mutation",
-      identifier: "main.a.add_3_mutation(int4,int4)",
-      from(...args) {
-        return sql`${add_3_mutationFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "a",
-        codec: TYPES.int
-      }, {
-        name: "",
-        codec: TYPES.int
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "add_3_mutation"
-        }
-      },
-      isUnique: true,
-      isMutation: true,
-      description: "lol, add some stuff 3 mutation"
-    },
-    add_3_query: {
-      executor: executor,
-      name: "add_3_query",
-      identifier: "main.a.add_3_query(int4,int4)",
-      from(...args) {
-        return sql`${add_3_queryFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "a",
-        codec: TYPES.int
-      }, {
-        name: "",
-        codec: TYPES.int
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "add_3_query"
-        }
-      },
-      isUnique: true,
-      description: "lol, add some stuff 3 query"
-    },
-    add_4_mutation: {
-      executor: executor,
-      name: "add_4_mutation",
-      identifier: "main.a.add_4_mutation(int4,int4)",
-      from(...args) {
-        return sql`${add_4_mutationFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "",
-        codec: TYPES.int
-      }, {
-        name: "b",
-        codec: TYPES.int,
-        optional: true
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "add_4_mutation"
-        }
-      },
-      isUnique: true,
-      isMutation: true,
-      description: "lol, add some stuff 4 mutation"
-    },
-    add_4_mutation_error: {
-      executor: executor,
-      name: "add_4_mutation_error",
-      identifier: "main.a.add_4_mutation_error(int4,int4)",
-      from(...args) {
-        return sql`${add_4_mutation_errorFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "",
-        codec: TYPES.int
-      }, {
-        name: "b",
-        codec: TYPES.int,
-        optional: true
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "add_4_mutation_error"
-        }
-      },
-      isUnique: true,
-      isMutation: true
-    },
-    add_4_query: {
-      executor: executor,
-      name: "add_4_query",
-      identifier: "main.a.add_4_query(int4,int4)",
-      from(...args) {
-        return sql`${add_4_queryFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "",
-        codec: TYPES.int
-      }, {
-        name: "b",
-        codec: TYPES.int,
-        optional: true
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "add_4_query"
-        }
-      },
-      isUnique: true,
-      description: "lol, add some stuff 4 query"
-    },
-    assert_something: {
-      executor: executor,
-      name: "assert_something",
-      identifier: "main.a.assert_something(text)",
-      from(...args) {
-        return sql`${assert_somethingFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "in_arg",
-        codec: TYPES.text
-      }],
-      codec: TYPES.void,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "assert_something"
-        }
-      },
-      isUnique: true
-    },
-    assert_something_nx: {
-      executor: executor,
-      name: "assert_something_nx",
-      identifier: "main.a.assert_something_nx(text)",
-      from(...args) {
-        return sql`${assert_something_nxFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "in_arg",
-        codec: TYPES.text
-      }],
-      codec: TYPES.void,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "assert_something_nx"
-        },
-        tags: {
-          omit: "execute",
-          behavior: ["-queryField -mutationField -typeField"]
-        }
-      },
-      isUnique: true
-    },
-    mutation_compound_type_array: PgResource.functionResourceOptions(compound_type_resourceOptionsConfig, {
-      name: "mutation_compound_type_array",
-      identifier: "main.a.mutation_compound_type_array(c.compound_type)",
-      from(...args) {
-        return sql`${mutation_compound_type_arrayFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "object",
-        codec: compoundTypeCodec
-      }],
-      returnsSetof: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "mutation_compound_type_array"
-        }
-      },
-      isMutation: true,
-      returnsArray: true
-    }),
-    mutation_interval_array: {
-      executor: executor,
-      name: "mutation_interval_array",
-      identifier: "main.a.mutation_interval_array()",
-      from(...args) {
-        return sql`${mutation_interval_arrayFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      codec: LIST_TYPES.interval,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "mutation_interval_array"
-        }
-      },
-      isUnique: true,
-      isMutation: true
-    },
-    mutation_interval_set: {
-      executor: executor,
-      name: "mutation_interval_set",
-      identifier: "main.a.mutation_interval_set()",
-      from(...args) {
-        return sql`${mutation_interval_setFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      codec: TYPES.interval,
-      hasImplicitOrder: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "mutation_interval_set"
-        }
-      },
-      isMutation: true
-    },
-    mutation_text_array: {
-      executor: executor,
-      name: "mutation_text_array",
-      identifier: "main.a.mutation_text_array()",
-      from(...args) {
-        return sql`${mutation_text_arrayFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      codec: LIST_TYPES.text,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "mutation_text_array"
-        }
-      },
-      isUnique: true,
-      isMutation: true
-    },
-    optional_missing_middle_1: {
-      executor: executor,
-      name: "optional_missing_middle_1",
-      identifier: "main.a.optional_missing_middle_1(int4,int4,int4)",
-      from(...args) {
-        return sql`${optional_missing_middle_1FunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "",
-        codec: TYPES.int,
-        notNull: true
-      }, {
-        name: "b",
-        codec: TYPES.int,
-        optional: true,
-        notNull: true
-      }, {
-        name: "c",
-        codec: TYPES.int,
-        optional: true,
-        notNull: true
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "optional_missing_middle_1"
-        }
-      },
-      isUnique: true
-    },
-    optional_missing_middle_2: {
-      executor: executor,
-      name: "optional_missing_middle_2",
-      identifier: "main.a.optional_missing_middle_2(int4,int4,int4)",
-      from(...args) {
-        return sql`${optional_missing_middle_2FunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "a",
-        codec: TYPES.int,
-        notNull: true
-      }, {
-        name: "b",
-        codec: TYPES.int,
-        optional: true,
-        notNull: true
-      }, {
-        name: "c",
-        codec: TYPES.int,
-        optional: true,
-        notNull: true
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "optional_missing_middle_2"
-        }
-      },
-      isUnique: true
-    },
-    optional_missing_middle_3: {
-      executor: executor,
-      name: "optional_missing_middle_3",
-      identifier: "main.a.optional_missing_middle_3(int4,int4,int4)",
-      from(...args) {
-        return sql`${optional_missing_middle_3FunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "a",
-        codec: TYPES.int,
-        notNull: true
-      }, {
-        name: "",
-        codec: TYPES.int,
-        optional: true,
-        notNull: true
-      }, {
-        name: "c",
-        codec: TYPES.int,
-        optional: true,
-        notNull: true
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "optional_missing_middle_3"
-        }
-      },
-      isUnique: true
-    },
-    optional_missing_middle_4: {
-      executor: executor,
-      name: "optional_missing_middle_4",
-      identifier: "main.a.optional_missing_middle_4(int4,int4,int4)",
-      from(...args) {
-        return sql`${optional_missing_middle_4FunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "",
-        codec: TYPES.int,
-        notNull: true
-      }, {
-        name: "b",
-        codec: TYPES.int,
-        optional: true,
-        notNull: true
-      }, {
-        name: "",
-        codec: TYPES.int,
-        optional: true,
-        notNull: true
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "optional_missing_middle_4"
-        }
-      },
-      isUnique: true
-    },
-    optional_missing_middle_5: {
-      executor: executor,
-      name: "optional_missing_middle_5",
-      identifier: "main.a.optional_missing_middle_5(int4,int4,int4)",
-      from(...args) {
-        return sql`${optional_missing_middle_5FunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "a",
-        codec: TYPES.int,
-        notNull: true
-      }, {
-        name: "",
-        codec: TYPES.int,
-        optional: true,
-        notNull: true
-      }, {
-        name: "",
-        codec: TYPES.int,
-        optional: true,
-        notNull: true
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "optional_missing_middle_5"
-        }
-      },
-      isUnique: true
-    },
-    post_computed_compound_type_array: PgResource.functionResourceOptions(compound_type_resourceOptionsConfig, {
-      name: "post_computed_compound_type_array",
-      identifier: "main.a.post_computed_compound_type_array(a.post,c.compound_type)",
-      from(...args) {
-        return sql`${post_computed_compound_type_arrayFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "post",
-        codec: postCodec
-      }, {
-        name: "object",
-        codec: compoundTypeCodec
-      }],
-      returnsSetof: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "post_computed_compound_type_array"
-        }
-      },
-      returnsArray: true
-    }),
-    post_computed_interval_array: {
-      executor: executor,
-      name: "post_computed_interval_array",
-      identifier: "main.a.post_computed_interval_array(a.post)",
-      from(...args) {
-        return sql`${post_computed_interval_arrayFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "post",
-        codec: postCodec
-      }],
-      codec: LIST_TYPES.interval,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "post_computed_interval_array"
-        }
-      },
-      isUnique: true
-    },
-    post_computed_interval_set: {
-      executor: executor,
-      name: "post_computed_interval_set",
-      identifier: "main.a.post_computed_interval_set(a.post)",
-      from(...args) {
-        return sql`${post_computed_interval_setFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "post",
-        codec: postCodec
-      }],
-      codec: TYPES.interval,
-      hasImplicitOrder: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "post_computed_interval_set"
-        }
-      }
-    },
-    post_computed_text_array: {
-      executor: executor,
-      name: "post_computed_text_array",
-      identifier: "main.a.post_computed_text_array(a.post)",
-      from(...args) {
-        return sql`${post_computed_text_arrayFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "post",
-        codec: postCodec
-      }],
-      codec: LIST_TYPES.text,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "post_computed_text_array"
-        }
-      },
-      isUnique: true
-    },
-    post_computed_with_optional_arg: {
-      executor: executor,
-      name: "post_computed_with_optional_arg",
-      identifier: "main.a.post_computed_with_optional_arg(a.post,int4)",
-      from(...args) {
-        return sql`${post_computed_with_optional_argFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "post",
-        codec: postCodec,
-        notNull: true
-      }, {
-        name: "i",
-        codec: TYPES.int,
-        optional: true,
-        notNull: true
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "post_computed_with_optional_arg"
-        },
-        tags: {
-          sortable: true,
-          filterable: true,
-          behavior: ["filter filterProc filterBy", "orderBy order resource:connection:backwards"]
-        }
-      },
-      isUnique: true
-    },
-    post_computed_with_required_arg: {
-      executor: executor,
-      name: "post_computed_with_required_arg",
-      identifier: "main.a.post_computed_with_required_arg(a.post,int4)",
-      from(...args) {
-        return sql`${post_computed_with_required_argFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "post",
-        codec: postCodec,
-        notNull: true
-      }, {
-        name: "i",
-        codec: TYPES.int,
-        notNull: true
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "post_computed_with_required_arg"
-        },
-        tags: {
-          sortable: true,
-          filterable: true,
-          behavior: ["filter filterProc filterBy", "orderBy order resource:connection:backwards"]
-        }
-      },
-      isUnique: true
-    },
-    post_headline_trimmed: {
-      executor: executor,
-      name: "post_headline_trimmed",
-      identifier: "main.a.post_headline_trimmed(a.post,int4,text)",
-      from(...args) {
-        return sql`${post_headline_trimmedFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "post",
-        codec: postCodec
-      }, {
-        name: "length",
-        codec: TYPES.int,
-        optional: true
-      }, {
-        name: "omission",
-        codec: TYPES.text,
-        optional: true
-      }],
-      codec: TYPES.text,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "post_headline_trimmed"
-        }
-      },
-      isUnique: true
-    },
-    post_headline_trimmed_no_defaults: {
-      executor: executor,
-      name: "post_headline_trimmed_no_defaults",
-      identifier: "main.a.post_headline_trimmed_no_defaults(a.post,int4,text)",
-      from(...args) {
-        return sql`${post_headline_trimmed_no_defaultsFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "post",
-        codec: postCodec
-      }, {
-        name: "length",
-        codec: TYPES.int
-      }, {
-        name: "omission",
-        codec: TYPES.text
-      }],
-      codec: TYPES.text,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "post_headline_trimmed_no_defaults"
-        }
-      },
-      isUnique: true
-    },
-    post_headline_trimmed_strict: {
-      executor: executor,
-      name: "post_headline_trimmed_strict",
-      identifier: "main.a.post_headline_trimmed_strict(a.post,int4,text)",
-      from(...args) {
-        return sql`${post_headline_trimmed_strictFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "post",
-        codec: postCodec,
-        notNull: true
-      }, {
-        name: "length",
-        codec: TYPES.int,
-        optional: true,
-        notNull: true
-      }, {
-        name: "omission",
-        codec: TYPES.text,
-        optional: true,
-        notNull: true
-      }],
-      codec: TYPES.text,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "post_headline_trimmed_strict"
-        }
-      },
-      isUnique: true
-    },
-    post_many: PgResource.functionResourceOptions(post_resourceOptionsConfig, {
-      name: "post_many",
-      identifier: "main.a.post_many(a._post)",
-      from(...args) {
-        return sql`${post_manyFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "posts",
-        codec: postArrayCodec
-      }],
-      returnsSetof: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "post_many"
-        }
-      },
-      isMutation: true,
-      hasImplicitOrder: true
-    }),
     post_with_suffix: PgResource.functionResourceOptions(post_resourceOptionsConfig, {
       name: "post_with_suffix",
       identifier: "main.a.post_with_suffix(a.post,text)",
@@ -4190,684 +2223,6 @@ const registry = makeRegistry({
       },
       isMutation: true
     }),
-    query_compound_type_array: PgResource.functionResourceOptions(compound_type_resourceOptionsConfig, {
-      name: "query_compound_type_array",
-      identifier: "main.a.query_compound_type_array(c.compound_type)",
-      from(...args) {
-        return sql`${query_compound_type_arrayFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "object",
-        codec: compoundTypeCodec
-      }],
-      returnsSetof: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "query_compound_type_array"
-        }
-      },
-      returnsArray: true
-    }),
-    query_interval_array: {
-      executor: executor,
-      name: "query_interval_array",
-      identifier: "main.a.query_interval_array()",
-      from(...args) {
-        return sql`${query_interval_arrayFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      codec: LIST_TYPES.interval,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "query_interval_array"
-        }
-      },
-      isUnique: true
-    },
-    query_interval_set: {
-      executor: executor,
-      name: "query_interval_set",
-      identifier: "main.a.query_interval_set()",
-      from(...args) {
-        return sql`${query_interval_setFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      codec: TYPES.interval,
-      hasImplicitOrder: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "query_interval_set"
-        }
-      }
-    },
-    query_text_array: {
-      executor: executor,
-      name: "query_text_array",
-      identifier: "main.a.query_text_array()",
-      from(...args) {
-        return sql`${query_text_arrayFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      codec: LIST_TYPES.text,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "query_text_array"
-        }
-      },
-      isUnique: true
-    },
-    return_void_mutation: {
-      executor: executor,
-      name: "return_void_mutation",
-      identifier: "main.a.return_void_mutation()",
-      from(...args) {
-        return sql`${return_void_mutationFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      codec: TYPES.void,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "return_void_mutation"
-        }
-      },
-      isUnique: true,
-      isMutation: true
-    },
-    static_big_integer: {
-      executor: executor,
-      name: "static_big_integer",
-      identifier: "main.a.static_big_integer()",
-      from(...args) {
-        return sql`${static_big_integerFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      codec: TYPES.bigint,
-      hasImplicitOrder: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "a",
-          name: "static_big_integer"
-        }
-      }
-    },
-    authenticate: PgResource.functionResourceOptions(jwt_token_resourceOptionsConfig, {
-      name: "authenticate",
-      identifier: "main.b.authenticate(int4,numeric,int8)",
-      from(...args) {
-        return sql`${authenticateFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "a",
-        codec: TYPES.int
-      }, {
-        name: "b",
-        codec: TYPES.numeric
-      }, {
-        name: "c",
-        codec: TYPES.bigint
-      }],
-      returnsSetof: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "b",
-          name: "authenticate"
-        }
-      },
-      isMutation: true
-    }),
-    authenticate_fail: PgResource.functionResourceOptions(jwt_token_resourceOptionsConfig, {
-      name: "authenticate_fail",
-      identifier: "main.b.authenticate_fail()",
-      from(...args) {
-        return sql`${authenticate_failFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      returnsSetof: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "b",
-          name: "authenticate_fail"
-        }
-      },
-      isMutation: true
-    }),
-    authenticate_many: PgResource.functionResourceOptions(jwt_token_resourceOptionsConfig, {
-      name: "authenticate_many",
-      identifier: "main.b.authenticate_many(int4,numeric,int8)",
-      from(...args) {
-        return sql`${authenticate_manyFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "a",
-        codec: TYPES.int
-      }, {
-        name: "b",
-        codec: TYPES.numeric
-      }, {
-        name: "c",
-        codec: TYPES.bigint
-      }],
-      returnsSetof: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "b",
-          name: "authenticate_many"
-        }
-      },
-      isMutation: true,
-      returnsArray: true
-    }),
-    authenticate_payload: PgResource.functionResourceOptions({
-      executor: executor,
-      name: "auth_payload",
-      identifier: "main.b.auth_payload",
-      from: authPayloadIdentifier,
-      codec: authPayloadCodec,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "b",
-          name: "auth_payload"
-        },
-        isInsertable: false,
-        isUpdatable: false,
-        isDeletable: false,
-        tags: {
-          foreignKey: "(id) references c.person"
-        }
-      },
-      isVirtual: true
-    }, {
-      name: "authenticate_payload",
-      identifier: "main.b.authenticate_payload(int4,numeric,int8)",
-      from(...args) {
-        return sql`${authenticate_payloadFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "a",
-        codec: TYPES.int
-      }, {
-        name: "b",
-        codec: TYPES.numeric
-      }, {
-        name: "c",
-        codec: TYPES.bigint
-      }],
-      returnsSetof: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "b",
-          name: "authenticate_payload"
-        }
-      },
-      isMutation: true
-    }),
-    compound_type_array_mutation: PgResource.functionResourceOptions(compound_type_resourceOptionsConfig, {
-      name: "compound_type_array_mutation",
-      identifier: "main.b.compound_type_array_mutation(c.compound_type)",
-      from(...args) {
-        return sql`${compound_type_array_mutationFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "object",
-        codec: compoundTypeCodec
-      }],
-      returnsSetof: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "b",
-          name: "compound_type_array_mutation"
-        }
-      },
-      isMutation: true,
-      returnsArray: true
-    }),
-    compound_type_array_query: PgResource.functionResourceOptions(compound_type_resourceOptionsConfig, {
-      name: "compound_type_array_query",
-      identifier: "main.b.compound_type_array_query(c.compound_type)",
-      from(...args) {
-        return sql`${compound_type_array_queryFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "object",
-        codec: compoundTypeCodec
-      }],
-      returnsSetof: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "b",
-          name: "compound_type_array_query"
-        }
-      },
-      returnsArray: true
-    }),
-    compound_type_mutation: PgResource.functionResourceOptions(compound_type_resourceOptionsConfig, {
-      name: "compound_type_mutation",
-      identifier: "main.b.compound_type_mutation(c.compound_type)",
-      from(...args) {
-        return sql`${compound_type_mutationFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "object",
-        codec: compoundTypeCodec
-      }],
-      returnsSetof: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "b",
-          name: "compound_type_mutation"
-        }
-      },
-      isMutation: true
-    }),
-    compound_type_query: PgResource.functionResourceOptions(compound_type_resourceOptionsConfig, {
-      name: "compound_type_query",
-      identifier: "main.b.compound_type_query(c.compound_type)",
-      from(...args) {
-        return sql`${compound_type_queryFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "object",
-        codec: compoundTypeCodec
-      }],
-      returnsSetof: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "b",
-          name: "compound_type_query"
-        }
-      }
-    }),
-    compound_type_set_mutation: PgResource.functionResourceOptions(compound_type_resourceOptionsConfig, {
-      name: "compound_type_set_mutation",
-      identifier: "main.b.compound_type_set_mutation(c.compound_type)",
-      from(...args) {
-        return sql`${compound_type_set_mutationFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "object",
-        codec: compoundTypeCodec
-      }],
-      returnsSetof: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "b",
-          name: "compound_type_set_mutation"
-        }
-      },
-      isMutation: true,
-      hasImplicitOrder: true
-    }),
-    guid_fn: {
-      executor: executor,
-      name: "guid_fn",
-      identifier: "main.b.guid_fn(b.guid)",
-      from(...args) {
-        return sql`${guid_fnFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "g",
-        codec: guidCodec
-      }],
-      codec: guidCodec,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "b",
-          name: "guid_fn"
-        }
-      },
-      isUnique: true,
-      isMutation: true
-    },
-    list_bde_mutation: {
-      executor: executor,
-      name: "list_bde_mutation",
-      identifier: "main.b.list_bde_mutation(_text,text,text)",
-      from(...args) {
-        return sql`${list_bde_mutationFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "b",
-        codec: LIST_TYPES.text
-      }, {
-        name: "d",
-        codec: TYPES.text
-      }, {
-        name: "e",
-        codec: TYPES.text
-      }],
-      codec: LIST_TYPES.uuid,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "b",
-          name: "list_bde_mutation"
-        }
-      },
-      isUnique: true,
-      isMutation: true
-    },
-    mult_1: {
-      executor: executor,
-      name: "mult_1",
-      identifier: "main.b.mult_1(int4,int4)",
-      from(...args) {
-        return sql`${mult_1FunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: null,
-        codec: TYPES.int
-      }, {
-        name: null,
-        codec: TYPES.int
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "b",
-          name: "mult_1"
-        }
-      },
-      isUnique: true,
-      isMutation: true
-    },
-    mult_2: {
-      executor: executor,
-      name: "mult_2",
-      identifier: "main.b.mult_2(int4,int4)",
-      from(...args) {
-        return sql`${mult_2FunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: null,
-        codec: TYPES.int
-      }, {
-        name: null,
-        codec: TYPES.int
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "b",
-          name: "mult_2"
-        }
-      },
-      isUnique: true,
-      isMutation: true
-    },
-    mult_3: {
-      executor: executor,
-      name: "mult_3",
-      identifier: "main.b.mult_3(int4,int4)",
-      from(...args) {
-        return sql`${mult_3FunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: null,
-        codec: TYPES.int,
-        notNull: true
-      }, {
-        name: null,
-        codec: TYPES.int,
-        notNull: true
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "b",
-          name: "mult_3"
-        }
-      },
-      isUnique: true,
-      isMutation: true
-    },
-    mult_4: {
-      executor: executor,
-      name: "mult_4",
-      identifier: "main.b.mult_4(int4,int4)",
-      from(...args) {
-        return sql`${mult_4FunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: null,
-        codec: TYPES.int,
-        notNull: true
-      }, {
-        name: null,
-        codec: TYPES.int,
-        notNull: true
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "b",
-          name: "mult_4"
-        }
-      },
-      isUnique: true,
-      isMutation: true
-    },
-    type_function: PgResource.functionResourceOptions(types_resourceOptionsConfig, {
-      name: "type_function",
-      identifier: "main.b.type_function(int4)",
-      from(...args) {
-        return sql`${type_functionFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "id",
-        codec: TYPES.int
-      }],
-      returnsSetof: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "b",
-          name: "type_function"
-        }
-      }
-    }),
-    type_function_connection: PgResource.functionResourceOptions(types_resourceOptionsConfig, {
-      name: "type_function_connection",
-      identifier: "main.b.type_function_connection()",
-      from(...args) {
-        return sql`${type_function_connectionFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      returnsSetof: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "b",
-          name: "type_function_connection"
-        }
-      },
-      hasImplicitOrder: true
-    }),
-    type_function_connection_mutation: PgResource.functionResourceOptions(types_resourceOptionsConfig, {
-      name: "type_function_connection_mutation",
-      identifier: "main.b.type_function_connection_mutation()",
-      from(...args) {
-        return sql`${type_function_connection_mutationFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      returnsSetof: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "b",
-          name: "type_function_connection_mutation"
-        }
-      },
-      isMutation: true,
-      hasImplicitOrder: true
-    }),
-    type_function_list: PgResource.functionResourceOptions(types_resourceOptionsConfig, {
-      name: "type_function_list",
-      identifier: "main.b.type_function_list()",
-      from(...args) {
-        return sql`${type_function_listFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      returnsSetof: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "b",
-          name: "type_function_list"
-        }
-      },
-      returnsArray: true
-    }),
-    type_function_list_mutation: PgResource.functionResourceOptions(types_resourceOptionsConfig, {
-      name: "type_function_list_mutation",
-      identifier: "main.b.type_function_list_mutation()",
-      from(...args) {
-        return sql`${type_function_list_mutationFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      returnsSetof: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "b",
-          name: "type_function_list_mutation"
-        }
-      },
-      isMutation: true,
-      returnsArray: true
-    }),
-    type_function_mutation: PgResource.functionResourceOptions(types_resourceOptionsConfig, {
-      name: "type_function_mutation",
-      identifier: "main.b.type_function_mutation(int4)",
-      from(...args) {
-        return sql`${type_function_mutationFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "id",
-        codec: TYPES.int
-      }],
-      returnsSetof: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "b",
-          name: "type_function_mutation"
-        }
-      },
-      isMutation: true
-    }),
-    type_identity: PgResource.functionResourceOptions(types_resourceOptionsConfig, {
-      name: "type_identity",
-      identifier: "main.b.type_identity(b.types)",
-      from(...args) {
-        return sql`${type_identityFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "input",
-        codec: typesCodec
-      }],
-      returnsSetof: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "b",
-          name: "type_identity"
-        }
-      }
-    }),
-    badly_behaved_function: PgResource.functionResourceOptions(person_resourceOptionsConfig, {
-      name: "badly_behaved_function",
-      identifier: "main.c.badly_behaved_function()",
-      from(...args) {
-        return sql`${badly_behaved_functionFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      returnsSetof: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "badly_behaved_function"
-        },
-        tags: {
-          deprecated: "This is deprecated (comment on function c.badly_behaved_function)."
-        }
-      },
-      hasImplicitOrder: true
-    }),
-    compound_type_computed_field: {
-      executor: executor,
-      name: "compound_type_computed_field",
-      identifier: "main.c.compound_type_computed_field(c.compound_type)",
-      from(...args) {
-        return sql`${compound_type_computed_fieldFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "compound_type",
-        codec: compoundTypeCodec
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "compound_type_computed_field"
-        }
-      },
-      isUnique: true
-    },
-    compound_type_set_query: PgResource.functionResourceOptions(compound_type_resourceOptionsConfig, {
-      name: "compound_type_set_query",
-      identifier: "main.c.compound_type_set_query()",
-      from(...args) {
-        return sql`${compound_type_set_queryFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      returnsSetof: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "compound_type_set_query"
-        }
-      },
-      hasImplicitOrder: true
-    }),
     current_user_id: {
       executor: executor,
       name: "current_user_id",
@@ -4886,598 +2241,6 @@ const registry = makeRegistry({
         }
       },
       isUnique: true
-    },
-    edge_case_computed: {
-      executor: executor,
-      name: "edge_case_computed",
-      identifier: "main.c.edge_case_computed(c.edge_case)",
-      from(...args) {
-        return sql`${edge_case_computedFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "edge_case",
-        codec: edgeCaseCodec
-      }],
-      codec: TYPES.text,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "edge_case_computed"
-        },
-        tags: {
-          sortable: true,
-          behavior: ["orderBy order resource:connection:backwards"]
-        }
-      },
-      isUnique: true
-    },
-    func_in_inout: {
-      executor: executor,
-      name: "func_in_inout",
-      identifier: "main.c.func_in_inout(int4,int4)",
-      from(...args) {
-        return sql`${func_in_inoutFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "i",
-        codec: TYPES.int
-      }, {
-        name: "ino",
-        codec: TYPES.int
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "func_in_inout"
-        },
-        singleOutputParameterName: "ino"
-      },
-      isUnique: true
-    },
-    func_in_out: {
-      executor: executor,
-      name: "func_in_out",
-      identifier: "main.c.func_in_out(int4,int4)",
-      from(...args) {
-        return sql`${func_in_outFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "i",
-        codec: TYPES.int
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "func_in_out"
-        },
-        singleOutputParameterName: "o"
-      },
-      isUnique: true
-    },
-    func_out: {
-      executor: executor,
-      name: "func_out",
-      identifier: "main.c.func_out(int4)",
-      from(...args) {
-        return sql`${func_outFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "func_out"
-        },
-        singleOutputParameterName: "o"
-      },
-      isUnique: true
-    },
-    func_out_complex: {
-      executor: executor,
-      name: "func_out_complex",
-      identifier: "main.c.func_out_complex(int4,text,int4,c.compound_type,c.person)",
-      from(...args) {
-        return sql`${func_out_complexFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "a",
-        codec: TYPES.int
-      }, {
-        name: "b",
-        codec: TYPES.text
-      }],
-      codec: registryConfig_pgCodecs_FuncOutComplexRecord_FuncOutComplexRecord,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "func_out_complex"
-        }
-      },
-      isUnique: true
-    },
-    func_out_complex_setof: {
-      executor: executor,
-      name: "func_out_complex_setof",
-      identifier: "main.c.func_out_complex_setof(int4,text,int4,c.compound_type,c.person)",
-      from(...args) {
-        return sql`${func_out_complex_setofFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "a",
-        codec: TYPES.int
-      }, {
-        name: "b",
-        codec: TYPES.text
-      }],
-      codec: registryConfig_pgCodecs_FuncOutComplexSetofRecord_FuncOutComplexSetofRecord,
-      hasImplicitOrder: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "func_out_complex_setof"
-        }
-      }
-    },
-    func_out_out: {
-      executor: executor,
-      name: "func_out_out",
-      identifier: "main.c.func_out_out(int4,text)",
-      from(...args) {
-        return sql`${func_out_outFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      codec: registryConfig_pgCodecs_FuncOutOutRecord_FuncOutOutRecord,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "func_out_out"
-        }
-      },
-      isUnique: true
-    },
-    func_out_out_compound_type: {
-      executor: executor,
-      name: "func_out_out_compound_type",
-      identifier: "main.c.func_out_out_compound_type(int4,int4,c.compound_type)",
-      from(...args) {
-        return sql`${func_out_out_compound_typeFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "i1",
-        codec: TYPES.int
-      }],
-      codec: registryConfig_pgCodecs_FuncOutOutCompoundTypeRecord_FuncOutOutCompoundTypeRecord,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "func_out_out_compound_type"
-        }
-      },
-      isUnique: true
-    },
-    func_out_out_setof: {
-      executor: executor,
-      name: "func_out_out_setof",
-      identifier: "main.c.func_out_out_setof(int4,text)",
-      from(...args) {
-        return sql`${func_out_out_setofFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      codec: registryConfig_pgCodecs_FuncOutOutSetofRecord_FuncOutOutSetofRecord,
-      hasImplicitOrder: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "func_out_out_setof"
-        }
-      }
-    },
-    func_out_out_unnamed: {
-      executor: executor,
-      name: "func_out_out_unnamed",
-      identifier: "main.c.func_out_out_unnamed(int4,text)",
-      from(...args) {
-        return sql`${func_out_out_unnamedFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      codec: registryConfig_pgCodecs_FuncOutOutUnnamedRecord_FuncOutOutUnnamedRecord,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "func_out_out_unnamed"
-        }
-      },
-      isUnique: true
-    },
-    func_out_setof: {
-      executor: executor,
-      name: "func_out_setof",
-      identifier: "main.c.func_out_setof(int4)",
-      from(...args) {
-        return sql`${func_out_setofFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      codec: TYPES.int,
-      hasImplicitOrder: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "func_out_setof"
-        },
-        singleOutputParameterName: "o"
-      }
-    },
-    func_out_table: PgResource.functionResourceOptions(person_resourceOptionsConfig, {
-      name: "func_out_table",
-      identifier: "main.c.func_out_table(c.person)",
-      from(...args) {
-        return sql`${func_out_tableFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      returnsSetof: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "func_out_table"
-        }
-      }
-    }),
-    func_out_table_setof: PgResource.functionResourceOptions(person_resourceOptionsConfig, {
-      name: "func_out_table_setof",
-      identifier: "main.c.func_out_table_setof(c.person)",
-      from(...args) {
-        return sql`${func_out_table_setofFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      returnsSetof: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "func_out_table_setof"
-        }
-      },
-      hasImplicitOrder: true
-    }),
-    func_out_unnamed: {
-      executor: executor,
-      name: "func_out_unnamed",
-      identifier: "main.c.func_out_unnamed(int4)",
-      from(...args) {
-        return sql`${func_out_unnamedFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "func_out_unnamed"
-        }
-      },
-      isUnique: true
-    },
-    func_out_unnamed_out_out_unnamed: {
-      executor: executor,
-      name: "func_out_unnamed_out_out_unnamed",
-      identifier: "main.c.func_out_unnamed_out_out_unnamed(int4,text,int4)",
-      from(...args) {
-        return sql`${func_out_unnamed_out_out_unnamedFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      codec: registryConfig_pgCodecs_FuncOutUnnamedOutOutUnnamedRecord_FuncOutUnnamedOutOutUnnamedRecord,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "func_out_unnamed_out_out_unnamed"
-        }
-      },
-      isUnique: true
-    },
-    func_returns_table_multi_col: {
-      executor: executor,
-      name: "func_returns_table_multi_col",
-      identifier: "main.c.func_returns_table_multi_col(int4,int4,int4,int4,text)",
-      from(...args) {
-        return sql`${func_returns_table_multi_colFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "i",
-        codec: TYPES.int
-      }, {
-        name: "a",
-        codec: TYPES.int,
-        optional: true
-      }, {
-        name: "b",
-        codec: TYPES.int,
-        optional: true
-      }],
-      codec: registryConfig_pgCodecs_FuncReturnsTableMultiColRecord_FuncReturnsTableMultiColRecord,
-      hasImplicitOrder: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "func_returns_table_multi_col"
-        }
-      }
-    },
-    func_returns_table_one_col: {
-      executor: executor,
-      name: "func_returns_table_one_col",
-      identifier: "main.c.func_returns_table_one_col(int4,int4)",
-      from(...args) {
-        return sql`${func_returns_table_one_colFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "i",
-        codec: TYPES.int
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "func_returns_table_one_col"
-        },
-        singleOutputParameterName: "col1"
-      }
-    },
-    int_set_mutation: {
-      executor: executor,
-      name: "int_set_mutation",
-      identifier: "main.c.int_set_mutation(int4,int4,int4)",
-      from(...args) {
-        return sql`${int_set_mutationFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "x",
-        codec: TYPES.int
-      }, {
-        name: "y",
-        codec: TYPES.int
-      }, {
-        name: "z",
-        codec: TYPES.int
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "int_set_mutation"
-        }
-      },
-      isMutation: true
-    },
-    int_set_query: {
-      executor: executor,
-      name: "int_set_query",
-      identifier: "main.c.int_set_query(int4,int4,int4)",
-      from(...args) {
-        return sql`${int_set_queryFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "x",
-        codec: TYPES.int
-      }, {
-        name: "y",
-        codec: TYPES.int
-      }, {
-        name: "z",
-        codec: TYPES.int
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "int_set_query"
-        }
-      }
-    },
-    issue756_mutation: PgResource.functionResourceOptions(issue756_resourceOptionsConfig, {
-      name: "issue756_mutation",
-      identifier: "main.c.issue756_mutation()",
-      from(...args) {
-        return sql`${issue756_mutationFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      returnsSetof: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "issue756_mutation"
-        }
-      },
-      isMutation: true
-    }),
-    issue756_set_mutation: PgResource.functionResourceOptions(issue756_resourceOptionsConfig, {
-      name: "issue756_set_mutation",
-      identifier: "main.c.issue756_set_mutation()",
-      from(...args) {
-        return sql`${issue756_set_mutationFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      returnsSetof: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "issue756_set_mutation"
-        }
-      },
-      isMutation: true,
-      hasImplicitOrder: true
-    }),
-    json_identity: {
-      executor: executor,
-      name: "json_identity",
-      identifier: "main.c.json_identity(json)",
-      from(...args) {
-        return sql`${json_identityFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "json",
-        codec: TYPES.json
-      }],
-      codec: TYPES.json,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "json_identity"
-        }
-      },
-      isUnique: true
-    },
-    json_identity_mutation: {
-      executor: executor,
-      name: "json_identity_mutation",
-      identifier: "main.c.json_identity_mutation(json)",
-      from(...args) {
-        return sql`${json_identity_mutationFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "json",
-        codec: TYPES.json
-      }],
-      codec: TYPES.json,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "json_identity_mutation"
-        }
-      },
-      isUnique: true,
-      isMutation: true
-    },
-    jsonb_identity: {
-      executor: executor,
-      name: "jsonb_identity",
-      identifier: "main.c.jsonb_identity(jsonb)",
-      from(...args) {
-        return sql`${jsonb_identityFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "json",
-        codec: TYPES.jsonb
-      }],
-      codec: TYPES.jsonb,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "jsonb_identity"
-        }
-      },
-      isUnique: true
-    },
-    jsonb_identity_mutation: {
-      executor: executor,
-      name: "jsonb_identity_mutation",
-      identifier: "main.c.jsonb_identity_mutation(jsonb)",
-      from(...args) {
-        return sql`${jsonb_identity_mutationFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "json",
-        codec: TYPES.jsonb
-      }],
-      codec: TYPES.jsonb,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "jsonb_identity_mutation"
-        }
-      },
-      isUnique: true,
-      isMutation: true
-    },
-    jsonb_identity_mutation_plpgsql: {
-      executor: executor,
-      name: "jsonb_identity_mutation_plpgsql",
-      identifier: "main.c.jsonb_identity_mutation_plpgsql(jsonb)",
-      from(...args) {
-        return sql`${jsonb_identity_mutation_plpgsqlFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "_the_json",
-        codec: TYPES.jsonb,
-        notNull: true
-      }],
-      codec: TYPES.jsonb,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "jsonb_identity_mutation_plpgsql"
-        }
-      },
-      isUnique: true,
-      isMutation: true
-    },
-    jsonb_identity_mutation_plpgsql_with_default: {
-      executor: executor,
-      name: "jsonb_identity_mutation_plpgsql_with_default",
-      identifier: "main.c.jsonb_identity_mutation_plpgsql_with_default(jsonb)",
-      from(...args) {
-        return sql`${jsonb_identity_mutation_plpgsql_with_defaultFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "_the_json",
-        codec: TYPES.jsonb,
-        optional: true,
-        notNull: true
-      }],
-      codec: TYPES.jsonb,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "jsonb_identity_mutation_plpgsql_with_default"
-        }
-      },
-      isUnique: true,
-      isMutation: true
     },
     left_arm_identity: PgResource.functionResourceOptions(left_arm_resourceOptionsConfig, {
       name: "left_arm_identity",
@@ -5506,957 +2269,6 @@ const registry = makeRegistry({
       },
       isMutation: true
     }),
-    list_of_compound_types_mutation: PgResource.functionResourceOptions(compound_type_resourceOptionsConfig, {
-      name: "list_of_compound_types_mutation",
-      identifier: "main.c.list_of_compound_types_mutation(c._compound_type)",
-      from(...args) {
-        return sql`${list_of_compound_types_mutationFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "records",
-        codec: compoundTypeArrayCodec
-      }],
-      returnsSetof: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "list_of_compound_types_mutation"
-        }
-      },
-      isMutation: true,
-      hasImplicitOrder: true
-    }),
-    mutation_in_inout: {
-      executor: executor,
-      name: "mutation_in_inout",
-      identifier: "main.c.mutation_in_inout(int4,int4)",
-      from(...args) {
-        return sql`${mutation_in_inoutFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "i",
-        codec: TYPES.int
-      }, {
-        name: "ino",
-        codec: TYPES.int
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "mutation_in_inout"
-        },
-        singleOutputParameterName: "ino"
-      },
-      isUnique: true,
-      isMutation: true
-    },
-    mutation_in_out: {
-      executor: executor,
-      name: "mutation_in_out",
-      identifier: "main.c.mutation_in_out(int4,int4)",
-      from(...args) {
-        return sql`${mutation_in_outFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "i",
-        codec: TYPES.int
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "mutation_in_out"
-        },
-        singleOutputParameterName: "o"
-      },
-      isUnique: true,
-      isMutation: true
-    },
-    mutation_out: {
-      executor: executor,
-      name: "mutation_out",
-      identifier: "main.c.mutation_out(int4)",
-      from(...args) {
-        return sql`${mutation_outFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "mutation_out"
-        },
-        singleOutputParameterName: "o"
-      },
-      isUnique: true,
-      isMutation: true
-    },
-    mutation_out_complex: {
-      executor: executor,
-      name: "mutation_out_complex",
-      identifier: "main.c.mutation_out_complex(int4,text,int4,c.compound_type,c.person)",
-      from(...args) {
-        return sql`${mutation_out_complexFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "a",
-        codec: TYPES.int
-      }, {
-        name: "b",
-        codec: TYPES.text
-      }],
-      codec: registryConfig_pgCodecs_MutationOutComplexRecord_MutationOutComplexRecord,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "mutation_out_complex"
-        }
-      },
-      isUnique: true,
-      isMutation: true
-    },
-    mutation_out_complex_setof: {
-      executor: executor,
-      name: "mutation_out_complex_setof",
-      identifier: "main.c.mutation_out_complex_setof(int4,text,int4,c.compound_type,c.person)",
-      from(...args) {
-        return sql`${mutation_out_complex_setofFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "a",
-        codec: TYPES.int
-      }, {
-        name: "b",
-        codec: TYPES.text
-      }],
-      codec: registryConfig_pgCodecs_MutationOutComplexSetofRecord_MutationOutComplexSetofRecord,
-      hasImplicitOrder: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "mutation_out_complex_setof"
-        }
-      },
-      isMutation: true
-    },
-    mutation_out_out: {
-      executor: executor,
-      name: "mutation_out_out",
-      identifier: "main.c.mutation_out_out(int4,text)",
-      from(...args) {
-        return sql`${mutation_out_outFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      codec: registryConfig_pgCodecs_MutationOutOutRecord_MutationOutOutRecord,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "mutation_out_out"
-        }
-      },
-      isUnique: true,
-      isMutation: true
-    },
-    mutation_out_out_compound_type: {
-      executor: executor,
-      name: "mutation_out_out_compound_type",
-      identifier: "main.c.mutation_out_out_compound_type(int4,int4,c.compound_type)",
-      from(...args) {
-        return sql`${mutation_out_out_compound_typeFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "i1",
-        codec: TYPES.int
-      }],
-      codec: registryConfig_pgCodecs_MutationOutOutCompoundTypeRecord_MutationOutOutCompoundTypeRecord,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "mutation_out_out_compound_type"
-        }
-      },
-      isUnique: true,
-      isMutation: true
-    },
-    mutation_out_out_setof: {
-      executor: executor,
-      name: "mutation_out_out_setof",
-      identifier: "main.c.mutation_out_out_setof(int4,text)",
-      from(...args) {
-        return sql`${mutation_out_out_setofFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      codec: registryConfig_pgCodecs_MutationOutOutSetofRecord_MutationOutOutSetofRecord,
-      hasImplicitOrder: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "mutation_out_out_setof"
-        }
-      },
-      isMutation: true
-    },
-    mutation_out_out_unnamed: {
-      executor: executor,
-      name: "mutation_out_out_unnamed",
-      identifier: "main.c.mutation_out_out_unnamed(int4,text)",
-      from(...args) {
-        return sql`${mutation_out_out_unnamedFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      codec: registryConfig_pgCodecs_MutationOutOutUnnamedRecord_MutationOutOutUnnamedRecord,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "mutation_out_out_unnamed"
-        }
-      },
-      isUnique: true,
-      isMutation: true
-    },
-    mutation_out_setof: {
-      executor: executor,
-      name: "mutation_out_setof",
-      identifier: "main.c.mutation_out_setof(int4)",
-      from(...args) {
-        return sql`${mutation_out_setofFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      codec: TYPES.int,
-      hasImplicitOrder: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "mutation_out_setof"
-        },
-        singleOutputParameterName: "o"
-      },
-      isMutation: true
-    },
-    mutation_out_table: PgResource.functionResourceOptions(person_resourceOptionsConfig, {
-      name: "mutation_out_table",
-      identifier: "main.c.mutation_out_table(c.person)",
-      from(...args) {
-        return sql`${mutation_out_tableFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      returnsSetof: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "mutation_out_table"
-        }
-      },
-      isMutation: true
-    }),
-    mutation_out_table_setof: PgResource.functionResourceOptions(person_resourceOptionsConfig, {
-      name: "mutation_out_table_setof",
-      identifier: "main.c.mutation_out_table_setof(c.person)",
-      from(...args) {
-        return sql`${mutation_out_table_setofFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      returnsSetof: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "mutation_out_table_setof"
-        }
-      },
-      isMutation: true,
-      hasImplicitOrder: true
-    }),
-    mutation_out_unnamed: {
-      executor: executor,
-      name: "mutation_out_unnamed",
-      identifier: "main.c.mutation_out_unnamed(int4)",
-      from(...args) {
-        return sql`${mutation_out_unnamedFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "mutation_out_unnamed"
-        }
-      },
-      isUnique: true,
-      isMutation: true
-    },
-    mutation_out_unnamed_out_out_unnamed: {
-      executor: executor,
-      name: "mutation_out_unnamed_out_out_unnamed",
-      identifier: "main.c.mutation_out_unnamed_out_out_unnamed(int4,text,int4)",
-      from(...args) {
-        return sql`${mutation_out_unnamed_out_out_unnamedFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      codec: registryConfig_pgCodecs_MutationOutUnnamedOutOutUnnamedRecord_MutationOutUnnamedOutOutUnnamedRecord,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "mutation_out_unnamed_out_out_unnamed"
-        }
-      },
-      isUnique: true,
-      isMutation: true
-    },
-    mutation_returns_table_multi_col: {
-      executor: executor,
-      name: "mutation_returns_table_multi_col",
-      identifier: "main.c.mutation_returns_table_multi_col(int4,int4,text)",
-      from(...args) {
-        return sql`${mutation_returns_table_multi_colFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "i",
-        codec: TYPES.int
-      }],
-      codec: registryConfig_pgCodecs_MutationReturnsTableMultiColRecord_MutationReturnsTableMultiColRecord,
-      hasImplicitOrder: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "mutation_returns_table_multi_col"
-        }
-      },
-      isMutation: true
-    },
-    mutation_returns_table_one_col: {
-      executor: executor,
-      name: "mutation_returns_table_one_col",
-      identifier: "main.c.mutation_returns_table_one_col(int4,int4)",
-      from(...args) {
-        return sql`${mutation_returns_table_one_colFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "i",
-        codec: TYPES.int
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "mutation_returns_table_one_col"
-        },
-        singleOutputParameterName: "col1"
-      },
-      isMutation: true
-    },
-    no_args_mutation: {
-      executor: executor,
-      name: "no_args_mutation",
-      identifier: "main.c.no_args_mutation()",
-      from(...args) {
-        return sql`${no_args_mutationFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "no_args_mutation"
-        }
-      },
-      isUnique: true,
-      isMutation: true
-    },
-    no_args_query: {
-      executor: executor,
-      name: "no_args_query",
-      identifier: "main.c.no_args_query()",
-      from(...args) {
-        return sql`${no_args_queryFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "no_args_query"
-        }
-      },
-      isUnique: true
-    },
-    person_computed_complex: {
-      executor: executor,
-      name: "person_computed_complex",
-      identifier: "main.c.person_computed_complex(c.person,int4,text,int4,c.compound_type,c.person)",
-      from(...args) {
-        return sql`${person_computed_complexFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "person",
-        codec: personCodec
-      }, {
-        name: "a",
-        codec: TYPES.int
-      }, {
-        name: "b",
-        codec: TYPES.text
-      }],
-      codec: registryConfig_pgCodecs_PersonComputedComplexRecord_PersonComputedComplexRecord,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "person_computed_complex"
-        }
-      },
-      isUnique: true
-    },
-    person_computed_first_arg_inout: PgResource.functionResourceOptions(person_resourceOptionsConfig, {
-      name: "person_computed_first_arg_inout",
-      identifier: "main.c.person_computed_first_arg_inout(c.person)",
-      from(...args) {
-        return sql`${person_computed_first_arg_inoutFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "person",
-        codec: personCodec
-      }],
-      returnsSetof: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "person_computed_first_arg_inout"
-        },
-        singleOutputParameterName: "person"
-      }
-    }),
-    person_computed_first_arg_inout_out: {
-      executor: executor,
-      name: "person_computed_first_arg_inout_out",
-      identifier: "main.c.person_computed_first_arg_inout_out(c.person,int4)",
-      from(...args) {
-        return sql`${person_computed_first_arg_inout_outFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "person",
-        codec: personCodec
-      }],
-      codec: registryConfig_pgCodecs_PersonComputedFirstArgInoutOutRecord_PersonComputedFirstArgInoutOutRecord,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "person_computed_first_arg_inout_out"
-        }
-      },
-      isUnique: true
-    },
-    person_computed_inout: {
-      executor: executor,
-      name: "person_computed_inout",
-      identifier: "main.c.person_computed_inout(c.person,text)",
-      from(...args) {
-        return sql`${person_computed_inoutFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "person",
-        codec: personCodec
-      }, {
-        name: "ino",
-        codec: TYPES.text
-      }],
-      codec: TYPES.text,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "person_computed_inout"
-        },
-        singleOutputParameterName: "ino"
-      },
-      isUnique: true
-    },
-    person_computed_inout_out: {
-      executor: executor,
-      name: "person_computed_inout_out",
-      identifier: "main.c.person_computed_inout_out(c.person,text,text)",
-      from(...args) {
-        return sql`${person_computed_inout_outFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "person",
-        codec: personCodec
-      }, {
-        name: "ino",
-        codec: TYPES.text
-      }],
-      codec: registryConfig_pgCodecs_PersonComputedInoutOutRecord_PersonComputedInoutOutRecord,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "person_computed_inout_out"
-        }
-      },
-      isUnique: true
-    },
-    person_computed_out: {
-      executor: executor,
-      name: "person_computed_out",
-      identifier: "main.c.person_computed_out(c.person,text)",
-      from(...args) {
-        return sql`${person_computed_outFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "person",
-        codec: personCodec
-      }],
-      codec: TYPES.text,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "person_computed_out"
-        },
-        tags: {
-          notNull: true,
-          sortable: true,
-          filterable: true,
-          behavior: ["filter filterProc filterBy", "orderBy order resource:connection:backwards"]
-        },
-        singleOutputParameterName: "o1"
-      },
-      isUnique: true
-    },
-    person_computed_out_out: {
-      executor: executor,
-      name: "person_computed_out_out",
-      identifier: "main.c.person_computed_out_out(c.person,text,text)",
-      from(...args) {
-        return sql`${person_computed_out_outFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "person",
-        codec: personCodec
-      }],
-      codec: registryConfig_pgCodecs_PersonComputedOutOutRecord_PersonComputedOutOutRecord,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "person_computed_out_out"
-        }
-      },
-      isUnique: true
-    },
-    person_exists: {
-      executor: executor,
-      name: "person_exists",
-      identifier: "main.c.person_exists(c.person,b.email)",
-      from(...args) {
-        return sql`${person_existsFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "person",
-        codec: personCodec
-      }, {
-        name: "email",
-        codec: emailCodec
-      }],
-      codec: TYPES.boolean,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "person_exists"
-        },
-        tags: {
-          deprecated: "This is deprecated (comment on function c.person_exists)."
-        }
-      },
-      isUnique: true
-    },
-    person_first_name: {
-      executor: executor,
-      name: "person_first_name",
-      identifier: "main.c.person_first_name(c.person)",
-      from(...args) {
-        return sql`${person_first_nameFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "person",
-        codec: personCodec
-      }],
-      codec: TYPES.text,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "person_first_name"
-        },
-        tags: {
-          sortable: true,
-          behavior: ["orderBy order resource:connection:backwards"]
-        }
-      },
-      isUnique: true,
-      description: "The first name of the person."
-    },
-    person_first_post: PgResource.functionResourceOptions(post_resourceOptionsConfig, {
-      name: "person_first_post",
-      identifier: "main.c.person_first_post(c.person)",
-      from(...args) {
-        return sql`${person_first_postFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "person",
-        codec: personCodec
-      }],
-      returnsSetof: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "person_first_post"
-        }
-      },
-      description: "The first post by the person."
-    }),
-    person_friends: PgResource.functionResourceOptions(person_resourceOptionsConfig, {
-      name: "person_friends",
-      identifier: "main.c.person_friends(c.person)",
-      from(...args) {
-        return sql`${person_friendsFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "person",
-        codec: personCodec
-      }],
-      returnsSetof: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "person_friends"
-        },
-        tags: {
-          sortable: true,
-          behavior: ["orderBy order resource:connection:backwards"]
-        }
-      },
-      hasImplicitOrder: true
-    }),
-    person_optional_missing_middle_1: {
-      executor: executor,
-      name: "person_optional_missing_middle_1",
-      identifier: "main.c.person_optional_missing_middle_1(c.person,int4,int4,int4)",
-      from(...args) {
-        return sql`${person_optional_missing_middle_1FunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "p",
-        codec: personCodec,
-        notNull: true
-      }, {
-        name: "",
-        codec: TYPES.int,
-        notNull: true
-      }, {
-        name: "b",
-        codec: TYPES.int,
-        optional: true,
-        notNull: true
-      }, {
-        name: "c",
-        codec: TYPES.int,
-        optional: true,
-        notNull: true
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "person_optional_missing_middle_1"
-        }
-      },
-      isUnique: true
-    },
-    person_optional_missing_middle_2: {
-      executor: executor,
-      name: "person_optional_missing_middle_2",
-      identifier: "main.c.person_optional_missing_middle_2(c.person,int4,int4,int4)",
-      from(...args) {
-        return sql`${person_optional_missing_middle_2FunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "p",
-        codec: personCodec,
-        notNull: true
-      }, {
-        name: "a",
-        codec: TYPES.int,
-        notNull: true
-      }, {
-        name: "b",
-        codec: TYPES.int,
-        optional: true,
-        notNull: true
-      }, {
-        name: "c",
-        codec: TYPES.int,
-        optional: true,
-        notNull: true
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "person_optional_missing_middle_2"
-        }
-      },
-      isUnique: true
-    },
-    person_optional_missing_middle_3: {
-      executor: executor,
-      name: "person_optional_missing_middle_3",
-      identifier: "main.c.person_optional_missing_middle_3(c.person,int4,int4,int4)",
-      from(...args) {
-        return sql`${person_optional_missing_middle_3FunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "p",
-        codec: personCodec,
-        notNull: true
-      }, {
-        name: "a",
-        codec: TYPES.int,
-        notNull: true
-      }, {
-        name: "",
-        codec: TYPES.int,
-        optional: true,
-        notNull: true
-      }, {
-        name: "c",
-        codec: TYPES.int,
-        optional: true,
-        notNull: true
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "person_optional_missing_middle_3"
-        }
-      },
-      isUnique: true
-    },
-    person_optional_missing_middle_4: {
-      executor: executor,
-      name: "person_optional_missing_middle_4",
-      identifier: "main.c.person_optional_missing_middle_4(c.person,int4,int4,int4)",
-      from(...args) {
-        return sql`${person_optional_missing_middle_4FunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "p",
-        codec: personCodec,
-        notNull: true
-      }, {
-        name: "",
-        codec: TYPES.int,
-        notNull: true
-      }, {
-        name: "b",
-        codec: TYPES.int,
-        optional: true,
-        notNull: true
-      }, {
-        name: "",
-        codec: TYPES.int,
-        optional: true,
-        notNull: true
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "person_optional_missing_middle_4"
-        }
-      },
-      isUnique: true
-    },
-    person_optional_missing_middle_5: {
-      executor: executor,
-      name: "person_optional_missing_middle_5",
-      identifier: "main.c.person_optional_missing_middle_5(c.person,int4,int4,int4)",
-      from(...args) {
-        return sql`${person_optional_missing_middle_5FunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "p",
-        codec: personCodec,
-        notNull: true
-      }, {
-        name: "a",
-        codec: TYPES.int,
-        notNull: true
-      }, {
-        name: "",
-        codec: TYPES.int,
-        optional: true,
-        notNull: true
-      }, {
-        name: "",
-        codec: TYPES.int,
-        optional: true,
-        notNull: true
-      }],
-      codec: TYPES.int,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "person_optional_missing_middle_5"
-        }
-      },
-      isUnique: true
-    },
-    person_type_function: PgResource.functionResourceOptions(types_resourceOptionsConfig, {
-      name: "person_type_function",
-      identifier: "main.c.person_type_function(c.person,int4)",
-      from(...args) {
-        return sql`${person_type_functionFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "p",
-        codec: personCodec
-      }, {
-        name: "id",
-        codec: TYPES.int
-      }],
-      returnsSetof: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "person_type_function"
-        }
-      }
-    }),
-    person_type_function_connection: PgResource.functionResourceOptions(types_resourceOptionsConfig, {
-      name: "person_type_function_connection",
-      identifier: "main.c.person_type_function_connection(c.person)",
-      from(...args) {
-        return sql`${person_type_function_connectionFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "p",
-        codec: personCodec
-      }],
-      returnsSetof: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "person_type_function_connection"
-        }
-      },
-      hasImplicitOrder: true
-    }),
-    person_type_function_list: PgResource.functionResourceOptions(types_resourceOptionsConfig, {
-      name: "person_type_function_list",
-      identifier: "main.c.person_type_function_list(c.person)",
-      from(...args) {
-        return sql`${person_type_function_listFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "p",
-        codec: personCodec
-      }],
-      returnsSetof: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "person_type_function_list"
-        }
-      },
-      returnsArray: true
-    }),
-    query_output_two_rows: {
-      executor: executor,
-      name: "query_output_two_rows",
-      identifier: "main.c.query_output_two_rows(int4,int4,text,c.left_arm,a.post)",
-      from(...args) {
-        return sql`${query_output_two_rowsFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "left_arm_id",
-        codec: TYPES.int
-      }, {
-        name: "post_id",
-        codec: TYPES.int
-      }, {
-        name: "txt",
-        codec: TYPES.text
-      }],
-      codec: registryConfig_pgCodecs_QueryOutputTwoRowsRecord_QueryOutputTwoRowsRecord,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "query_output_two_rows"
-        }
-      },
-      isUnique: true
-    },
     read_pg_settings: {
       executor: executor,
       name: "read_pg_settings",
@@ -6491,253 +2303,10 @@ const registry = makeRegistry({
           name: "return_table_without_grants"
         }
       }
-    }),
-    search_test_summaries: {
-      executor: executor,
-      name: "search_test_summaries",
-      identifier: "main.c.search_test_summaries(int4,interval)",
-      from(...args) {
-        return sql`${search_test_summariesFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      codec: registryConfig_pgCodecs_SearchTestSummariesRecord_SearchTestSummariesRecord,
-      hasImplicitOrder: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "search_test_summaries"
-        },
-        tags: {
-          simpleCollections: "only",
-          behavior: ["+list -connection"]
-        }
-      }
-    },
-    table_mutation: PgResource.functionResourceOptions(post_resourceOptionsConfig, {
-      name: "table_mutation",
-      identifier: "main.c.table_mutation(int4)",
-      from(...args) {
-        return sql`${table_mutationFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "id",
-        codec: TYPES.int
-      }],
-      returnsSetof: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "table_mutation"
-        }
-      },
-      isMutation: true
-    }),
-    table_query: PgResource.functionResourceOptions(post_resourceOptionsConfig, {
-      name: "table_query",
-      identifier: "main.c.table_query(int4)",
-      from(...args) {
-        return sql`${table_queryFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "id",
-        codec: TYPES.int
-      }],
-      returnsSetof: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "table_query"
-        }
-      }
-    }),
-    table_set_mutation: PgResource.functionResourceOptions(person_resourceOptionsConfig, {
-      name: "table_set_mutation",
-      identifier: "main.c.table_set_mutation()",
-      from(...args) {
-        return sql`${table_set_mutationFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      returnsSetof: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "table_set_mutation"
-        }
-      },
-      isMutation: true,
-      hasImplicitOrder: true
-    }),
-    table_set_query: PgResource.functionResourceOptions(person_resourceOptionsConfig, {
-      name: "table_set_query",
-      identifier: "main.c.table_set_query()",
-      from(...args) {
-        return sql`${table_set_queryFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      returnsSetof: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "table_set_query"
-        },
-        tags: {
-          sortable: true,
-          filterable: true,
-          behavior: ["filter filterProc filterBy", "orderBy order resource:connection:backwards"]
-        }
-      },
-      hasImplicitOrder: true
-    }),
-    table_set_query_plpgsql: PgResource.functionResourceOptions(person_resourceOptionsConfig, {
-      name: "table_set_query_plpgsql",
-      identifier: "main.c.table_set_query_plpgsql()",
-      from(...args) {
-        return sql`${table_set_query_plpgsqlFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      returnsSetof: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "table_set_query_plpgsql"
-        }
-      },
-      hasImplicitOrder: true
-    }),
-    table_set_query_volatile: PgResource.functionResourceOptions(person_resourceOptionsConfig, {
-      name: "table_set_query_volatile",
-      identifier: "main.c.table_set_query_volatile()",
-      from(...args) {
-        return sql`${table_set_query_volatileFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [],
-      returnsSetof: true,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "table_set_query_volatile"
-        },
-        tags: {
-          behavior: "+sort +filter +queryField -mutationField +list +connection"
-        }
-      },
-      isMutation: true,
-      hasImplicitOrder: true
-    }),
-    types_mutation: {
-      executor: executor,
-      name: "types_mutation",
-      identifier: "main.c.types_mutation(int8,bool,varchar,_int4,json,c.floatrange)",
-      from(...args) {
-        return sql`${types_mutationFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "a",
-        codec: TYPES.bigint,
-        notNull: true
-      }, {
-        name: "b",
-        codec: TYPES.boolean,
-        notNull: true
-      }, {
-        name: "c",
-        codec: TYPES.varchar,
-        notNull: true
-      }, {
-        name: "d",
-        codec: LIST_TYPES.int,
-        notNull: true
-      }, {
-        name: "e",
-        codec: TYPES.json,
-        notNull: true
-      }, {
-        name: "f",
-        codec: floatrangeCodec,
-        notNull: true
-      }],
-      codec: TYPES.boolean,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "types_mutation"
-        }
-      },
-      isUnique: true,
-      isMutation: true
-    },
-    types_query: {
-      executor: executor,
-      name: "types_query",
-      identifier: "main.c.types_query(int8,bool,varchar,_int4,json,c.floatrange)",
-      from(...args) {
-        return sql`${types_queryFunctionIdentifer}(${sqlFromArgDigests(args)})`;
-      },
-      parameters: [{
-        name: "a",
-        codec: TYPES.bigint,
-        notNull: true
-      }, {
-        name: "b",
-        codec: TYPES.boolean,
-        notNull: true
-      }, {
-        name: "c",
-        codec: TYPES.varchar,
-        notNull: true
-      }, {
-        name: "d",
-        codec: LIST_TYPES.int,
-        notNull: true
-      }, {
-        name: "e",
-        codec: TYPES.json,
-        notNull: true
-      }, {
-        name: "f",
-        codec: floatrangeCodec,
-        notNull: true
-      }],
-      codec: TYPES.boolean,
-      hasImplicitOrder: false,
-      extensions: {
-        pg: {
-          serviceName: "main",
-          schemaName: "c",
-          name: "types_query"
-        }
-      },
-      isUnique: true
-    }
+    })
   },
   pgRelations: {
     __proto__: null,
-    foreignKey: {
-      __proto__: null,
-      compoundKeyByMyCompoundKey1AndCompoundKey2: {
-        localCodec: foreignKeyCodec,
-        remoteResourceOptions: compound_key_resourceOptionsConfig,
-        localAttributes: ["compound_key_1", "compound_key_2"],
-        remoteAttributes: ["person_id_1", "person_id_2"],
-        isUnique: true
-      },
-      personByMyPersonId: {
-        localCodec: foreignKeyCodec,
-        remoteResourceOptions: person_resourceOptionsConfig,
-        localAttributes: ["person_id"],
-        remoteAttributes: ["id"],
-        isUnique: true
-      }
-    },
     post: {
       __proto__: null,
       personByMyAuthorId: {
@@ -6761,6 +2330,104 @@ const registry = makeRegistry({
         remoteAttributes: ["id"],
         isUnique: true,
         isReferencee: true
+      }
+    },
+    leftArm: {
+      __proto__: null,
+      personByMyPersonId: {
+        localCodec: leftArmCodec,
+        remoteResourceOptions: person_resourceOptionsConfig,
+        localAttributes: ["person_id"],
+        remoteAttributes: ["id"],
+        isUnique: true
+      }
+    },
+    person: {
+      __proto__: null,
+      postsByTheirAuthorId: {
+        localCodec: personCodec,
+        remoteResourceOptions: post_resourceOptionsConfig,
+        localAttributes: ["id"],
+        remoteAttributes: ["author_id"],
+        isReferencee: true
+      },
+      personSecretByTheirPersonId: {
+        localCodec: personCodec,
+        remoteResourceOptions: person_secret_resourceOptionsConfig,
+        localAttributes: ["id"],
+        remoteAttributes: ["person_id"],
+        isUnique: true,
+        isReferencee: true,
+        description: "This `Person`'s `PersonSecret`.",
+        extensions: {
+          tags: {
+            forwardDescription: "The `Person` this `PersonSecret` belongs to.",
+            backwardDescription: "This `Person`'s `PersonSecret`."
+          }
+        }
+      },
+      leftArmByTheirPersonId: {
+        localCodec: personCodec,
+        remoteResourceOptions: left_arm_resourceOptionsConfig,
+        localAttributes: ["id"],
+        remoteAttributes: ["person_id"],
+        isUnique: true,
+        isReferencee: true
+      },
+      foreignKeysByTheirPersonId: {
+        localCodec: personCodec,
+        remoteResourceOptions: foreign_key_resourceOptionsConfig,
+        localAttributes: ["id"],
+        remoteAttributes: ["person_id"],
+        isReferencee: true
+      },
+      compoundKeysByTheirPersonId1: {
+        localCodec: personCodec,
+        remoteResourceOptions: compound_key_resourceOptionsConfig,
+        localAttributes: ["id"],
+        remoteAttributes: ["person_id_1"],
+        isReferencee: true
+      },
+      compoundKeysByTheirPersonId2: {
+        localCodec: personCodec,
+        remoteResourceOptions: compound_key_resourceOptionsConfig,
+        localAttributes: ["id"],
+        remoteAttributes: ["person_id_2"],
+        isReferencee: true
+      }
+    },
+    personSecret: {
+      __proto__: null,
+      personByMyPersonId: {
+        localCodec: personSecretCodec,
+        remoteResourceOptions: person_resourceOptionsConfig,
+        localAttributes: ["person_id"],
+        remoteAttributes: ["id"],
+        isUnique: true,
+        description: "The `Person` this `PersonSecret` belongs to.",
+        extensions: {
+          tags: {
+            forwardDescription: "The `Person` this `PersonSecret` belongs to.",
+            backwardDescription: "This `Person`'s `PersonSecret`."
+          }
+        }
+      }
+    },
+    foreignKey: {
+      __proto__: null,
+      compoundKeyByMyCompoundKey1AndCompoundKey2: {
+        localCodec: foreignKeyCodec,
+        remoteResourceOptions: compound_key_resourceOptionsConfig,
+        localAttributes: ["compound_key_1", "compound_key_2"],
+        remoteAttributes: ["person_id_1", "person_id_2"],
+        isUnique: true
+      },
+      personByMyPersonId: {
+        localCodec: foreignKeyCodec,
+        remoteResourceOptions: person_resourceOptionsConfig,
+        localAttributes: ["person_id"],
+        remoteAttributes: ["id"],
+        isUnique: true
       }
     },
     uniqueForeignKey: {
@@ -6831,95 +2498,17 @@ const registry = makeRegistry({
         isUnique: true,
         isReferencee: true
       }
-    },
-    leftArm: {
-      __proto__: null,
-      personByMyPersonId: {
-        localCodec: leftArmCodec,
-        remoteResourceOptions: person_resourceOptionsConfig,
-        localAttributes: ["person_id"],
-        remoteAttributes: ["id"],
-        isUnique: true
-      }
-    },
-    person: {
-      __proto__: null,
-      postsByTheirAuthorId: {
-        localCodec: personCodec,
-        remoteResourceOptions: post_resourceOptionsConfig,
-        localAttributes: ["id"],
-        remoteAttributes: ["author_id"],
-        isReferencee: true
-      },
-      foreignKeysByTheirPersonId: {
-        localCodec: personCodec,
-        remoteResourceOptions: foreign_key_resourceOptionsConfig,
-        localAttributes: ["id"],
-        remoteAttributes: ["person_id"],
-        isReferencee: true
-      },
-      personSecretByTheirPersonId: {
-        localCodec: personCodec,
-        remoteResourceOptions: person_secret_resourceOptionsConfig,
-        localAttributes: ["id"],
-        remoteAttributes: ["person_id"],
-        isUnique: true,
-        isReferencee: true,
-        description: "This `Person`'s `PersonSecret`.",
-        extensions: {
-          tags: {
-            forwardDescription: "The `Person` this `PersonSecret` belongs to.",
-            backwardDescription: "This `Person`'s `PersonSecret`."
-          }
-        }
-      },
-      leftArmByTheirPersonId: {
-        localCodec: personCodec,
-        remoteResourceOptions: left_arm_resourceOptionsConfig,
-        localAttributes: ["id"],
-        remoteAttributes: ["person_id"],
-        isUnique: true,
-        isReferencee: true
-      },
-      compoundKeysByTheirPersonId1: {
-        localCodec: personCodec,
-        remoteResourceOptions: compound_key_resourceOptionsConfig,
-        localAttributes: ["id"],
-        remoteAttributes: ["person_id_1"],
-        isReferencee: true
-      },
-      compoundKeysByTheirPersonId2: {
-        localCodec: personCodec,
-        remoteResourceOptions: compound_key_resourceOptionsConfig,
-        localAttributes: ["id"],
-        remoteAttributes: ["person_id_2"],
-        isReferencee: true
-      }
-    },
-    personSecret: {
-      __proto__: null,
-      personByMyPersonId: {
-        localCodec: personSecretCodec,
-        remoteResourceOptions: person_resourceOptionsConfig,
-        localAttributes: ["person_id"],
-        remoteAttributes: ["id"],
-        isUnique: true,
-        description: "The `Person` this `PersonSecret` belongs to.",
-        extensions: {
-          tags: {
-            forwardDescription: "The `Person` this `PersonSecret` belongs to.",
-            backwardDescription: "This `Person`'s `PersonSecret`."
-          }
-        }
-      }
     }
   }
 });
+const resource_postPgResource = registry.pgResources["post"];
+const resource_left_armPgResource = registry.pgResources["left_arm"];
+const resource_personPgResource = registry.pgResources["person"];
+const resource_person_secretPgResource = registry.pgResources["person_secret"];
 const resource_default_valuePgResource = registry.pgResources["default_value"];
 const resource_inputsPgResource = registry.pgResources["inputs"];
 const resource_no_primary_keyPgResource = registry.pgResources["no_primary_key"];
 const resource_patchsPgResource = registry.pgResources["patchs"];
-const resource_postPgResource = registry.pgResources["post"];
 const resource_reservedPgResource = registry.pgResources["reserved"];
 const resource_reservedPatchsPgResource = registry.pgResources["reservedPatchs"];
 const resource_reserved_inputPgResource = registry.pgResources["reserved_input"];
@@ -6931,438 +2520,12 @@ const resource_listsPgResource = registry.pgResources["lists"];
 const resource_typesPgResource = registry.pgResources["types"];
 const resource_compound_keyPgResource = registry.pgResources["compound_key"];
 const resource_issue756PgResource = registry.pgResources["issue756"];
-const resource_left_armPgResource = registry.pgResources["left_arm"];
 const resource_my_tablePgResource = registry.pgResources["my_table"];
 const resource_null_test_recordPgResource = registry.pgResources["null_test_record"];
-const resource_personPgResource = registry.pgResources["person"];
-const resource_person_secretPgResource = registry.pgResources["person_secret"];
-const argDetailsSimple_add_1_query = [{
-  graphqlArgName: "arg0",
-  pgCodec: TYPES.int
-}, {
-  graphqlArgName: "arg1",
-  pgCodec: TYPES.int
-}];
-function makeArg(path, args, details) {
-  const {
-    graphqlArgName,
-    postgresArgName,
-    pgCodec,
-    fetcher
-  } = details;
-  const fullPath = [...path, graphqlArgName];
-  const $raw = args.getRaw(fullPath);
-  // TODO: this should maybe be operationPlan().withLatestSideEffectLayerPlan()
-  const step = operationPlan().withRootLayerPlan(() => fetcher ? trap(fetcher($raw).record(), 4) : bakedInput(args.typeAt(fullPath), $raw));
-  return {
-    step,
-    pgCodec,
-    name: postgresArgName ?? undefined
-  };
-}
-const makeArgs_add_1_query = (args, path = []) => argDetailsSimple_add_1_query.map(details => makeArg(path, args, details));
-const resource_add_1_queryPgResource = registry.pgResources["add_1_query"];
-const argDetailsSimple_add_2_query = [{
-  graphqlArgName: "a",
-  pgCodec: TYPES.int,
-  postgresArgName: "a"
-}, {
-  graphqlArgName: "b",
-  pgCodec: TYPES.int,
-  postgresArgName: "b",
-  optional: true
-}];
-const makeArgs_add_2_query = (args, path = []) => argDetailsSimple_add_2_query.map(details => makeArg(path, args, details));
-const resource_add_2_queryPgResource = registry.pgResources["add_2_query"];
-const argDetailsSimple_add_3_query = [{
-  graphqlArgName: "a",
-  pgCodec: TYPES.int,
-  postgresArgName: "a"
-}, {
-  graphqlArgName: "arg1",
-  pgCodec: TYPES.int
-}];
-const makeArgs_add_3_query = (args, path = []) => argDetailsSimple_add_3_query.map(details => makeArg(path, args, details));
-const resource_add_3_queryPgResource = registry.pgResources["add_3_query"];
-const argDetailsSimple_add_4_query = [{
-  graphqlArgName: "arg0",
-  pgCodec: TYPES.int
-}, {
-  graphqlArgName: "b",
-  pgCodec: TYPES.int,
-  postgresArgName: "b",
-  optional: true
-}];
-const makeArgs_add_4_query = (args, path = []) => argDetailsSimple_add_4_query.map(details => makeArg(path, args, details));
-const resource_add_4_queryPgResource = registry.pgResources["add_4_query"];
-const argDetailsSimple_optional_missing_middle_1 = [{
-  graphqlArgName: "arg0",
-  pgCodec: TYPES.int
-}, {
-  graphqlArgName: "b",
-  pgCodec: TYPES.int,
-  postgresArgName: "b",
-  optional: true
-}, {
-  graphqlArgName: "c",
-  pgCodec: TYPES.int,
-  postgresArgName: "c",
-  optional: true
-}];
-const makeArgs_optional_missing_middle_1 = (args, path = []) => argDetailsSimple_optional_missing_middle_1.map(details => makeArg(path, args, details));
-const resource_optional_missing_middle_1PgResource = registry.pgResources["optional_missing_middle_1"];
-const argDetailsSimple_optional_missing_middle_2 = [{
-  graphqlArgName: "a",
-  pgCodec: TYPES.int,
-  postgresArgName: "a"
-}, {
-  graphqlArgName: "b",
-  pgCodec: TYPES.int,
-  postgresArgName: "b",
-  optional: true
-}, {
-  graphqlArgName: "c",
-  pgCodec: TYPES.int,
-  postgresArgName: "c",
-  optional: true
-}];
-const makeArgs_optional_missing_middle_2 = (args, path = []) => argDetailsSimple_optional_missing_middle_2.map(details => makeArg(path, args, details));
-const resource_optional_missing_middle_2PgResource = registry.pgResources["optional_missing_middle_2"];
-const argDetailsSimple_optional_missing_middle_3 = [{
-  graphqlArgName: "a",
-  pgCodec: TYPES.int,
-  postgresArgName: "a"
-}, {
-  graphqlArgName: "arg1",
-  pgCodec: TYPES.int,
-  optional: true
-}, {
-  graphqlArgName: "c",
-  pgCodec: TYPES.int,
-  postgresArgName: "c",
-  optional: true
-}];
-const makeArgs_optional_missing_middle_3 = (args, path = []) => argDetailsSimple_optional_missing_middle_3.map(details => makeArg(path, args, details));
-const resource_optional_missing_middle_3PgResource = registry.pgResources["optional_missing_middle_3"];
-const argDetailsSimple_optional_missing_middle_4 = [{
-  graphqlArgName: "arg0",
-  pgCodec: TYPES.int
-}, {
-  graphqlArgName: "b",
-  pgCodec: TYPES.int,
-  postgresArgName: "b",
-  optional: true
-}, {
-  graphqlArgName: "arg2",
-  pgCodec: TYPES.int,
-  optional: true
-}];
-const makeArgs_optional_missing_middle_4 = (args, path = []) => argDetailsSimple_optional_missing_middle_4.map(details => makeArg(path, args, details));
-const resource_optional_missing_middle_4PgResource = registry.pgResources["optional_missing_middle_4"];
-const argDetailsSimple_optional_missing_middle_5 = [{
-  graphqlArgName: "a",
-  pgCodec: TYPES.int,
-  postgresArgName: "a"
-}, {
-  graphqlArgName: "arg1",
-  pgCodec: TYPES.int,
-  optional: true
-}, {
-  graphqlArgName: "arg2",
-  pgCodec: TYPES.int,
-  optional: true
-}];
-const makeArgs_optional_missing_middle_5 = (args, path = []) => argDetailsSimple_optional_missing_middle_5.map(details => makeArg(path, args, details));
-const resource_optional_missing_middle_5PgResource = registry.pgResources["optional_missing_middle_5"];
-const argDetailsSimple_query_compound_type_array = [{
-  graphqlArgName: "object",
-  pgCodec: compoundTypeCodec,
-  postgresArgName: "object"
-}];
-const makeArgs_query_compound_type_array = (args, path = []) => argDetailsSimple_query_compound_type_array.map(details => makeArg(path, args, details));
-const resource_query_compound_type_arrayPgResource = registry.pgResources["query_compound_type_array"];
-const makeArgs_compound_type_computed_field = () => [];
-const resource_query_interval_arrayPgResource = registry.pgResources["query_interval_array"];
-const resource_query_interval_setPgResource = registry.pgResources["query_interval_set"];
-const query_interval_set_getSelectPlanFromParentAndArgs = ($root, args, _info) => {
-  const selectArgs = makeArgs_compound_type_computed_field(args);
-  return resource_query_interval_setPgResource.execute(selectArgs);
-};
-function applyFirstArg(_, $connection, arg) {
-  $connection.setFirst(arg.getRaw());
-}
-function applyLastArg(_, $connection, val) {
-  $connection.setLast(val.getRaw());
-}
-function applyOffsetArg(_, $connection, val) {
-  $connection.setOffset(val.getRaw());
-}
-function applyBeforeArg(_, $connection, val) {
-  $connection.setBefore(val.getRaw());
-}
-function applyAfterArg(_, $connection, val) {
-  $connection.setAfter(val.getRaw());
-}
-const resource_query_text_arrayPgResource = registry.pgResources["query_text_array"];
-const resource_static_big_integerPgResource = registry.pgResources["static_big_integer"];
-const static_big_integer_getSelectPlanFromParentAndArgs = ($root, args, _info) => {
-  const selectArgs = makeArgs_compound_type_computed_field(args);
-  return resource_static_big_integerPgResource.execute(selectArgs);
-};
-const argDetailsSimple_compound_type_array_query = [{
-  graphqlArgName: "object",
-  pgCodec: compoundTypeCodec,
-  postgresArgName: "object"
-}];
-const makeArgs_compound_type_array_query = (args, path = []) => argDetailsSimple_compound_type_array_query.map(details => makeArg(path, args, details));
-const resource_compound_type_array_queryPgResource = registry.pgResources["compound_type_array_query"];
-const argDetailsSimple_compound_type_query = [{
-  graphqlArgName: "object",
-  pgCodec: compoundTypeCodec,
-  postgresArgName: "object"
-}];
-const makeArgs_compound_type_query = (args, path = []) => argDetailsSimple_compound_type_query.map(details => makeArg(path, args, details));
-const resource_compound_type_queryPgResource = registry.pgResources["compound_type_query"];
-const argDetailsSimple_type_function = [{
-  graphqlArgName: "id",
-  pgCodec: TYPES.int,
-  postgresArgName: "id"
-}];
-const makeArgs_type_function = (args, path = []) => argDetailsSimple_type_function.map(details => makeArg(path, args, details));
-const resource_type_functionPgResource = registry.pgResources["type_function"];
-const resource_type_function_connectionPgResource = registry.pgResources["type_function_connection"];
-const type_function_connection_getSelectPlanFromParentAndArgs = ($root, args, _info) => {
-  const selectArgs = makeArgs_compound_type_computed_field(args);
-  return resource_type_function_connectionPgResource.execute(selectArgs);
-};
-const resource_type_function_listPgResource = registry.pgResources["type_function_list"];
-const resource_badly_behaved_functionPgResource = registry.pgResources["badly_behaved_function"];
-const badly_behaved_function_getSelectPlanFromParentAndArgs = ($root, args, _info) => {
-  const selectArgs = makeArgs_compound_type_computed_field(args);
-  return resource_badly_behaved_functionPgResource.execute(selectArgs);
-};
-const resource_compound_type_set_queryPgResource = registry.pgResources["compound_type_set_query"];
-const compound_type_set_query_getSelectPlanFromParentAndArgs = ($root, args, _info) => {
-  const selectArgs = makeArgs_compound_type_computed_field(args);
-  return resource_compound_type_set_queryPgResource.execute(selectArgs);
-};
+const makeArgs_current_user_id = () => [];
 const resource_current_user_idPgResource = registry.pgResources["current_user_id"];
-const argDetailsSimple_func_in_inout = [{
-  graphqlArgName: "i",
-  pgCodec: TYPES.int,
-  postgresArgName: "i"
-}, {
-  graphqlArgName: "ino",
-  pgCodec: TYPES.int,
-  postgresArgName: "ino"
-}];
-const makeArgs_func_in_inout = (args, path = []) => argDetailsSimple_func_in_inout.map(details => makeArg(path, args, details));
-const resource_func_in_inoutPgResource = registry.pgResources["func_in_inout"];
-const argDetailsSimple_func_in_out = [{
-  graphqlArgName: "i",
-  pgCodec: TYPES.int,
-  postgresArgName: "i"
-}];
-const makeArgs_func_in_out = (args, path = []) => argDetailsSimple_func_in_out.map(details => makeArg(path, args, details));
-const resource_func_in_outPgResource = registry.pgResources["func_in_out"];
-const resource_func_outPgResource = registry.pgResources["func_out"];
-const argDetailsSimple_func_out_complex = [{
-  graphqlArgName: "a",
-  pgCodec: TYPES.int,
-  postgresArgName: "a"
-}, {
-  graphqlArgName: "b",
-  pgCodec: TYPES.text,
-  postgresArgName: "b"
-}];
-const makeArgs_func_out_complex = (args, path = []) => argDetailsSimple_func_out_complex.map(details => makeArg(path, args, details));
-const resource_func_out_complexPgResource = registry.pgResources["func_out_complex"];
-const argDetailsSimple_func_out_complex_setof = [{
-  graphqlArgName: "a",
-  pgCodec: TYPES.int,
-  postgresArgName: "a"
-}, {
-  graphqlArgName: "b",
-  pgCodec: TYPES.text,
-  postgresArgName: "b"
-}];
-const makeArgs_func_out_complex_setof = (args, path = []) => argDetailsSimple_func_out_complex_setof.map(details => makeArg(path, args, details));
-const resource_func_out_complex_setofPgResource = registry.pgResources["func_out_complex_setof"];
-const func_out_complex_setof_getSelectPlanFromParentAndArgs = ($root, args, _info) => {
-  const selectArgs = makeArgs_func_out_complex_setof(args);
-  return resource_func_out_complex_setofPgResource.execute(selectArgs);
-};
-const resource_func_out_outPgResource = registry.pgResources["func_out_out"];
-const argDetailsSimple_func_out_out_compound_type = [{
-  graphqlArgName: "i1",
-  pgCodec: TYPES.int,
-  postgresArgName: "i1"
-}];
-const makeArgs_func_out_out_compound_type = (args, path = []) => argDetailsSimple_func_out_out_compound_type.map(details => makeArg(path, args, details));
-const resource_func_out_out_compound_typePgResource = registry.pgResources["func_out_out_compound_type"];
-const resource_func_out_out_setofPgResource = registry.pgResources["func_out_out_setof"];
-const func_out_out_setof_getSelectPlanFromParentAndArgs = ($root, args, _info) => {
-  const selectArgs = makeArgs_compound_type_computed_field(args);
-  return resource_func_out_out_setofPgResource.execute(selectArgs);
-};
-const resource_func_out_out_unnamedPgResource = registry.pgResources["func_out_out_unnamed"];
-const resource_func_out_setofPgResource = registry.pgResources["func_out_setof"];
-const func_out_setof_getSelectPlanFromParentAndArgs = ($root, args, _info) => {
-  const selectArgs = makeArgs_compound_type_computed_field(args);
-  return resource_func_out_setofPgResource.execute(selectArgs);
-};
-const resource_func_out_tablePgResource = registry.pgResources["func_out_table"];
-const resource_func_out_table_setofPgResource = registry.pgResources["func_out_table_setof"];
-const func_out_table_setof_getSelectPlanFromParentAndArgs = ($root, args, _info) => {
-  const selectArgs = makeArgs_compound_type_computed_field(args);
-  return resource_func_out_table_setofPgResource.execute(selectArgs);
-};
-const resource_func_out_unnamedPgResource = registry.pgResources["func_out_unnamed"];
-const resource_func_out_unnamed_out_out_unnamedPgResource = registry.pgResources["func_out_unnamed_out_out_unnamed"];
-const argDetailsSimple_func_returns_table_multi_col = [{
-  graphqlArgName: "i",
-  pgCodec: TYPES.int,
-  postgresArgName: "i"
-}, {
-  graphqlArgName: "a",
-  pgCodec: TYPES.int,
-  postgresArgName: "a",
-  optional: true
-}, {
-  graphqlArgName: "b",
-  pgCodec: TYPES.int,
-  postgresArgName: "b",
-  optional: true
-}];
-const makeArgs_func_returns_table_multi_col = (args, path = []) => argDetailsSimple_func_returns_table_multi_col.map(details => makeArg(path, args, details));
-const resource_func_returns_table_multi_colPgResource = registry.pgResources["func_returns_table_multi_col"];
-const func_returns_table_multi_col_getSelectPlanFromParentAndArgs = ($root, args, _info) => {
-  const selectArgs = makeArgs_func_returns_table_multi_col(args);
-  return resource_func_returns_table_multi_colPgResource.execute(selectArgs);
-};
-const argDetailsSimple_func_returns_table_one_col = [{
-  graphqlArgName: "i",
-  pgCodec: TYPES.int,
-  postgresArgName: "i"
-}];
-const makeArgs_func_returns_table_one_col = (args, path = []) => argDetailsSimple_func_returns_table_one_col.map(details => makeArg(path, args, details));
-const resource_func_returns_table_one_colPgResource = registry.pgResources["func_returns_table_one_col"];
-const func_returns_table_one_col_getSelectPlanFromParentAndArgs = ($root, args, _info) => {
-  const selectArgs = makeArgs_func_returns_table_one_col(args);
-  return resource_func_returns_table_one_colPgResource.execute(selectArgs);
-};
-const argDetailsSimple_int_set_query = [{
-  graphqlArgName: "x",
-  pgCodec: TYPES.int,
-  postgresArgName: "x"
-}, {
-  graphqlArgName: "y",
-  pgCodec: TYPES.int,
-  postgresArgName: "y"
-}, {
-  graphqlArgName: "z",
-  pgCodec: TYPES.int,
-  postgresArgName: "z"
-}];
-const makeArgs_int_set_query = (args, path = []) => argDetailsSimple_int_set_query.map(details => makeArg(path, args, details));
-const resource_int_set_queryPgResource = registry.pgResources["int_set_query"];
-const int_set_query_getSelectPlanFromParentAndArgs = ($root, args, _info) => {
-  const selectArgs = makeArgs_int_set_query(args);
-  return resource_int_set_queryPgResource.execute(selectArgs);
-};
-const argDetailsSimple_json_identity = [{
-  graphqlArgName: "json",
-  pgCodec: TYPES.json,
-  postgresArgName: "json"
-}];
-const makeArgs_json_identity = (args, path = []) => argDetailsSimple_json_identity.map(details => makeArg(path, args, details));
-const resource_json_identityPgResource = registry.pgResources["json_identity"];
-const argDetailsSimple_jsonb_identity = [{
-  graphqlArgName: "json",
-  pgCodec: TYPES.jsonb,
-  postgresArgName: "json"
-}];
-const makeArgs_jsonb_identity = (args, path = []) => argDetailsSimple_jsonb_identity.map(details => makeArg(path, args, details));
-const resource_jsonb_identityPgResource = registry.pgResources["jsonb_identity"];
-const resource_no_args_queryPgResource = registry.pgResources["no_args_query"];
-const argDetailsSimple_query_output_two_rows = [{
-  graphqlArgName: "leftArmId",
-  pgCodec: TYPES.int,
-  postgresArgName: "left_arm_id"
-}, {
-  graphqlArgName: "postId",
-  pgCodec: TYPES.int,
-  postgresArgName: "post_id"
-}, {
-  graphqlArgName: "txt",
-  pgCodec: TYPES.text,
-  postgresArgName: "txt"
-}];
-const makeArgs_query_output_two_rows = (args, path = []) => argDetailsSimple_query_output_two_rows.map(details => makeArg(path, args, details));
-const resource_query_output_two_rowsPgResource = registry.pgResources["query_output_two_rows"];
 const resource_read_pg_settingsPgResource = registry.pgResources["read_pg_settings"];
 const resource_return_table_without_grantsPgResource = registry.pgResources["return_table_without_grants"];
-const resource_search_test_summariesPgResource = registry.pgResources["search_test_summaries"];
-const argDetailsSimple_table_query = [{
-  graphqlArgName: "id",
-  pgCodec: TYPES.int,
-  postgresArgName: "id"
-}];
-const makeArgs_table_query = (args, path = []) => argDetailsSimple_table_query.map(details => makeArg(path, args, details));
-const resource_table_queryPgResource = registry.pgResources["table_query"];
-const resource_table_set_queryPgResource = registry.pgResources["table_set_query"];
-const table_set_query_getSelectPlanFromParentAndArgs = ($root, args, _info) => {
-  const selectArgs = makeArgs_compound_type_computed_field(args);
-  return resource_table_set_queryPgResource.execute(selectArgs);
-};
-function qbWhereBuilder(qb) {
-  return qb.whereBuilder();
-}
-const applyConditionArgToConnection = (_condition, $connection, arg) => {
-  const $select = $connection.getSubplan();
-  arg.apply($select, qbWhereBuilder);
-};
-function applyOrderByArgToConnection(parent, $connection, value) {
-  const $select = $connection.getSubplan();
-  value.apply($select);
-}
-const resource_table_set_query_plpgsqlPgResource = registry.pgResources["table_set_query_plpgsql"];
-const table_set_query_plpgsql_getSelectPlanFromParentAndArgs = ($root, args, _info) => {
-  const selectArgs = makeArgs_compound_type_computed_field(args);
-  return resource_table_set_query_plpgsqlPgResource.execute(selectArgs);
-};
-const resource_table_set_query_volatilePgResource = registry.pgResources["table_set_query_volatile"];
-const table_set_query_volatile_getSelectPlanFromParentAndArgs = ($root, args, _info) => {
-  const selectArgs = makeArgs_compound_type_computed_field(args);
-  return resource_table_set_query_volatilePgResource.execute(selectArgs);
-};
-const argDetailsSimple_types_query = [{
-  graphqlArgName: "a",
-  pgCodec: TYPES.bigint,
-  postgresArgName: "a"
-}, {
-  graphqlArgName: "b",
-  pgCodec: TYPES.boolean,
-  postgresArgName: "b"
-}, {
-  graphqlArgName: "c",
-  pgCodec: TYPES.varchar,
-  postgresArgName: "c"
-}, {
-  graphqlArgName: "d",
-  pgCodec: LIST_TYPES.int,
-  postgresArgName: "d"
-}, {
-  graphqlArgName: "e",
-  pgCodec: TYPES.json,
-  postgresArgName: "e"
-}, {
-  graphqlArgName: "f",
-  pgCodec: floatrangeCodec,
-  postgresArgName: "f"
-}];
-const makeArgs_types_query = (args, path = []) => argDetailsSimple_types_query.map(details => makeArg(path, args, details));
-const resource_types_queryPgResource = registry.pgResources["types_query"];
 const makeTableNodeIdHandler = ({
   typeName,
   nodeIdCodec,
@@ -7392,12 +2555,12 @@ const makeTableNodeIdHandler = ({
     deprecationReason
   };
 };
-const nodeIdHandler_DefaultValue = makeTableNodeIdHandler({
-  typeName: "DefaultValue",
-  identifier: "default_values",
+const nodeIdHandler_Post = makeTableNodeIdHandler({
+  typeName: "Post",
+  identifier: "posts",
   nodeIdCodec: base64JSONNodeIdCodec,
-  resource: resource_default_valuePgResource,
-  pk: default_valueUniques[0].attributes
+  resource: resource_postPgResource,
+  pk: postUniques[0].attributes
 });
 const specForHandlerCache = new Map();
 function specForHandler(handler) {
@@ -7422,6 +2585,55 @@ function specForHandler(handler) {
   specForHandlerCache.set(handler, spec);
   return spec;
 }
+const nodeFetcher_Post = $nodeId => {
+  const $decoded = lambda($nodeId, specForHandler(nodeIdHandler_Post));
+  return nodeIdHandler_Post.get(nodeIdHandler_Post.getSpec($decoded));
+};
+const nodeIdHandler_LeftArm = makeTableNodeIdHandler({
+  typeName: "LeftArm",
+  identifier: "left_arms",
+  nodeIdCodec: base64JSONNodeIdCodec,
+  resource: resource_left_armPgResource,
+  pk: left_armUniques[0].attributes
+});
+const nodeFetcher_LeftArm = $nodeId => {
+  const $decoded = lambda($nodeId, specForHandler(nodeIdHandler_LeftArm));
+  return nodeIdHandler_LeftArm.get(nodeIdHandler_LeftArm.getSpec($decoded));
+};
+const nodeIdHandler_Person = makeTableNodeIdHandler({
+  typeName: "Person",
+  identifier: "people",
+  nodeIdCodec: base64JSONNodeIdCodec,
+  resource: resource_personPgResource,
+  pk: personUniques[0].attributes
+});
+const nodeFetcher_Person = $nodeId => {
+  const $decoded = lambda($nodeId, specForHandler(nodeIdHandler_Person));
+  return nodeIdHandler_Person.get(nodeIdHandler_Person.getSpec($decoded));
+};
+const nodeIdHandler_PersonSecret = makeTableNodeIdHandler({
+  typeName: "PersonSecret",
+  identifier: "person_secrets",
+  nodeIdCodec: base64JSONNodeIdCodec,
+  resource: resource_person_secretPgResource,
+  pk: person_secretUniques[0].attributes,
+  deprecationReason: "This is deprecated (comment on table c.person_secret)."
+});
+const nodeFetcher_PersonSecret = (handler => {
+  const fn = $nodeId => {
+    const $decoded = lambda($nodeId, specForHandler(handler));
+    return handler.get(handler.getSpec($decoded));
+  };
+  fn.deprecationReason = handler.deprecationReason;
+  return fn;
+})(nodeIdHandler_PersonSecret);
+const nodeIdHandler_DefaultValue = makeTableNodeIdHandler({
+  typeName: "DefaultValue",
+  identifier: "default_values",
+  nodeIdCodec: base64JSONNodeIdCodec,
+  resource: resource_default_valuePgResource,
+  pk: default_valueUniques[0].attributes
+});
 const nodeFetcher_DefaultValue = $nodeId => {
   const $decoded = lambda($nodeId, specForHandler(nodeIdHandler_DefaultValue));
   return nodeIdHandler_DefaultValue.get(nodeIdHandler_DefaultValue.getSpec($decoded));
@@ -7447,17 +2659,6 @@ const nodeIdHandler_Patch = makeTableNodeIdHandler({
 const nodeFetcher_Patch = $nodeId => {
   const $decoded = lambda($nodeId, specForHandler(nodeIdHandler_Patch));
   return nodeIdHandler_Patch.get(nodeIdHandler_Patch.getSpec($decoded));
-};
-const nodeIdHandler_Post = makeTableNodeIdHandler({
-  typeName: "Post",
-  identifier: "posts",
-  nodeIdCodec: base64JSONNodeIdCodec,
-  resource: resource_postPgResource,
-  pk: postUniques[0].attributes
-});
-const nodeFetcher_Post = $nodeId => {
-  const $decoded = lambda($nodeId, specForHandler(nodeIdHandler_Post));
-  return nodeIdHandler_Post.get(nodeIdHandler_Post.getSpec($decoded));
 };
 const nodeIdHandler_Reserved = makeTableNodeIdHandler({
   typeName: "Reserved",
@@ -7569,17 +2770,6 @@ const nodeFetcher_Issue756 = $nodeId => {
   const $decoded = lambda($nodeId, specForHandler(nodeIdHandler_Issue756));
   return nodeIdHandler_Issue756.get(nodeIdHandler_Issue756.getSpec($decoded));
 };
-const nodeIdHandler_LeftArm = makeTableNodeIdHandler({
-  typeName: "LeftArm",
-  identifier: "left_arms",
-  nodeIdCodec: base64JSONNodeIdCodec,
-  resource: resource_left_armPgResource,
-  pk: left_armUniques[0].attributes
-});
-const nodeFetcher_LeftArm = $nodeId => {
-  const $decoded = lambda($nodeId, specForHandler(nodeIdHandler_LeftArm));
-  return nodeIdHandler_LeftArm.get(nodeIdHandler_LeftArm.getSpec($decoded));
-};
 const nodeIdHandler_MyTable = makeTableNodeIdHandler({
   typeName: "MyTable",
   identifier: "my_tables",
@@ -7602,33 +2792,32 @@ const nodeFetcher_NullTestRecord = $nodeId => {
   const $decoded = lambda($nodeId, specForHandler(nodeIdHandler_NullTestRecord));
   return nodeIdHandler_NullTestRecord.get(nodeIdHandler_NullTestRecord.getSpec($decoded));
 };
-const nodeIdHandler_Person = makeTableNodeIdHandler({
-  typeName: "Person",
-  identifier: "people",
-  nodeIdCodec: base64JSONNodeIdCodec,
-  resource: resource_personPgResource,
-  pk: personUniques[0].attributes
-});
-const nodeFetcher_Person = $nodeId => {
-  const $decoded = lambda($nodeId, specForHandler(nodeIdHandler_Person));
-  return nodeIdHandler_Person.get(nodeIdHandler_Person.getSpec($decoded));
+function applyFirstArg(_, $connection, arg) {
+  $connection.setFirst(arg.getRaw());
+}
+function applyLastArg(_, $connection, val) {
+  $connection.setLast(val.getRaw());
+}
+function applyOffsetArg(_, $connection, val) {
+  $connection.setOffset(val.getRaw());
+}
+function applyBeforeArg(_, $connection, val) {
+  $connection.setBefore(val.getRaw());
+}
+function applyAfterArg(_, $connection, val) {
+  $connection.setAfter(val.getRaw());
+}
+function qbWhereBuilder(qb) {
+  return qb.whereBuilder();
+}
+const applyConditionArgToConnection = (_condition, $connection, arg) => {
+  const $select = $connection.getSubplan();
+  arg.apply($select, qbWhereBuilder);
 };
-const nodeIdHandler_PersonSecret = makeTableNodeIdHandler({
-  typeName: "PersonSecret",
-  identifier: "person_secrets",
-  nodeIdCodec: base64JSONNodeIdCodec,
-  resource: resource_person_secretPgResource,
-  pk: person_secretUniques[0].attributes,
-  deprecationReason: "This is deprecated (comment on table c.person_secret)."
-});
-const nodeFetcher_PersonSecret = (handler => {
-  const fn = $nodeId => {
-    const $decoded = lambda($nodeId, specForHandler(handler));
-    return handler.get(handler.getSpec($decoded));
-  };
-  fn.deprecationReason = handler.deprecationReason;
-  return fn;
-})(nodeIdHandler_PersonSecret);
+function applyOrderByArgToConnection(parent, $connection, value) {
+  const $select = $connection.getSubplan();
+  value.apply($select);
+}
 const resource_foreign_keyPgResource = registry.pgResources["foreign_key"];
 const resource_non_updatable_viewPgResource = registry.pgResources["non_updatable_view"];
 const resource_testviewPgResource = registry.pgResources["testview"];
@@ -7637,10 +2826,13 @@ const resource_edge_casePgResource = registry.pgResources["edge_case"];
 const nodeIdHandlerByTypeName = {
   __proto__: null,
   Query: nodeIdHandler_Query,
+  Post: nodeIdHandler_Post,
+  LeftArm: nodeIdHandler_LeftArm,
+  Person: nodeIdHandler_Person,
+  PersonSecret: nodeIdHandler_PersonSecret,
   DefaultValue: nodeIdHandler_DefaultValue,
   Input: nodeIdHandler_Input,
   Patch: nodeIdHandler_Patch,
-  Post: nodeIdHandler_Post,
   Reserved: nodeIdHandler_Reserved,
   ReservedPatchRecord: nodeIdHandler_ReservedPatchRecord,
   ReservedInputRecord: nodeIdHandler_ReservedInputRecord,
@@ -7651,11 +2843,8 @@ const nodeIdHandlerByTypeName = {
   Type: nodeIdHandler_Type,
   CompoundKey: nodeIdHandler_CompoundKey,
   Issue756: nodeIdHandler_Issue756,
-  LeftArm: nodeIdHandler_LeftArm,
   MyTable: nodeIdHandler_MyTable,
-  NullTestRecord: nodeIdHandler_NullTestRecord,
-  Person: nodeIdHandler_Person,
-  PersonSecret: nodeIdHandler_PersonSecret
+  NullTestRecord: nodeIdHandler_NullTestRecord
 };
 const decodeNodeId = makeDecodeNodeId(Object.values(nodeIdHandlerByTypeName));
 function findTypeNameMatch(specifier) {
@@ -7668,345 +2857,17 @@ function findTypeNameMatch(specifier) {
   }
   return null;
 }
-const argDetailsSimple_post_computed_compound_type_array = [{
-  graphqlArgName: "object",
-  pgCodec: compoundTypeCodec,
-  postgresArgName: "object"
-}];
-const makeArgs_post_computed_compound_type_array = (args, path = []) => argDetailsSimple_post_computed_compound_type_array.map(details => makeArg(path, args, details));
-function hasRecord($row) {
-  return "record" in $row && typeof $row.record === "function";
-}
-const pgFunctionArgumentsFromArgs = (() => {
-  function pgFunctionArgumentsFromArgs($in, extraSelectArgs, inlining = false) {
-    if (!hasRecord($in)) {
-      throw new Error(`Invalid plan, exepcted 'PgSelectSingleStep', 'PgInsertSingleStep', 'PgUpdateSingleStep' or 'PgDeleteSingleStep', but found ${$in}`);
-    }
-    /**
-     * An optimisation - if all our dependencies are
-     * compatible with the expression's class plan then we
-     * can inline ourselves into that, otherwise we must
-     * issue the query separately.
-     */
-    const canUseExpressionDirectly = $in instanceof PgSelectSingleStep && $in.getClassStep().mode !== "mutation" && extraSelectArgs.every(a => stepAMayDependOnStepB($in.getClassStep(), a.step));
-    const $row = canUseExpressionDirectly ? $in : pgSelectSingleFromRecord($in.resource, $in.record());
-    const selectArgs = [{
-      step: $row.record()
-    }, ...extraSelectArgs];
-    if (inlining) {
-      // This is a scalar computed attribute, let's inline the expression
-      const newSelectArgs = selectArgs.map((arg, i) => {
-        if (i === 0) {
-          const {
-            step,
-            ...rest
-          } = arg;
-          return {
-            ...rest,
-            placeholder: $row.getClassStep().alias
-          };
-        } else {
-          return arg;
-        }
-      });
-      return {
-        $row,
-        selectArgs: newSelectArgs
-      };
-    } else {
-      return {
-        $row,
-        selectArgs: selectArgs
-      };
-    }
-  }
-  return pgFunctionArgumentsFromArgs;
-})();
-const resource_post_computed_compound_type_arrayPgResource = registry.pgResources["post_computed_compound_type_array"];
-const resource_post_computed_interval_arrayPgResource = registry.pgResources["post_computed_interval_array"];
-const scalarComputed = (resource, $in, args) => {
-  const {
-    $row,
-    selectArgs
-  } = pgFunctionArgumentsFromArgs($in, args, true);
-  const from = pgFromExpression($row, resource.from, resource.parameters, selectArgs);
-  return pgClassExpression($row, resource.codec, undefined)`${from}`;
-};
-const resource_post_computed_interval_setPgResource = registry.pgResources["post_computed_interval_set"];
-const post_computed_interval_set_getSelectPlanFromParentAndArgs = ($in, args, _info) => {
-  const details = pgFunctionArgumentsFromArgs($in, makeArgs_compound_type_computed_field(args));
-  return resource_post_computed_interval_setPgResource.execute(details.selectArgs);
-};
-const resource_post_computed_text_arrayPgResource = registry.pgResources["post_computed_text_array"];
-const argDetailsSimple_post_computed_with_optional_arg = [{
-  graphqlArgName: "i",
-  pgCodec: TYPES.int,
-  postgresArgName: "i",
-  optional: true
-}];
-const makeArgs_post_computed_with_optional_arg = (args, path = []) => argDetailsSimple_post_computed_with_optional_arg.map(details => makeArg(path, args, details));
-const resource_post_computed_with_optional_argPgResource = registry.pgResources["post_computed_with_optional_arg"];
-const argDetailsSimple_post_computed_with_required_arg = [{
-  graphqlArgName: "i",
-  pgCodec: TYPES.int,
-  postgresArgName: "i"
-}];
-const makeArgs_post_computed_with_required_arg = (args, path = []) => argDetailsSimple_post_computed_with_required_arg.map(details => makeArg(path, args, details));
-const resource_post_computed_with_required_argPgResource = registry.pgResources["post_computed_with_required_arg"];
-const argDetailsSimple_post_headline_trimmed = [{
-  graphqlArgName: "length",
-  pgCodec: TYPES.int,
-  postgresArgName: "length",
-  optional: true
-}, {
-  graphqlArgName: "omission",
-  pgCodec: TYPES.text,
-  postgresArgName: "omission",
-  optional: true
-}];
-const makeArgs_post_headline_trimmed = (args, path = []) => argDetailsSimple_post_headline_trimmed.map(details => makeArg(path, args, details));
-const resource_post_headline_trimmedPgResource = registry.pgResources["post_headline_trimmed"];
-const argDetailsSimple_post_headline_trimmed_no_defaults = [{
-  graphqlArgName: "length",
-  pgCodec: TYPES.int,
-  postgresArgName: "length"
-}, {
-  graphqlArgName: "omission",
-  pgCodec: TYPES.text,
-  postgresArgName: "omission"
-}];
-const makeArgs_post_headline_trimmed_no_defaults = (args, path = []) => argDetailsSimple_post_headline_trimmed_no_defaults.map(details => makeArg(path, args, details));
-const resource_post_headline_trimmed_no_defaultsPgResource = registry.pgResources["post_headline_trimmed_no_defaults"];
-const argDetailsSimple_post_headline_trimmed_strict = [{
-  graphqlArgName: "length",
-  pgCodec: TYPES.int,
-  postgresArgName: "length",
-  optional: true
-}, {
-  graphqlArgName: "omission",
-  pgCodec: TYPES.text,
-  postgresArgName: "omission",
-  optional: true
-}];
-const makeArgs_post_headline_trimmed_strict = (args, path = []) => argDetailsSimple_post_headline_trimmed_strict.map(details => makeArg(path, args, details));
-const resource_post_headline_trimmed_strictPgResource = registry.pgResources["post_headline_trimmed_strict"];
 const resource_frmcdc_comptypePgResource = registry.pgResources["frmcdc_comptype"];
-const resource_compound_type_computed_fieldPgResource = registry.pgResources["compound_type_computed_field"];
 function toString(value) {
   return "" + value;
 }
-const coerce = string => {
-  if (!/^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i.test(string)) {
-    throw new GraphQLError("Invalid UUID, expected 32 hexadecimal characters, optionally with hyphens");
-  }
-  return string;
-};
-function CompoundTypeInput_aApply(obj, val, info) {
-  obj.set("a", bakedInputRuntime(info.schema, info.field.type, val));
-}
-function CompoundTypeInput_bApply(obj, val, info) {
-  obj.set("b", bakedInputRuntime(info.schema, info.field.type, val));
-}
-const totalCountConnectionPlan = $connection => $connection.cloneSubplanWithoutPagination("aggregate").singleAsRecord().select(sql`count(*)`, TYPES.bigint, false);
 const DatetimeParseLiteral = ast => {
   if (ast.kind === Kind.STRING) {
     return ast.value;
   }
   throw new GraphQLError(`Datetime can only parse string values (kind='${ast.kind}')`);
 };
-const argDetailsSimple_person_computed_complex = [{
-  graphqlArgName: "a",
-  pgCodec: TYPES.int,
-  postgresArgName: "a"
-}, {
-  graphqlArgName: "b",
-  pgCodec: TYPES.text,
-  postgresArgName: "b"
-}];
-const makeArgs_person_computed_complex = (args, path = []) => argDetailsSimple_person_computed_complex.map(details => makeArg(path, args, details));
-const resource_person_computed_complexPgResource = registry.pgResources["person_computed_complex"];
-const resource_person_computed_first_arg_inoutPgResource = registry.pgResources["person_computed_first_arg_inout"];
-const resource_person_computed_first_arg_inout_outPgResource = registry.pgResources["person_computed_first_arg_inout_out"];
-const argDetailsSimple_person_computed_inout = [{
-  graphqlArgName: "ino",
-  pgCodec: TYPES.text,
-  postgresArgName: "ino"
-}];
-const makeArgs_person_computed_inout = (args, path = []) => argDetailsSimple_person_computed_inout.map(details => makeArg(path, args, details));
-const resource_person_computed_inoutPgResource = registry.pgResources["person_computed_inout"];
-const argDetailsSimple_person_computed_inout_out = [{
-  graphqlArgName: "ino",
-  pgCodec: TYPES.text,
-  postgresArgName: "ino"
-}];
-const makeArgs_person_computed_inout_out = (args, path = []) => argDetailsSimple_person_computed_inout_out.map(details => makeArg(path, args, details));
-const resource_person_computed_inout_outPgResource = registry.pgResources["person_computed_inout_out"];
-const resource_person_computed_outPgResource = registry.pgResources["person_computed_out"];
-const resource_person_computed_out_outPgResource = registry.pgResources["person_computed_out_out"];
-const argDetailsSimple_person_exists = [{
-  graphqlArgName: "email",
-  pgCodec: emailCodec,
-  postgresArgName: "email"
-}];
-const makeArgs_person_exists = (args, path = []) => argDetailsSimple_person_exists.map(details => makeArg(path, args, details));
-const resource_person_existsPgResource = registry.pgResources["person_exists"];
-const resource_person_first_namePgResource = registry.pgResources["person_first_name"];
-const resource_person_first_postPgResource = registry.pgResources["person_first_post"];
-const resource_person_friendsPgResource = registry.pgResources["person_friends"];
-const person_friends_getSelectPlanFromParentAndArgs = ($in, args, _info) => {
-  const details = pgFunctionArgumentsFromArgs($in, makeArgs_compound_type_computed_field(args));
-  return resource_person_friendsPgResource.execute(details.selectArgs);
-};
-const argDetailsSimple_person_optional_missing_middle_1 = [{
-  graphqlArgName: "arg0",
-  pgCodec: TYPES.int
-}, {
-  graphqlArgName: "b",
-  pgCodec: TYPES.int,
-  postgresArgName: "b",
-  optional: true
-}, {
-  graphqlArgName: "c",
-  pgCodec: TYPES.int,
-  postgresArgName: "c",
-  optional: true
-}];
-const makeArgs_person_optional_missing_middle_1 = (args, path = []) => argDetailsSimple_person_optional_missing_middle_1.map(details => makeArg(path, args, details));
-const resource_person_optional_missing_middle_1PgResource = registry.pgResources["person_optional_missing_middle_1"];
-const argDetailsSimple_person_optional_missing_middle_2 = [{
-  graphqlArgName: "a",
-  pgCodec: TYPES.int,
-  postgresArgName: "a"
-}, {
-  graphqlArgName: "b",
-  pgCodec: TYPES.int,
-  postgresArgName: "b",
-  optional: true
-}, {
-  graphqlArgName: "c",
-  pgCodec: TYPES.int,
-  postgresArgName: "c",
-  optional: true
-}];
-const makeArgs_person_optional_missing_middle_2 = (args, path = []) => argDetailsSimple_person_optional_missing_middle_2.map(details => makeArg(path, args, details));
-const resource_person_optional_missing_middle_2PgResource = registry.pgResources["person_optional_missing_middle_2"];
-const argDetailsSimple_person_optional_missing_middle_3 = [{
-  graphqlArgName: "a",
-  pgCodec: TYPES.int,
-  postgresArgName: "a"
-}, {
-  graphqlArgName: "arg1",
-  pgCodec: TYPES.int,
-  optional: true
-}, {
-  graphqlArgName: "c",
-  pgCodec: TYPES.int,
-  postgresArgName: "c",
-  optional: true
-}];
-const makeArgs_person_optional_missing_middle_3 = (args, path = []) => argDetailsSimple_person_optional_missing_middle_3.map(details => makeArg(path, args, details));
-const resource_person_optional_missing_middle_3PgResource = registry.pgResources["person_optional_missing_middle_3"];
-const argDetailsSimple_person_optional_missing_middle_4 = [{
-  graphqlArgName: "arg0",
-  pgCodec: TYPES.int
-}, {
-  graphqlArgName: "b",
-  pgCodec: TYPES.int,
-  postgresArgName: "b",
-  optional: true
-}, {
-  graphqlArgName: "arg2",
-  pgCodec: TYPES.int,
-  optional: true
-}];
-const makeArgs_person_optional_missing_middle_4 = (args, path = []) => argDetailsSimple_person_optional_missing_middle_4.map(details => makeArg(path, args, details));
-const resource_person_optional_missing_middle_4PgResource = registry.pgResources["person_optional_missing_middle_4"];
-const argDetailsSimple_person_optional_missing_middle_5 = [{
-  graphqlArgName: "a",
-  pgCodec: TYPES.int,
-  postgresArgName: "a"
-}, {
-  graphqlArgName: "arg1",
-  pgCodec: TYPES.int,
-  optional: true
-}, {
-  graphqlArgName: "arg2",
-  pgCodec: TYPES.int,
-  optional: true
-}];
-const makeArgs_person_optional_missing_middle_5 = (args, path = []) => argDetailsSimple_person_optional_missing_middle_5.map(details => makeArg(path, args, details));
-const resource_person_optional_missing_middle_5PgResource = registry.pgResources["person_optional_missing_middle_5"];
-const argDetailsSimple_person_type_function = [{
-  graphqlArgName: "id",
-  pgCodec: TYPES.int,
-  postgresArgName: "id"
-}];
-const makeArgs_person_type_function = (args, path = []) => argDetailsSimple_person_type_function.map(details => makeArg(path, args, details));
-const resource_person_type_functionPgResource = registry.pgResources["person_type_function"];
-const resource_person_type_function_connectionPgResource = registry.pgResources["person_type_function_connection"];
-const person_type_function_connection_getSelectPlanFromParentAndArgs = ($in, args, _info) => {
-  const details = pgFunctionArgumentsFromArgs($in, makeArgs_compound_type_computed_field(args));
-  return resource_person_type_function_connectionPgResource.execute(details.selectArgs);
-};
-const resource_person_type_function_listPgResource = registry.pgResources["person_type_function_list"];
 const resource_frmcdc_wrappedUrlPgResource = registry.pgResources["frmcdc_wrappedUrl"];
-const resource_frmcdc_compoundTypePgResource = registry.pgResources["frmcdc_compoundType"];
-const PersonComputedComplexRecord_yPlan = $record => {
-  const $plan = $record.get("y");
-  const $select = pgSelectSingleFromRecord(resource_frmcdc_compoundTypePgResource, $plan);
-  $select.getClassStep().setTrusted();
-  return $select;
-};
-const PersonComputedComplexRecord_zPlan = $record => {
-  const $plan = $record.get("z");
-  const $select = pgSelectSingleFromRecord(resource_personPgResource, $plan);
-  $select.getClassStep().setTrusted();
-  return $select;
-};
-const applyOrderByCustomField = (pgFieldSource, ascDesc, queryBuilder) => {
-  if (typeof pgFieldSource.from !== "function") {
-    throw new Error("Invalid computed attribute 'from'");
-  }
-  const expression = sql`${pgFieldSource.from({
-    placeholder: queryBuilder.alias
-  })}`;
-  queryBuilder.orderBy({
-    codec: pgFieldSource.codec,
-    fragment: expression,
-    direction: ascDesc.toUpperCase()
-  });
-};
-const PeopleOrderBy_ID_ASCApply = queryBuilder => {
-  queryBuilder.orderBy({
-    attribute: "id",
-    direction: "ASC"
-  });
-  queryBuilder.setOrderIsUnique();
-};
-const PeopleOrderBy_ID_DESCApply = queryBuilder => {
-  queryBuilder.orderBy({
-    attribute: "id",
-    direction: "DESC"
-  });
-  queryBuilder.setOrderIsUnique();
-};
-const Type_enumArrayPlan = $record => {
-  return $record.get("enum_array");
-};
-const resource_frmcdc_nestedCompoundTypePgResource = registry.pgResources["frmcdc_nestedCompoundType"];
-const Type_byteaArrayPlan = $record => {
-  return $record.get("bytea_array");
-};
-function toInt(expr) {
-  const int = typeof expr === "number" ? Math.floor(expr) : parseInt("" + expr, 10);
-  if (isNaN(int) || int > 2147483647 || int < -2147483648) {
-    throw new Error("Invalid integer");
-  }
-  return int;
-}
-function LTreeParseValue(value) {
-  return value;
-}
 const isValidHstoreObject = obj => {
   if (obj === null) {
     // Null is okay
@@ -8058,6 +2919,7 @@ const parseValueLiteral = (ast, variables) => {
       return undefined;
   }
 };
+const totalCountConnectionPlan = $connection => $connection.cloneSubplanWithoutPagination("aggregate").singleAsRecord().select(sql`count(*)`, TYPES.bigint, false);
 function applyAttributeCondition(attributeName, attributeCodec, $condition, val) {
   $condition.where({
     type: "attribute",
@@ -8068,9 +2930,26 @@ function applyAttributeCondition(attributeName, attributeCodec, $condition, val)
   });
 }
 const PostCondition_idApply = ($condition, val) => applyAttributeCondition("id", TYPES.int, $condition, val);
-const ForeignKey_personIdPlan = $record => {
+const PostsOrderBy_ID_ASCApply = queryBuilder => {
+  queryBuilder.orderBy({
+    attribute: "id",
+    direction: "ASC"
+  });
+  queryBuilder.setOrderIsUnique();
+};
+const PostsOrderBy_ID_DESCApply = queryBuilder => {
+  queryBuilder.orderBy({
+    attribute: "id",
+    direction: "DESC"
+  });
+  queryBuilder.setOrderIsUnique();
+};
+const PersonSecret_personIdPlan = $record => {
   return $record.get("person_id");
 };
+const PersonSecret_personByPersonIdPlan = $record => resource_personPgResource.get({
+  id: $record.get("person_id")
+});
 const ForeignKey_compoundKey1Plan = $record => {
   return $record.get("compound_key_1");
 };
@@ -8081,31 +2960,51 @@ const ForeignKey_compoundKeyByCompoundKey1AndCompoundKey2Plan = $record => resou
   person_id_1: $record.get("compound_key_1"),
   person_id_2: $record.get("compound_key_2")
 });
-const ForeignKey_personByPersonIdPlan = $record => resource_personPgResource.get({
-  id: $record.get("person_id")
-});
 const ForeignKeyCondition_personIdApply = ($condition, val) => applyAttributeCondition("person_id", TYPES.int, $condition, val);
+const Type_enumArrayPlan = $record => {
+  return $record.get("enum_array");
+};
+const resource_frmcdc_compoundTypePgResource = registry.pgResources["frmcdc_compoundType"];
+const resource_frmcdc_nestedCompoundTypePgResource = registry.pgResources["frmcdc_nestedCompoundType"];
+const Type_byteaArrayPlan = $record => {
+  return $record.get("bytea_array");
+};
+const coerce = string => {
+  if (!/^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i.test(string)) {
+    throw new GraphQLError("Invalid UUID, expected 32 hexadecimal characters, optionally with hyphens");
+  }
+  return string;
+};
+function toInt(expr) {
+  const int = typeof expr === "number" ? Math.floor(expr) : parseInt("" + expr, 10);
+  if (isNaN(int) || int > 2147483647 || int < -2147483648) {
+    throw new Error("Invalid integer");
+  }
+  return int;
+}
+function LTreeParseValue(value) {
+  return value;
+}
 const TypeCondition_enumArrayApply = ($condition, val) => applyAttributeCondition("enum_array", colorArrayCodec, $condition, val);
-const FuncOutOutRecord_firstOutPlan = $record => {
-  return $record.get("first_out");
+function CompoundTypeInput_aApply(obj, val, info) {
+  obj.set("a", bakedInputRuntime(info.schema, info.field.type, val));
+}
+function CompoundTypeInput_bApply(obj, val, info) {
+  obj.set("b", bakedInputRuntime(info.schema, info.field.type, val));
+}
+const LeftArmsOrderBy_PERSON_ID_ASCApply = queryBuilder => {
+  queryBuilder.orderBy({
+    attribute: "person_id",
+    direction: "ASC"
+  });
+  queryBuilder.setOrderIsUnique();
 };
-const FuncOutOutRecord_secondOutPlan = $record => {
-  return $record.get("second_out");
-};
-const FuncOutOutCompoundTypeRecord_o2Plan = $record => {
-  const $plan = $record.get("o2");
-  const $select = pgSelectSingleFromRecord(resource_frmcdc_compoundTypePgResource, $plan);
-  $select.getClassStep().setTrusted();
-  return $select;
-};
-const FuncOutOutUnnamedRecord_arg1Plan = $record => {
-  return $record.get("column1");
-};
-const FuncOutOutUnnamedRecord_arg2Plan = $record => {
-  return $record.get("column2");
-};
-const FuncOutUnnamedOutOutUnnamedRecord_arg3Plan = $record => {
-  return $record.get("column3");
+const LeftArmsOrderBy_PERSON_ID_DESCApply = queryBuilder => {
+  queryBuilder.orderBy({
+    attribute: "person_id",
+    direction: "DESC"
+  });
+  queryBuilder.setOrderIsUnique();
 };
 const SimilarTable1Condition_col1Apply = ($condition, val) => applyAttributeCondition("col1", TYPES.int, $condition, val);
 const SimilarTable1Condition_col2Apply = ($condition, val) => applyAttributeCondition("col2", TYPES.int, $condition, val);
@@ -8146,30 +3045,34 @@ const SimilarTable1SOrderBy_COL3_DESCApply = queryBuilder => {
     direction: "DESC"
   });
 };
-const resource_edge_case_computedPgResource = registry.pgResources["edge_case_computed"];
-const LeftArmsOrderBy_PERSON_ID_ASCApply = queryBuilder => {
-  queryBuilder.orderBy({
-    attribute: "person_id",
-    direction: "ASC"
-  });
-  queryBuilder.setOrderIsUnique();
-};
-const LeftArmsOrderBy_PERSON_ID_DESCApply = queryBuilder => {
-  queryBuilder.orderBy({
-    attribute: "person_id",
-    direction: "DESC"
-  });
-  queryBuilder.setOrderIsUnique();
-};
-const argDetailsSimple_add_1_mutation = [{
-  graphqlArgName: "arg0",
-  pgCodec: TYPES.int
+const argDetailsSimple_post_with_suffix = [{
+  graphqlArgName: "post",
+  pgCodec: postCodec,
+  postgresArgName: "post"
 }, {
-  graphqlArgName: "arg1",
-  pgCodec: TYPES.int
+  graphqlArgName: "suffix",
+  pgCodec: TYPES.text,
+  postgresArgName: "suffix"
 }];
-const makeArgs_add_1_mutation = (args, path = []) => argDetailsSimple_add_1_mutation.map(details => makeArg(path, args, details));
-const resource_add_1_mutationPgResource = registry.pgResources["add_1_mutation"];
+function makeArg(path, args, details) {
+  const {
+    graphqlArgName,
+    postgresArgName,
+    pgCodec,
+    fetcher
+  } = details;
+  const fullPath = [...path, graphqlArgName];
+  const $raw = args.getRaw(fullPath);
+  // TODO: this should maybe be operationPlan().withLatestSideEffectLayerPlan()
+  const step = operationPlan().withRootLayerPlan(() => fetcher ? trap(fetcher($raw).record(), 4) : bakedInput(args.typeAt(fullPath), $raw));
+  return {
+    step,
+    pgCodec,
+    name: postgresArgName ?? undefined
+  };
+}
+const makeArgs_post_with_suffix = (args, path = []) => argDetailsSimple_post_with_suffix.map(details => makeArg(path, args, details));
+const resource_post_with_suffixPgResource = registry.pgResources["post_with_suffix"];
 function pgSelectFromPayload($payload) {
   const $result = $payload.getStepForKey("result");
   const $parent = "getParentStep" in $result ? $result.getParentStep() : $result;
@@ -8184,259 +3087,6 @@ function applyInputArgViaPgSelect(_, $payload, arg) {
   const $pgSelect = pgSelectFromPayload($payload);
   arg.apply($pgSelect);
 }
-const argDetailsSimple_add_2_mutation = [{
-  graphqlArgName: "a",
-  pgCodec: TYPES.int,
-  postgresArgName: "a"
-}, {
-  graphqlArgName: "b",
-  pgCodec: TYPES.int,
-  postgresArgName: "b",
-  optional: true
-}];
-const makeArgs_add_2_mutation = (args, path = []) => argDetailsSimple_add_2_mutation.map(details => makeArg(path, args, details));
-const resource_add_2_mutationPgResource = registry.pgResources["add_2_mutation"];
-const argDetailsSimple_add_3_mutation = [{
-  graphqlArgName: "a",
-  pgCodec: TYPES.int,
-  postgresArgName: "a"
-}, {
-  graphqlArgName: "arg1",
-  pgCodec: TYPES.int
-}];
-const makeArgs_add_3_mutation = (args, path = []) => argDetailsSimple_add_3_mutation.map(details => makeArg(path, args, details));
-const resource_add_3_mutationPgResource = registry.pgResources["add_3_mutation"];
-const argDetailsSimple_add_4_mutation = [{
-  graphqlArgName: "arg0",
-  pgCodec: TYPES.int
-}, {
-  graphqlArgName: "b",
-  pgCodec: TYPES.int,
-  postgresArgName: "b",
-  optional: true
-}];
-const makeArgs_add_4_mutation = (args, path = []) => argDetailsSimple_add_4_mutation.map(details => makeArg(path, args, details));
-const resource_add_4_mutationPgResource = registry.pgResources["add_4_mutation"];
-const argDetailsSimple_add_4_mutation_error = [{
-  graphqlArgName: "arg0",
-  pgCodec: TYPES.int
-}, {
-  graphqlArgName: "b",
-  pgCodec: TYPES.int,
-  postgresArgName: "b",
-  optional: true
-}];
-const makeArgs_add_4_mutation_error = (args, path = []) => argDetailsSimple_add_4_mutation_error.map(details => makeArg(path, args, details));
-const resource_add_4_mutation_errorPgResource = registry.pgResources["add_4_mutation_error"];
-const argDetailsSimple_mutation_compound_type_array = [{
-  graphqlArgName: "object",
-  pgCodec: compoundTypeCodec,
-  postgresArgName: "object"
-}];
-const makeArgs_mutation_compound_type_array = (args, path = []) => argDetailsSimple_mutation_compound_type_array.map(details => makeArg(path, args, details));
-const resource_mutation_compound_type_arrayPgResource = registry.pgResources["mutation_compound_type_array"];
-const resource_mutation_interval_arrayPgResource = registry.pgResources["mutation_interval_array"];
-const resource_mutation_interval_setPgResource = registry.pgResources["mutation_interval_set"];
-const resource_mutation_text_arrayPgResource = registry.pgResources["mutation_text_array"];
-const argDetailsSimple_post_many = [{
-  graphqlArgName: "posts",
-  pgCodec: postArrayCodec,
-  postgresArgName: "posts"
-}];
-const makeArgs_post_many = (args, path = []) => argDetailsSimple_post_many.map(details => makeArg(path, args, details));
-const resource_post_manyPgResource = registry.pgResources["post_many"];
-const argDetailsSimple_post_with_suffix = [{
-  graphqlArgName: "post",
-  pgCodec: postCodec,
-  postgresArgName: "post"
-}, {
-  graphqlArgName: "suffix",
-  pgCodec: TYPES.text,
-  postgresArgName: "suffix"
-}];
-const makeArgs_post_with_suffix = (args, path = []) => argDetailsSimple_post_with_suffix.map(details => makeArg(path, args, details));
-const resource_post_with_suffixPgResource = registry.pgResources["post_with_suffix"];
-const resource_return_void_mutationPgResource = registry.pgResources["return_void_mutation"];
-const argDetailsSimple_authenticate = [{
-  graphqlArgName: "a",
-  pgCodec: TYPES.int,
-  postgresArgName: "a"
-}, {
-  graphqlArgName: "b",
-  pgCodec: TYPES.numeric,
-  postgresArgName: "b"
-}, {
-  graphqlArgName: "c",
-  pgCodec: TYPES.bigint,
-  postgresArgName: "c"
-}];
-const makeArgs_authenticate = (args, path = []) => argDetailsSimple_authenticate.map(details => makeArg(path, args, details));
-const resource_authenticatePgResource = registry.pgResources["authenticate"];
-const resource_authenticate_failPgResource = registry.pgResources["authenticate_fail"];
-const argDetailsSimple_authenticate_many = [{
-  graphqlArgName: "a",
-  pgCodec: TYPES.int,
-  postgresArgName: "a"
-}, {
-  graphqlArgName: "b",
-  pgCodec: TYPES.numeric,
-  postgresArgName: "b"
-}, {
-  graphqlArgName: "c",
-  pgCodec: TYPES.bigint,
-  postgresArgName: "c"
-}];
-const makeArgs_authenticate_many = (args, path = []) => argDetailsSimple_authenticate_many.map(details => makeArg(path, args, details));
-const resource_authenticate_manyPgResource = registry.pgResources["authenticate_many"];
-const argDetailsSimple_authenticate_payload = [{
-  graphqlArgName: "a",
-  pgCodec: TYPES.int,
-  postgresArgName: "a"
-}, {
-  graphqlArgName: "b",
-  pgCodec: TYPES.numeric,
-  postgresArgName: "b"
-}, {
-  graphqlArgName: "c",
-  pgCodec: TYPES.bigint,
-  postgresArgName: "c"
-}];
-const makeArgs_authenticate_payload = (args, path = []) => argDetailsSimple_authenticate_payload.map(details => makeArg(path, args, details));
-const resource_authenticate_payloadPgResource = registry.pgResources["authenticate_payload"];
-const argDetailsSimple_compound_type_array_mutation = [{
-  graphqlArgName: "object",
-  pgCodec: compoundTypeCodec,
-  postgresArgName: "object"
-}];
-const makeArgs_compound_type_array_mutation = (args, path = []) => argDetailsSimple_compound_type_array_mutation.map(details => makeArg(path, args, details));
-const resource_compound_type_array_mutationPgResource = registry.pgResources["compound_type_array_mutation"];
-const argDetailsSimple_compound_type_mutation = [{
-  graphqlArgName: "object",
-  pgCodec: compoundTypeCodec,
-  postgresArgName: "object"
-}];
-const makeArgs_compound_type_mutation = (args, path = []) => argDetailsSimple_compound_type_mutation.map(details => makeArg(path, args, details));
-const resource_compound_type_mutationPgResource = registry.pgResources["compound_type_mutation"];
-const argDetailsSimple_compound_type_set_mutation = [{
-  graphqlArgName: "object",
-  pgCodec: compoundTypeCodec,
-  postgresArgName: "object"
-}];
-const makeArgs_compound_type_set_mutation = (args, path = []) => argDetailsSimple_compound_type_set_mutation.map(details => makeArg(path, args, details));
-const resource_compound_type_set_mutationPgResource = registry.pgResources["compound_type_set_mutation"];
-const argDetailsSimple_guid_fn = [{
-  graphqlArgName: "g",
-  pgCodec: guidCodec,
-  postgresArgName: "g"
-}];
-const makeArgs_guid_fn = (args, path = []) => argDetailsSimple_guid_fn.map(details => makeArg(path, args, details));
-const resource_guid_fnPgResource = registry.pgResources["guid_fn"];
-const argDetailsSimple_list_bde_mutation = [{
-  graphqlArgName: "b",
-  pgCodec: LIST_TYPES.text,
-  postgresArgName: "b"
-}, {
-  graphqlArgName: "d",
-  pgCodec: TYPES.text,
-  postgresArgName: "d"
-}, {
-  graphqlArgName: "e",
-  pgCodec: TYPES.text,
-  postgresArgName: "e"
-}];
-const makeArgs_list_bde_mutation = (args, path = []) => argDetailsSimple_list_bde_mutation.map(details => makeArg(path, args, details));
-const resource_list_bde_mutationPgResource = registry.pgResources["list_bde_mutation"];
-const argDetailsSimple_mult_1 = [{
-  graphqlArgName: "arg0",
-  pgCodec: TYPES.int
-}, {
-  graphqlArgName: "arg1",
-  pgCodec: TYPES.int
-}];
-const makeArgs_mult_1 = (args, path = []) => argDetailsSimple_mult_1.map(details => makeArg(path, args, details));
-const resource_mult_1PgResource = registry.pgResources["mult_1"];
-const argDetailsSimple_mult_2 = [{
-  graphqlArgName: "arg0",
-  pgCodec: TYPES.int
-}, {
-  graphqlArgName: "arg1",
-  pgCodec: TYPES.int
-}];
-const makeArgs_mult_2 = (args, path = []) => argDetailsSimple_mult_2.map(details => makeArg(path, args, details));
-const resource_mult_2PgResource = registry.pgResources["mult_2"];
-const argDetailsSimple_mult_3 = [{
-  graphqlArgName: "arg0",
-  pgCodec: TYPES.int
-}, {
-  graphqlArgName: "arg1",
-  pgCodec: TYPES.int
-}];
-const makeArgs_mult_3 = (args, path = []) => argDetailsSimple_mult_3.map(details => makeArg(path, args, details));
-const resource_mult_3PgResource = registry.pgResources["mult_3"];
-const argDetailsSimple_mult_4 = [{
-  graphqlArgName: "arg0",
-  pgCodec: TYPES.int
-}, {
-  graphqlArgName: "arg1",
-  pgCodec: TYPES.int
-}];
-const makeArgs_mult_4 = (args, path = []) => argDetailsSimple_mult_4.map(details => makeArg(path, args, details));
-const resource_mult_4PgResource = registry.pgResources["mult_4"];
-const resource_type_function_connection_mutationPgResource = registry.pgResources["type_function_connection_mutation"];
-const resource_type_function_list_mutationPgResource = registry.pgResources["type_function_list_mutation"];
-const argDetailsSimple_type_function_mutation = [{
-  graphqlArgName: "id",
-  pgCodec: TYPES.int,
-  postgresArgName: "id"
-}];
-const makeArgs_type_function_mutation = (args, path = []) => argDetailsSimple_type_function_mutation.map(details => makeArg(path, args, details));
-const resource_type_function_mutationPgResource = registry.pgResources["type_function_mutation"];
-const argDetailsSimple_int_set_mutation = [{
-  graphqlArgName: "x",
-  pgCodec: TYPES.int,
-  postgresArgName: "x"
-}, {
-  graphqlArgName: "y",
-  pgCodec: TYPES.int,
-  postgresArgName: "y"
-}, {
-  graphqlArgName: "z",
-  pgCodec: TYPES.int,
-  postgresArgName: "z"
-}];
-const makeArgs_int_set_mutation = (args, path = []) => argDetailsSimple_int_set_mutation.map(details => makeArg(path, args, details));
-const resource_int_set_mutationPgResource = registry.pgResources["int_set_mutation"];
-const resource_issue756_mutationPgResource = registry.pgResources["issue756_mutation"];
-const resource_issue756_set_mutationPgResource = registry.pgResources["issue756_set_mutation"];
-const argDetailsSimple_json_identity_mutation = [{
-  graphqlArgName: "json",
-  pgCodec: TYPES.json,
-  postgresArgName: "json"
-}];
-const makeArgs_json_identity_mutation = (args, path = []) => argDetailsSimple_json_identity_mutation.map(details => makeArg(path, args, details));
-const resource_json_identity_mutationPgResource = registry.pgResources["json_identity_mutation"];
-const argDetailsSimple_jsonb_identity_mutation = [{
-  graphqlArgName: "json",
-  pgCodec: TYPES.jsonb,
-  postgresArgName: "json"
-}];
-const makeArgs_jsonb_identity_mutation = (args, path = []) => argDetailsSimple_jsonb_identity_mutation.map(details => makeArg(path, args, details));
-const resource_jsonb_identity_mutationPgResource = registry.pgResources["jsonb_identity_mutation"];
-const argDetailsSimple_jsonb_identity_mutation_plpgsql = [{
-  graphqlArgName: "_theJson",
-  pgCodec: TYPES.jsonb,
-  postgresArgName: "_the_json"
-}];
-const makeArgs_jsonb_identity_mutation_plpgsql = (args, path = []) => argDetailsSimple_jsonb_identity_mutation_plpgsql.map(details => makeArg(path, args, details));
-const resource_jsonb_identity_mutation_plpgsqlPgResource = registry.pgResources["jsonb_identity_mutation_plpgsql"];
-const argDetailsSimple_jsonb_identity_mutation_plpgsql_with_default = [{
-  graphqlArgName: "_theJson",
-  pgCodec: TYPES.jsonb,
-  postgresArgName: "_the_json",
-  optional: true
-}];
-const makeArgs_jsonb_identity_mutation_plpgsql_with_default = (args, path = []) => argDetailsSimple_jsonb_identity_mutation_plpgsql_with_default.map(details => makeArg(path, args, details));
-const resource_jsonb_identity_mutation_plpgsql_with_defaultPgResource = registry.pgResources["jsonb_identity_mutation_plpgsql_with_default"];
 const argDetailsSimple_left_arm_identity = [{
   graphqlArgName: "leftArm",
   pgCodec: leftArmCodec,
@@ -8444,129 +3094,32 @@ const argDetailsSimple_left_arm_identity = [{
 }];
 const makeArgs_left_arm_identity = (args, path = []) => argDetailsSimple_left_arm_identity.map(details => makeArg(path, args, details));
 const resource_left_arm_identityPgResource = registry.pgResources["left_arm_identity"];
-const argDetailsSimple_list_of_compound_types_mutation = [{
-  graphqlArgName: "records",
-  pgCodec: compoundTypeArrayCodec,
-  postgresArgName: "records"
-}];
-const makeArgs_list_of_compound_types_mutation = (args, path = []) => argDetailsSimple_list_of_compound_types_mutation.map(details => makeArg(path, args, details));
-const resource_list_of_compound_types_mutationPgResource = registry.pgResources["list_of_compound_types_mutation"];
-const argDetailsSimple_mutation_in_inout = [{
-  graphqlArgName: "i",
-  pgCodec: TYPES.int,
-  postgresArgName: "i"
-}, {
-  graphqlArgName: "ino",
-  pgCodec: TYPES.int,
-  postgresArgName: "ino"
-}];
-const makeArgs_mutation_in_inout = (args, path = []) => argDetailsSimple_mutation_in_inout.map(details => makeArg(path, args, details));
-const resource_mutation_in_inoutPgResource = registry.pgResources["mutation_in_inout"];
-const argDetailsSimple_mutation_in_out = [{
-  graphqlArgName: "i",
-  pgCodec: TYPES.int,
-  postgresArgName: "i"
-}];
-const makeArgs_mutation_in_out = (args, path = []) => argDetailsSimple_mutation_in_out.map(details => makeArg(path, args, details));
-const resource_mutation_in_outPgResource = registry.pgResources["mutation_in_out"];
-const resource_mutation_outPgResource = registry.pgResources["mutation_out"];
-const argDetailsSimple_mutation_out_complex = [{
-  graphqlArgName: "a",
-  pgCodec: TYPES.int,
-  postgresArgName: "a"
-}, {
-  graphqlArgName: "b",
-  pgCodec: TYPES.text,
-  postgresArgName: "b"
-}];
-const makeArgs_mutation_out_complex = (args, path = []) => argDetailsSimple_mutation_out_complex.map(details => makeArg(path, args, details));
-const resource_mutation_out_complexPgResource = registry.pgResources["mutation_out_complex"];
-const argDetailsSimple_mutation_out_complex_setof = [{
-  graphqlArgName: "a",
-  pgCodec: TYPES.int,
-  postgresArgName: "a"
-}, {
-  graphqlArgName: "b",
-  pgCodec: TYPES.text,
-  postgresArgName: "b"
-}];
-const makeArgs_mutation_out_complex_setof = (args, path = []) => argDetailsSimple_mutation_out_complex_setof.map(details => makeArg(path, args, details));
-const resource_mutation_out_complex_setofPgResource = registry.pgResources["mutation_out_complex_setof"];
-const resource_mutation_out_outPgResource = registry.pgResources["mutation_out_out"];
-const argDetailsSimple_mutation_out_out_compound_type = [{
-  graphqlArgName: "i1",
-  pgCodec: TYPES.int,
-  postgresArgName: "i1"
-}];
-const makeArgs_mutation_out_out_compound_type = (args, path = []) => argDetailsSimple_mutation_out_out_compound_type.map(details => makeArg(path, args, details));
-const resource_mutation_out_out_compound_typePgResource = registry.pgResources["mutation_out_out_compound_type"];
-const resource_mutation_out_out_setofPgResource = registry.pgResources["mutation_out_out_setof"];
-const resource_mutation_out_out_unnamedPgResource = registry.pgResources["mutation_out_out_unnamed"];
-const resource_mutation_out_setofPgResource = registry.pgResources["mutation_out_setof"];
-const resource_mutation_out_tablePgResource = registry.pgResources["mutation_out_table"];
-const resource_mutation_out_table_setofPgResource = registry.pgResources["mutation_out_table_setof"];
-const resource_mutation_out_unnamedPgResource = registry.pgResources["mutation_out_unnamed"];
-const resource_mutation_out_unnamed_out_out_unnamedPgResource = registry.pgResources["mutation_out_unnamed_out_out_unnamed"];
-const argDetailsSimple_mutation_returns_table_multi_col = [{
-  graphqlArgName: "i",
-  pgCodec: TYPES.int,
-  postgresArgName: "i"
-}];
-const makeArgs_mutation_returns_table_multi_col = (args, path = []) => argDetailsSimple_mutation_returns_table_multi_col.map(details => makeArg(path, args, details));
-const resource_mutation_returns_table_multi_colPgResource = registry.pgResources["mutation_returns_table_multi_col"];
-const argDetailsSimple_mutation_returns_table_one_col = [{
-  graphqlArgName: "i",
-  pgCodec: TYPES.int,
-  postgresArgName: "i"
-}];
-const makeArgs_mutation_returns_table_one_col = (args, path = []) => argDetailsSimple_mutation_returns_table_one_col.map(details => makeArg(path, args, details));
-const resource_mutation_returns_table_one_colPgResource = registry.pgResources["mutation_returns_table_one_col"];
-const resource_no_args_mutationPgResource = registry.pgResources["no_args_mutation"];
-const argDetailsSimple_table_mutation = [{
-  graphqlArgName: "id",
-  pgCodec: TYPES.int,
-  postgresArgName: "id"
-}];
-const makeArgs_table_mutation = (args, path = []) => argDetailsSimple_table_mutation.map(details => makeArg(path, args, details));
-const resource_table_mutationPgResource = registry.pgResources["table_mutation"];
-const resource_table_set_mutationPgResource = registry.pgResources["table_set_mutation"];
-const argDetailsSimple_types_mutation = [{
-  graphqlArgName: "a",
-  pgCodec: TYPES.bigint,
-  postgresArgName: "a"
-}, {
-  graphqlArgName: "b",
-  pgCodec: TYPES.boolean,
-  postgresArgName: "b"
-}, {
-  graphqlArgName: "c",
-  pgCodec: TYPES.varchar,
-  postgresArgName: "c"
-}, {
-  graphqlArgName: "d",
-  pgCodec: LIST_TYPES.int,
-  postgresArgName: "d"
-}, {
-  graphqlArgName: "e",
-  pgCodec: TYPES.json,
-  postgresArgName: "e"
-}, {
-  graphqlArgName: "f",
-  pgCodec: floatrangeCodec,
-  postgresArgName: "f"
-}];
-const makeArgs_types_mutation = (args, path = []) => argDetailsSimple_types_mutation.map(details => makeArg(path, args, details));
-const resource_types_mutationPgResource = registry.pgResources["types_mutation"];
 function applyInputToInsert(_, $object) {
   return $object;
 }
-const specFromArgs_DefaultValue = args => {
+const specFromArgs_Post = args => {
   const $nodeId = args.getRaw(["input", "nodeId"]);
-  return specFromNodeId(nodeIdHandler_DefaultValue, $nodeId);
+  return specFromNodeId(nodeIdHandler_Post, $nodeId);
 };
 function applyInputToUpdateOrDelete(_, $object) {
   return $object;
 }
+const specFromArgs_LeftArm = args => {
+  const $nodeId = args.getRaw(["input", "nodeId"]);
+  return specFromNodeId(nodeIdHandler_LeftArm, $nodeId);
+};
+const specFromArgs_Person = args => {
+  const $nodeId = args.getRaw(["input", "nodeId"]);
+  return specFromNodeId(nodeIdHandler_Person, $nodeId);
+};
+const specFromArgs_PersonSecret = args => {
+  const $nodeId = args.getRaw(["input", "nodeId"]);
+  return specFromNodeId(nodeIdHandler_PersonSecret, $nodeId);
+};
+const specFromArgs_DefaultValue = args => {
+  const $nodeId = args.getRaw(["input", "nodeId"]);
+  return specFromNodeId(nodeIdHandler_DefaultValue, $nodeId);
+};
 const specFromArgs_Input = args => {
   const $nodeId = args.getRaw(["input", "nodeId"]);
   return specFromNodeId(nodeIdHandler_Input, $nodeId);
@@ -8574,10 +3127,6 @@ const specFromArgs_Input = args => {
 const specFromArgs_Patch = args => {
   const $nodeId = args.getRaw(["input", "nodeId"]);
   return specFromNodeId(nodeIdHandler_Patch, $nodeId);
-};
-const specFromArgs_Post = args => {
-  const $nodeId = args.getRaw(["input", "nodeId"]);
-  return specFromNodeId(nodeIdHandler_Post, $nodeId);
 };
 const specFromArgs_Reserved = args => {
   const $nodeId = args.getRaw(["input", "nodeId"]);
@@ -8619,10 +3168,6 @@ const specFromArgs_Issue756 = args => {
   const $nodeId = args.getRaw(["input", "nodeId"]);
   return specFromNodeId(nodeIdHandler_Issue756, $nodeId);
 };
-const specFromArgs_LeftArm = args => {
-  const $nodeId = args.getRaw(["input", "nodeId"]);
-  return specFromNodeId(nodeIdHandler_LeftArm, $nodeId);
-};
 const specFromArgs_MyTable = args => {
   const $nodeId = args.getRaw(["input", "nodeId"]);
   return specFromNodeId(nodeIdHandler_MyTable, $nodeId);
@@ -8630,14 +3175,6 @@ const specFromArgs_MyTable = args => {
 const specFromArgs_NullTestRecord = args => {
   const $nodeId = args.getRaw(["input", "nodeId"]);
   return specFromNodeId(nodeIdHandler_NullTestRecord, $nodeId);
-};
-const specFromArgs_Person = args => {
-  const $nodeId = args.getRaw(["input", "nodeId"]);
-  return specFromNodeId(nodeIdHandler_Person, $nodeId);
-};
-const specFromArgs_PersonSecret = args => {
-  const $nodeId = args.getRaw(["input", "nodeId"]);
-  return specFromNodeId(nodeIdHandler_PersonSecret, $nodeId);
 };
 function getClientMutationIdForCustomMutationPlan($object) {
   const $result = $object.getStepForKey("result");
@@ -8649,27 +3186,6 @@ const planCustomMutationPayloadResult = $object => {
 const EMPTY_OBJECT3 = Object.freeze({});
 function queryPlan() {
   return constant(EMPTY_OBJECT3);
-}
-function applyClientMutationIdForCustomMutation(qb, val) {
-  qb.setMeta("clientMutationId", val);
-}
-function PostInput_idApply(obj, val, info) {
-  obj.set("id", bakedInputRuntime(info.schema, info.field.type, val));
-}
-function PostInput_headlineApply(obj, val, info) {
-  obj.set("headline", bakedInputRuntime(info.schema, info.field.type, val));
-}
-function PostInput_bodyApply(obj, val, info) {
-  obj.set("body", bakedInputRuntime(info.schema, info.field.type, val));
-}
-function PostInput_authorIdApply(obj, val, info) {
-  obj.set("author_id", bakedInputRuntime(info.schema, info.field.type, val));
-}
-function PostInput_enumsApply(obj, val, info) {
-  obj.set("enums", bakedInputRuntime(info.schema, info.field.type, val));
-}
-function PostInput_comptypesApply(obj, val, info) {
-  obj.set("comptypes", bakedInputRuntime(info.schema, info.field.type, val));
 }
 const getPgSelectSingleFromMutationResult = (resource, pkAttributes, $mutation) => {
   const $result = $mutation.getStepForKey("result", true);
@@ -8695,15 +3211,27 @@ const PostWithSuffixPayload_postEdgePlan = ($mutation, fieldArgs) => pgMutationP
 const PostWithSuffixPayload_personByAuthorIdPlan = $record => resource_personPgResource.get({
   id: $record.get("result").get("author_id")
 });
-const resource_frmcdc_jwtTokenPgResource = registry.pgResources["frmcdc_jwtToken"];
-const TypeFunctionMutationPayload_typeEdgePlan = ($mutation, fieldArgs) => pgMutationPayloadEdge(resource_typesPgResource, typesUniques[0].attributes, $mutation, fieldArgs);
-const TypeFunctionMutationPayload_postBySmallintPlan = $record => resource_postPgResource.get({
-  id: $record.get("result").get("smallint")
-});
-const TypeFunctionMutationPayload_postByIdPlan = $record => resource_postPgResource.get({
-  id: $record.get("result").get("id")
-});
-const Issue756MutationPayload_issue756EdgePlan = ($mutation, fieldArgs) => pgMutationPayloadEdge(resource_issue756PgResource, issue756Uniques[0].attributes, $mutation, fieldArgs);
+function applyClientMutationIdForCustomMutation(qb, val) {
+  qb.setMeta("clientMutationId", val);
+}
+function PostInput_idApply(obj, val, info) {
+  obj.set("id", bakedInputRuntime(info.schema, info.field.type, val));
+}
+function PostInput_headlineApply(obj, val, info) {
+  obj.set("headline", bakedInputRuntime(info.schema, info.field.type, val));
+}
+function PostInput_bodyApply(obj, val, info) {
+  obj.set("body", bakedInputRuntime(info.schema, info.field.type, val));
+}
+function PostInput_authorIdApply(obj, val, info) {
+  obj.set("author_id", bakedInputRuntime(info.schema, info.field.type, val));
+}
+function PostInput_enumsApply(obj, val, info) {
+  obj.set("enums", bakedInputRuntime(info.schema, info.field.type, val));
+}
+function PostInput_comptypesApply(obj, val, info) {
+  obj.set("comptypes", bakedInputRuntime(info.schema, info.field.type, val));
+}
 const LeftArmIdentityPayload_leftArmEdgePlan = ($mutation, fieldArgs) => pgMutationPayloadEdge(resource_left_armPgResource, left_armUniques[0].attributes, $mutation, fieldArgs);
 const LeftArmIdentityPayload_personByPersonIdPlan = $record => resource_personPgResource.get({
   id: $record.get("result").get("person_id")
@@ -8717,7 +3245,6 @@ function LeftArmBaseInput_lengthInMetresApply(obj, val, info) {
 function LeftArmBaseInput_moodApply(obj, val, info) {
   obj.set("mood", bakedInputRuntime(info.schema, info.field.type, val));
 }
-const MutationOutTablePayload_personEdgePlan = ($mutation, fieldArgs) => pgMutationPayloadEdge(resource_personPgResource, personUniques[0].attributes, $mutation, fieldArgs);
 function getClientMutationIdForCreatePlan($mutation) {
   const $insert = $mutation.getStepForKey("result");
   return $insert.getMeta("clientMutationId");
@@ -8725,12 +3252,47 @@ function getClientMutationIdForCreatePlan($mutation) {
 function planCreatePayloadResult($object) {
   return $object.get("result");
 }
-const CreateDefaultValuePayload_defaultValueEdgePlan = ($mutation, fieldArgs) => pgMutationPayloadEdge(resource_default_valuePgResource, default_valueUniques[0].attributes, $mutation, fieldArgs);
 function applyCreateFields(qb, arg) {
   if (arg != null) {
     return qb.setBuilder();
   }
 }
+const CreatePersonPayload_personEdgePlan = ($mutation, fieldArgs) => pgMutationPayloadEdge(resource_personPgResource, personUniques[0].attributes, $mutation, fieldArgs);
+function PersonInput_nameApply(obj, val, info) {
+  obj.set("person_full_name", bakedInputRuntime(info.schema, info.field.type, val));
+}
+function PersonInput_aliasesApply(obj, val, info) {
+  obj.set("aliases", bakedInputRuntime(info.schema, info.field.type, val));
+}
+function PersonInput_aboutApply(obj, val, info) {
+  obj.set("about", bakedInputRuntime(info.schema, info.field.type, val));
+}
+function PersonInput_emailApply(obj, val, info) {
+  obj.set("email", bakedInputRuntime(info.schema, info.field.type, val));
+}
+function PersonInput_siteApply(obj, val, info) {
+  obj.set("site", bakedInputRuntime(info.schema, info.field.type, val));
+}
+function PersonInput_configApply(obj, val, info) {
+  obj.set("config", bakedInputRuntime(info.schema, info.field.type, val));
+}
+function PersonInput_lastLoginFromIpApply(obj, val, info) {
+  obj.set("last_login_from_ip", bakedInputRuntime(info.schema, info.field.type, val));
+}
+function PersonInput_lastLoginFromSubnetApply(obj, val, info) {
+  obj.set("last_login_from_subnet", bakedInputRuntime(info.schema, info.field.type, val));
+}
+function PersonInput_userMacApply(obj, val, info) {
+  obj.set("user_mac", bakedInputRuntime(info.schema, info.field.type, val));
+}
+function PersonInput_createdAtApply(obj, val, info) {
+  obj.set("created_at", bakedInputRuntime(info.schema, info.field.type, val));
+}
+const CreatePersonSecretPayload_personSecretEdgePlan = ($mutation, fieldArgs) => pgMutationPayloadEdge(resource_person_secretPgResource, person_secretUniques[0].attributes, $mutation, fieldArgs);
+function PersonSecretInput_secretApply(obj, val, info) {
+  obj.set("sekrit", bakedInputRuntime(info.schema, info.field.type, val));
+}
+const CreateDefaultValuePayload_defaultValueEdgePlan = ($mutation, fieldArgs) => pgMutationPayloadEdge(resource_default_valuePgResource, default_valueUniques[0].attributes, $mutation, fieldArgs);
 function DefaultValueInput_nullValueApply(obj, val, info) {
   obj.set("null_value", bakedInputRuntime(info.schema, info.field.type, val));
 }
@@ -8797,6 +3359,13 @@ function ListInput_byteaArrayApply(obj, val, info) {
 function ListInput_byteaArrayNnApply(obj, val, info) {
   obj.set("bytea_array_nn", bakedInputRuntime(info.schema, info.field.type, val));
 }
+const CreateTypePayload_typeEdgePlan = ($mutation, fieldArgs) => pgMutationPayloadEdge(resource_typesPgResource, typesUniques[0].attributes, $mutation, fieldArgs);
+const CreateTypePayload_postBySmallintPlan = $record => resource_postPgResource.get({
+  id: $record.get("result").get("smallint")
+});
+const CreateTypePayload_postByIdPlan = $record => resource_postPgResource.get({
+  id: $record.get("result").get("id")
+});
 function TypeInput_smallintApply(obj, val, info) {
   obj.set("smallint", bakedInputRuntime(info.schema, info.field.type, val));
 }
@@ -8957,6 +3526,7 @@ function CompoundKeyInput_personId1Apply(obj, val, info) {
 function CompoundKeyInput_extraApply(obj, val, info) {
   obj.set("extra", bakedInputRuntime(info.schema, info.field.type, val));
 }
+const CreateIssue756Payload_issue756EdgePlan = ($mutation, fieldArgs) => pgMutationPayloadEdge(resource_issue756PgResource, issue756Uniques[0].attributes, $mutation, fieldArgs);
 function Issue756Input_tsApply(obj, val, info) {
   obj.set("ts", bakedInputRuntime(info.schema, info.field.type, val));
 }
@@ -8973,40 +3543,6 @@ function NullTestRecordInput_nullableIntApply(obj, val, info) {
 }
 function NullTestRecordInput_nonNullTextApply(obj, val, info) {
   obj.set("non_null_text", bakedInputRuntime(info.schema, info.field.type, val));
-}
-function PersonInput_nameApply(obj, val, info) {
-  obj.set("person_full_name", bakedInputRuntime(info.schema, info.field.type, val));
-}
-function PersonInput_aliasesApply(obj, val, info) {
-  obj.set("aliases", bakedInputRuntime(info.schema, info.field.type, val));
-}
-function PersonInput_aboutApply(obj, val, info) {
-  obj.set("about", bakedInputRuntime(info.schema, info.field.type, val));
-}
-function PersonInput_emailApply(obj, val, info) {
-  obj.set("email", bakedInputRuntime(info.schema, info.field.type, val));
-}
-function PersonInput_siteApply(obj, val, info) {
-  obj.set("site", bakedInputRuntime(info.schema, info.field.type, val));
-}
-function PersonInput_configApply(obj, val, info) {
-  obj.set("config", bakedInputRuntime(info.schema, info.field.type, val));
-}
-function PersonInput_lastLoginFromIpApply(obj, val, info) {
-  obj.set("last_login_from_ip", bakedInputRuntime(info.schema, info.field.type, val));
-}
-function PersonInput_lastLoginFromSubnetApply(obj, val, info) {
-  obj.set("last_login_from_subnet", bakedInputRuntime(info.schema, info.field.type, val));
-}
-function PersonInput_userMacApply(obj, val, info) {
-  obj.set("user_mac", bakedInputRuntime(info.schema, info.field.type, val));
-}
-function PersonInput_createdAtApply(obj, val, info) {
-  obj.set("created_at", bakedInputRuntime(info.schema, info.field.type, val));
-}
-const CreatePersonSecretPayload_personSecretEdgePlan = ($mutation, fieldArgs) => pgMutationPayloadEdge(resource_person_secretPgResource, person_secretUniques[0].attributes, $mutation, fieldArgs);
-function PersonSecretInput_secretApply(obj, val, info) {
-  obj.set("sekrit", bakedInputRuntime(info.schema, info.field.type, val));
 }
 function getClientMutationIdForUpdateOrDeletePlan($mutation) {
   const $result = $mutation.getStepForKey("result");
@@ -9031,6 +3567,24 @@ type Query implements Node {
     nodeId: ID!
   ): Node
 
+  """Get a single \`Post\`."""
+  postById(id: Int!): Post
+
+  """Get a single \`LeftArm\`."""
+  leftArmById(id: Int!): LeftArm
+
+  """Get a single \`LeftArm\`."""
+  leftArmByPersonId(personId: Int!): LeftArm
+
+  """Get a single \`Person\`."""
+  personById(id: Int!): Person
+
+  """Get a single \`Person\`."""
+  personByEmail(email: Email!): Person
+
+  """Get a single \`PersonSecret\`."""
+  personSecretByPersonId(personId: Int!): PersonSecret @deprecated(reason: "This is deprecated (comment on table c.person_secret).")
+
   """Get a single \`DefaultValue\`."""
   defaultValueById(id: Int!): DefaultValue
 
@@ -9042,9 +3596,6 @@ type Query implements Node {
 
   """Get a single \`Patch\`."""
   patchById(id: Int!): Patch
-
-  """Get a single \`Post\`."""
-  postById(id: Int!): Post
 
   """Get a single \`Reserved\`."""
   reservedById(id: Int!): Reserved
@@ -9079,433 +3630,40 @@ type Query implements Node {
   """Get a single \`Issue756\`."""
   issue756ById(id: Int!): Issue756
 
-  """Get a single \`LeftArm\`."""
-  leftArmById(id: Int!): LeftArm
-
-  """Get a single \`LeftArm\`."""
-  leftArmByPersonId(personId: Int!): LeftArm
-
   """Get a single \`MyTable\`."""
   myTableById(id: Int!): MyTable
 
   """Get a single \`NullTestRecord\`."""
   nullTestRecordById(id: Int!): NullTestRecord
-
-  """Get a single \`Person\`."""
-  personById(id: Int!): Person
-
-  """Get a single \`Person\`."""
-  personByEmail(email: Email!): Person
-
-  """Get a single \`PersonSecret\`."""
-  personSecretByPersonId(personId: Int!): PersonSecret @deprecated(reason: "This is deprecated (comment on table c.person_secret).")
-
-  """lol, add some stuff 1 query"""
-  add1Query(arg0: Int!, arg1: Int!): Int
-
-  """lol, add some stuff 2 query"""
-  add2Query(a: Int!, b: Int): Int
-
-  """lol, add some stuff 3 query"""
-  add3Query(a: Int, arg1: Int): Int
-
-  """lol, add some stuff 4 query"""
-  add4Query(arg0: Int, b: Int): Int
-  optionalMissingMiddle1(arg0: Int!, b: Int, c: Int): Int
-  optionalMissingMiddle2(a: Int!, b: Int, c: Int): Int
-  optionalMissingMiddle3(a: Int!, arg1: Int, c: Int): Int
-  optionalMissingMiddle4(arg0: Int!, b: Int, arg2: Int): Int
-  optionalMissingMiddle5(a: Int!, arg1: Int, arg2: Int): Int
-  queryCompoundTypeArray(object: CompoundTypeInput): [CompoundType]
-  queryIntervalArray: [Interval]
-
-  """Reads and enables pagination through a set of \`Interval\`."""
-  queryIntervalSet(
-    """Only read the first \`n\` values of the set."""
-    first: Int
-
-    """Only read the last \`n\` values of the set."""
-    last: Int
-
-    """
-    Skip the first \`n\` values from our \`after\` cursor, an alternative to cursor
-    based pagination. May not be used with \`last\`.
-    """
-    offset: Int
-
-    """Read all values in the set before (above) this cursor."""
-    before: Cursor
-
-    """Read all values in the set after (below) this cursor."""
-    after: Cursor
-  ): QueryIntervalSetConnection
-  queryTextArray: [String]
-
-  """Reads and enables pagination through a set of \`BigInt\`."""
-  staticBigInteger(
-    """Only read the first \`n\` values of the set."""
-    first: Int
-
-    """Only read the last \`n\` values of the set."""
-    last: Int
-
-    """
-    Skip the first \`n\` values from our \`after\` cursor, an alternative to cursor
-    based pagination. May not be used with \`last\`.
-    """
-    offset: Int
-
-    """Read all values in the set before (above) this cursor."""
-    before: Cursor
-
-    """Read all values in the set after (below) this cursor."""
-    after: Cursor
-  ): StaticBigIntegerConnection
-  compoundTypeArrayQuery(object: CompoundTypeInput): [CompoundType]
-  compoundTypeQuery(object: CompoundTypeInput): CompoundType
-  typeFunction(id: Int): Type
-
-  """Reads and enables pagination through a set of \`Type\`."""
-  typeFunctionConnection(
-    """Only read the first \`n\` values of the set."""
-    first: Int
-
-    """Only read the last \`n\` values of the set."""
-    last: Int
-
-    """
-    Skip the first \`n\` values from our \`after\` cursor, an alternative to cursor
-    based pagination. May not be used with \`last\`.
-    """
-    offset: Int
-
-    """Read all values in the set before (above) this cursor."""
-    before: Cursor
-
-    """Read all values in the set after (below) this cursor."""
-    after: Cursor
-  ): TypesConnection
-  typeFunctionList: [Type]
-
-  """Reads and enables pagination through a set of \`Person\`."""
-  badlyBehavedFunction(
-    """Only read the first \`n\` values of the set."""
-    first: Int
-
-    """Only read the last \`n\` values of the set."""
-    last: Int
-
-    """
-    Skip the first \`n\` values from our \`after\` cursor, an alternative to cursor
-    based pagination. May not be used with \`last\`.
-    """
-    offset: Int
-
-    """Read all values in the set before (above) this cursor."""
-    before: Cursor
-
-    """Read all values in the set after (below) this cursor."""
-    after: Cursor
-  ): PeopleConnection @deprecated(reason: "This is deprecated (comment on function c.badly_behaved_function).")
-
-  """Reads and enables pagination through a set of \`CompoundType\`."""
-  compoundTypeSetQuery(
-    """Only read the first \`n\` values of the set."""
-    first: Int
-
-    """Only read the last \`n\` values of the set."""
-    last: Int
-
-    """
-    Skip the first \`n\` values from our \`after\` cursor, an alternative to cursor
-    based pagination. May not be used with \`last\`.
-    """
-    offset: Int
-
-    """Read all values in the set before (above) this cursor."""
-    before: Cursor
-
-    """Read all values in the set after (below) this cursor."""
-    after: Cursor
-  ): CompoundTypesConnection
   currentUserId: Int
-  funcInInout(i: Int, ino: Int): Int
-  funcInOut(i: Int): Int
-  funcOut: Int
-  funcOutComplex(a: Int, b: String): FuncOutComplexRecord
-
-  """
-  Reads and enables pagination through a set of \`FuncOutComplexSetofRecord\`.
-  """
-  funcOutComplexSetof(
-    a: Int
-    b: String
-
-    """Only read the first \`n\` values of the set."""
-    first: Int
-
-    """Only read the last \`n\` values of the set."""
-    last: Int
-
-    """
-    Skip the first \`n\` values from our \`after\` cursor, an alternative to cursor
-    based pagination. May not be used with \`last\`.
-    """
-    offset: Int
-
-    """Read all values in the set before (above) this cursor."""
-    before: Cursor
-
-    """Read all values in the set after (below) this cursor."""
-    after: Cursor
-  ): FuncOutComplexSetofConnection
-  funcOutOut: FuncOutOutRecord
-  funcOutOutCompoundType(i1: Int): FuncOutOutCompoundTypeRecord
-
-  """Reads and enables pagination through a set of \`FuncOutOutSetofRecord\`."""
-  funcOutOutSetof(
-    """Only read the first \`n\` values of the set."""
-    first: Int
-
-    """Only read the last \`n\` values of the set."""
-    last: Int
-
-    """
-    Skip the first \`n\` values from our \`after\` cursor, an alternative to cursor
-    based pagination. May not be used with \`last\`.
-    """
-    offset: Int
-
-    """Read all values in the set before (above) this cursor."""
-    before: Cursor
-
-    """Read all values in the set after (below) this cursor."""
-    after: Cursor
-  ): FuncOutOutSetofConnection
-  funcOutOutUnnamed: FuncOutOutUnnamedRecord
-
-  """Reads and enables pagination through a set of \`Int\`."""
-  funcOutSetof(
-    """Only read the first \`n\` values of the set."""
-    first: Int
-
-    """Only read the last \`n\` values of the set."""
-    last: Int
-
-    """
-    Skip the first \`n\` values from our \`after\` cursor, an alternative to cursor
-    based pagination. May not be used with \`last\`.
-    """
-    offset: Int
-
-    """Read all values in the set before (above) this cursor."""
-    before: Cursor
-
-    """Read all values in the set after (below) this cursor."""
-    after: Cursor
-  ): FuncOutSetofConnection
-  funcOutTable: Person
-
-  """Reads and enables pagination through a set of \`Person\`."""
-  funcOutTableSetof(
-    """Only read the first \`n\` values of the set."""
-    first: Int
-
-    """Only read the last \`n\` values of the set."""
-    last: Int
-
-    """
-    Skip the first \`n\` values from our \`after\` cursor, an alternative to cursor
-    based pagination. May not be used with \`last\`.
-    """
-    offset: Int
-
-    """Read all values in the set before (above) this cursor."""
-    before: Cursor
-
-    """Read all values in the set after (below) this cursor."""
-    after: Cursor
-  ): PeopleConnection
-  funcOutUnnamed: Int
-  funcOutUnnamedOutOutUnnamed: FuncOutUnnamedOutOutUnnamedRecord
-
-  """
-  Reads and enables pagination through a set of \`FuncReturnsTableMultiColRecord\`.
-  """
-  funcReturnsTableMultiCol(
-    i: Int
-    a: Int
-    b: Int
-
-    """Only read the first \`n\` values of the set."""
-    first: Int
-
-    """Only read the last \`n\` values of the set."""
-    last: Int
-
-    """
-    Skip the first \`n\` values from our \`after\` cursor, an alternative to cursor
-    based pagination. May not be used with \`last\`.
-    """
-    offset: Int
-
-    """Read all values in the set before (above) this cursor."""
-    before: Cursor
-
-    """Read all values in the set after (below) this cursor."""
-    after: Cursor
-  ): FuncReturnsTableMultiColConnection
-
-  """Reads and enables pagination through a set of \`Int\`."""
-  funcReturnsTableOneCol(
-    i: Int
-
-    """Only read the first \`n\` values of the set."""
-    first: Int
-
-    """Only read the last \`n\` values of the set."""
-    last: Int
-
-    """
-    Skip the first \`n\` values from our \`after\` cursor, an alternative to cursor
-    based pagination. May not be used with \`last\`.
-    """
-    offset: Int
-
-    """Read all values in the set before (above) this cursor."""
-    before: Cursor
-
-    """Read all values in the set after (below) this cursor."""
-    after: Cursor
-  ): FuncReturnsTableOneColConnection
-
-  """Reads and enables pagination through a set of \`Int\`."""
-  intSetQuery(
-    x: Int
-    y: Int
-    z: Int
-
-    """Only read the first \`n\` values of the set."""
-    first: Int
-
-    """Only read the last \`n\` values of the set."""
-    last: Int
-
-    """
-    Skip the first \`n\` values from our \`after\` cursor, an alternative to cursor
-    based pagination. May not be used with \`last\`.
-    """
-    offset: Int
-
-    """Read all values in the set before (above) this cursor."""
-    before: Cursor
-
-    """Read all values in the set after (below) this cursor."""
-    after: Cursor
-  ): IntSetQueryConnection
-  jsonIdentity(json: JSON): JSON
-  jsonbIdentity(json: JSON): JSON
-  noArgsQuery: Int
-  queryOutputTwoRows(leftArmId: Int, postId: Int, txt: String): QueryOutputTwoRowsRecord
   readPgSettings: JSON
   returnTableWithoutGrants: CompoundKey
-  searchTestSummariesList(
-    """Only read the first \`n\` values of the set."""
-    first: Int
 
-    """Skip the first \`n\` values."""
-    offset: Int
-  ): [SearchTestSummariesRecord]
-  tableQuery(id: Int): Post
+  """Reads a single \`Post\` using its globally unique \`ID\`."""
+  post(
+    """The globally unique \`ID\` to be used in selecting a single \`Post\`."""
+    nodeId: ID!
+  ): Post
 
-  """Reads and enables pagination through a set of \`Person\`."""
-  tableSetQuery(
-    """Only read the first \`n\` values of the set."""
-    first: Int
+  """Reads a single \`LeftArm\` using its globally unique \`ID\`."""
+  leftArm(
+    """The globally unique \`ID\` to be used in selecting a single \`LeftArm\`."""
+    nodeId: ID!
+  ): LeftArm
 
-    """Only read the last \`n\` values of the set."""
-    last: Int
+  """Reads a single \`Person\` using its globally unique \`ID\`."""
+  person(
+    """The globally unique \`ID\` to be used in selecting a single \`Person\`."""
+    nodeId: ID!
+  ): Person
 
+  """Reads a single \`PersonSecret\` using its globally unique \`ID\`."""
+  personSecret(
     """
-    Skip the first \`n\` values from our \`after\` cursor, an alternative to cursor
-    based pagination. May not be used with \`last\`.
+    The globally unique \`ID\` to be used in selecting a single \`PersonSecret\`.
     """
-    offset: Int
-
-    """Read all values in the set before (above) this cursor."""
-    before: Cursor
-
-    """Read all values in the set after (below) this cursor."""
-    after: Cursor
-
-    """
-    A condition to be used in determining which values should be returned by the collection.
-    """
-    condition: PersonCondition
-
-    """The method to use when ordering \`Person\`."""
-    orderBy: [PeopleOrderBy!]
-  ): PeopleConnection
-
-  """Reads and enables pagination through a set of \`Person\`."""
-  tableSetQueryPlpgsql(
-    """Only read the first \`n\` values of the set."""
-    first: Int
-
-    """Only read the last \`n\` values of the set."""
-    last: Int
-
-    """
-    Skip the first \`n\` values from our \`after\` cursor, an alternative to cursor
-    based pagination. May not be used with \`last\`.
-    """
-    offset: Int
-
-    """Read all values in the set before (above) this cursor."""
-    before: Cursor
-
-    """Read all values in the set after (below) this cursor."""
-    after: Cursor
-  ): PeopleConnection
-
-  """Reads and enables pagination through a set of \`Person\`."""
-  tableSetQueryVolatile(
-    """Only read the first \`n\` values of the set."""
-    first: Int
-
-    """Only read the last \`n\` values of the set."""
-    last: Int
-
-    """
-    Skip the first \`n\` values from our \`after\` cursor, an alternative to cursor
-    based pagination. May not be used with \`last\`.
-    """
-    offset: Int
-
-    """Read all values in the set before (above) this cursor."""
-    before: Cursor
-
-    """Read all values in the set after (below) this cursor."""
-    after: Cursor
-
-    """
-    A condition to be used in determining which values should be returned by the collection.
-    """
-    condition: PersonCondition
-  ): PeopleConnection
-  tableSetQueryVolatileList(
-    """Only read the first \`n\` values of the set."""
-    first: Int
-
-    """Skip the first \`n\` values."""
-    offset: Int
-
-    """
-    A condition to be used in determining which values should be returned by the collection.
-    """
-    condition: PersonCondition
-  ): [Person]
-  typesQuery(a: BigInt!, b: Boolean!, c: String!, d: [Int]!, e: JSON!, f: FloatRangeInput!): Boolean
+    nodeId: ID!
+  ): PersonSecret @deprecated(reason: "This is deprecated (comment on table c.person_secret).")
 
   """Reads a single \`DefaultValue\` using its globally unique \`ID\`."""
   defaultValue(
@@ -9526,12 +3684,6 @@ type Query implements Node {
     """The globally unique \`ID\` to be used in selecting a single \`Patch\`."""
     nodeId: ID!
   ): Patch
-
-  """Reads a single \`Post\` using its globally unique \`ID\`."""
-  post(
-    """The globally unique \`ID\` to be used in selecting a single \`Post\`."""
-    nodeId: ID!
-  ): Post
 
   """Reads a single \`Reserved\` using its globally unique \`ID\`."""
   reserved(
@@ -9603,12 +3755,6 @@ type Query implements Node {
     nodeId: ID!
   ): Issue756
 
-  """Reads a single \`LeftArm\` using its globally unique \`ID\`."""
-  leftArm(
-    """The globally unique \`ID\` to be used in selecting a single \`LeftArm\`."""
-    nodeId: ID!
-  ): LeftArm
-
   """Reads a single \`MyTable\` using its globally unique \`ID\`."""
   myTable(
     """The globally unique \`ID\` to be used in selecting a single \`MyTable\`."""
@@ -9623,19 +3769,121 @@ type Query implements Node {
     nodeId: ID!
   ): NullTestRecord
 
-  """Reads a single \`Person\` using its globally unique \`ID\`."""
-  person(
-    """The globally unique \`ID\` to be used in selecting a single \`Person\`."""
-    nodeId: ID!
-  ): Person
+  """Reads and enables pagination through a set of \`Post\`."""
+  allPosts(
+    """Only read the first \`n\` values of the set."""
+    first: Int
 
-  """Reads a single \`PersonSecret\` using its globally unique \`ID\`."""
-  personSecret(
+    """Only read the last \`n\` values of the set."""
+    last: Int
+
     """
-    The globally unique \`ID\` to be used in selecting a single \`PersonSecret\`.
+    Skip the first \`n\` values from our \`after\` cursor, an alternative to cursor
+    based pagination. May not be used with \`last\`.
     """
-    nodeId: ID!
-  ): PersonSecret @deprecated(reason: "This is deprecated (comment on table c.person_secret).")
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: PostCondition
+
+    """The method to use when ordering \`Post\`."""
+    orderBy: [PostsOrderBy!] = [PRIMARY_KEY_ASC]
+  ): PostsConnection
+
+  """Reads and enables pagination through a set of \`LeftArm\`."""
+  allLeftArms(
+    """Only read the first \`n\` values of the set."""
+    first: Int
+
+    """Only read the last \`n\` values of the set."""
+    last: Int
+
+    """
+    Skip the first \`n\` values from our \`after\` cursor, an alternative to cursor
+    based pagination. May not be used with \`last\`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: LeftArmCondition
+
+    """The method to use when ordering \`LeftArm\`."""
+    orderBy: [LeftArmsOrderBy!] = [PRIMARY_KEY_ASC]
+  ): LeftArmsConnection
+
+  """Reads and enables pagination through a set of \`Person\`."""
+  allPeople(
+    """Only read the first \`n\` values of the set."""
+    first: Int
+
+    """Only read the last \`n\` values of the set."""
+    last: Int
+
+    """
+    Skip the first \`n\` values from our \`after\` cursor, an alternative to cursor
+    based pagination. May not be used with \`last\`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: PersonCondition
+
+    """The method to use when ordering \`Person\`."""
+    orderBy: [PeopleOrderBy!] = [PRIMARY_KEY_ASC]
+  ): PeopleConnection
+
+  """Reads and enables pagination through a set of \`PersonSecret\`."""
+  allPersonSecrets(
+    """Only read the first \`n\` values of the set."""
+    first: Int
+
+    """Only read the last \`n\` values of the set."""
+    last: Int
+
+    """
+    Skip the first \`n\` values from our \`after\` cursor, an alternative to cursor
+    based pagination. May not be used with \`last\`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: PersonSecretCondition
+
+    """The method to use when ordering \`PersonSecret\`."""
+    orderBy: [PersonSecretsOrderBy!] = [PRIMARY_KEY_ASC]
+  ): PersonSecretsConnection @deprecated(reason: "This is deprecated (comment on table c.person_secret).")
 
   """Reads and enables pagination through a set of \`DefaultValue\`."""
   allDefaultValues(
@@ -9810,35 +4058,6 @@ type Query implements Node {
     """The method to use when ordering \`Patch\`."""
     orderBy: [PatchesOrderBy!] = [PRIMARY_KEY_ASC]
   ): PatchesConnection
-
-  """Reads and enables pagination through a set of \`Post\`."""
-  allPosts(
-    """Only read the first \`n\` values of the set."""
-    first: Int
-
-    """Only read the last \`n\` values of the set."""
-    last: Int
-
-    """
-    Skip the first \`n\` values from our \`after\` cursor, an alternative to cursor
-    based pagination. May not be used with \`last\`.
-    """
-    offset: Int
-
-    """Read all values in the set before (above) this cursor."""
-    before: Cursor
-
-    """Read all values in the set after (below) this cursor."""
-    after: Cursor
-
-    """
-    A condition to be used in determining which values should be returned by the collection.
-    """
-    condition: PostCondition
-
-    """The method to use when ordering \`Post\`."""
-    orderBy: [PostsOrderBy!] = [PRIMARY_KEY_ASC]
-  ): PostsConnection
 
   """Reads and enables pagination through a set of \`Reserved\`."""
   allReserveds(
@@ -10217,35 +4436,6 @@ type Query implements Node {
     orderBy: [Issue756SOrderBy!] = [PRIMARY_KEY_ASC]
   ): Issue756SConnection
 
-  """Reads and enables pagination through a set of \`LeftArm\`."""
-  allLeftArms(
-    """Only read the first \`n\` values of the set."""
-    first: Int
-
-    """Only read the last \`n\` values of the set."""
-    last: Int
-
-    """
-    Skip the first \`n\` values from our \`after\` cursor, an alternative to cursor
-    based pagination. May not be used with \`last\`.
-    """
-    offset: Int
-
-    """Read all values in the set before (above) this cursor."""
-    before: Cursor
-
-    """Read all values in the set after (below) this cursor."""
-    after: Cursor
-
-    """
-    A condition to be used in determining which values should be returned by the collection.
-    """
-    condition: LeftArmCondition
-
-    """The method to use when ordering \`LeftArm\`."""
-    orderBy: [LeftArmsOrderBy!] = [PRIMARY_KEY_ASC]
-  ): LeftArmsConnection
-
   """Reads and enables pagination through a set of \`MyTable\`."""
   allMyTables(
     """Only read the first \`n\` values of the set."""
@@ -10303,64 +4493,6 @@ type Query implements Node {
     """The method to use when ordering \`NullTestRecord\`."""
     orderBy: [NullTestRecordsOrderBy!] = [PRIMARY_KEY_ASC]
   ): NullTestRecordsConnection
-
-  """Reads and enables pagination through a set of \`Person\`."""
-  allPeople(
-    """Only read the first \`n\` values of the set."""
-    first: Int
-
-    """Only read the last \`n\` values of the set."""
-    last: Int
-
-    """
-    Skip the first \`n\` values from our \`after\` cursor, an alternative to cursor
-    based pagination. May not be used with \`last\`.
-    """
-    offset: Int
-
-    """Read all values in the set before (above) this cursor."""
-    before: Cursor
-
-    """Read all values in the set after (below) this cursor."""
-    after: Cursor
-
-    """
-    A condition to be used in determining which values should be returned by the collection.
-    """
-    condition: PersonCondition
-
-    """The method to use when ordering \`Person\`."""
-    orderBy: [PeopleOrderBy!] = [PRIMARY_KEY_ASC]
-  ): PeopleConnection
-
-  """Reads and enables pagination through a set of \`PersonSecret\`."""
-  allPersonSecrets(
-    """Only read the first \`n\` values of the set."""
-    first: Int
-
-    """Only read the last \`n\` values of the set."""
-    last: Int
-
-    """
-    Skip the first \`n\` values from our \`after\` cursor, an alternative to cursor
-    based pagination. May not be used with \`last\`.
-    """
-    offset: Int
-
-    """Read all values in the set before (above) this cursor."""
-    before: Cursor
-
-    """Read all values in the set after (below) this cursor."""
-    after: Cursor
-
-    """
-    A condition to be used in determining which values should be returned by the collection.
-    """
-    condition: PersonSecretCondition
-
-    """The method to use when ordering \`PersonSecret\`."""
-    orderBy: [PersonSecretsOrderBy!] = [PRIMARY_KEY_ASC]
-  ): PersonSecretsConnection @deprecated(reason: "This is deprecated (comment on table c.person_secret).")
 }
 
 """An object with a globally unique \`ID\`."""
@@ -10371,72 +4503,11 @@ interface Node {
   nodeId: ID!
 }
 
-type DefaultValue implements Node {
-  """
-  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
-  """
-  nodeId: ID!
-  id: Int!
-  nullValue: String
-}
-
-"""Should output as Input"""
-type Input implements Node {
-  """
-  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
-  """
-  nodeId: ID!
-  id: Int!
-}
-
-type NoPrimaryKey {
-  id: Int!
-  str: String!
-}
-
-"""Should output as Patch"""
-type Patch implements Node {
-  """
-  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
-  """
-  nodeId: ID!
-  id: Int!
-}
-
 type Post implements Node {
   """
   A globally unique identifier. Can be used in various places throughout the system to identify this single value.
   """
   nodeId: ID!
-  computedCompoundTypeArray(object: CompoundTypeInput): [CompoundType]
-  computedIntervalArray: [Interval]
-
-  """Reads and enables pagination through a set of \`Interval\`."""
-  computedIntervalSet(
-    """Only read the first \`n\` values of the set."""
-    first: Int
-
-    """Only read the last \`n\` values of the set."""
-    last: Int
-
-    """
-    Skip the first \`n\` values from our \`after\` cursor, an alternative to cursor
-    based pagination. May not be used with \`last\`.
-    """
-    offset: Int
-
-    """Read all values in the set before (above) this cursor."""
-    before: Cursor
-
-    """Read all values in the set after (below) this cursor."""
-    after: Cursor
-  ): PostComputedIntervalSetConnection!
-  computedTextArray: [String]
-  computedWithOptionalArg(i: Int): Int
-  computedWithRequiredArg(i: Int!): Int
-  headlineTrimmed(length: Int, omission: String): String
-  headlineTrimmedNoDefaults(length: Int, omission: String): String
-  headlineTrimmedStrict(length: Int, omission: String): String
   id: Int!
   headline: String!
   body: String
@@ -10480,154 +4551,6 @@ type Post implements Node {
   typeById: Type
 }
 
-"""Awesome feature!"""
-type CompoundType {
-  computedField: Int
-  a: Int
-  b: String
-  c: Color
-  d: UUID
-  e: EnumCaps
-  f: EnumWithEmptyString
-  g: Interval
-  fooBar: Int
-}
-
-"""Represents the colours red, green and blue."""
-enum Color {
-  RED
-  GREEN
-  BLUE
-}
-
-"""
-A universally unique identifier as defined by [RFC 4122](https://tools.ietf.org/html/rfc4122).
-"""
-scalar UUID
-
-enum EnumCaps {
-  FOO_BAR
-  BAR_FOO
-  BAZ_QUX
-  _0_BAR
-}
-
-enum EnumWithEmptyString {
-  _EMPTY_
-  ONE
-  TWO
-}
-
-"""
-An interval of time that has passed where the smallest distinct unit is a second.
-"""
-type Interval {
-  """
-  A quantity of seconds. This is the only non-integer field, as all the other
-  fields will dump their overflow into a smaller unit of time. Intervals don’t
-  have a smaller unit than seconds.
-  """
-  seconds: Float
-
-  """A quantity of minutes."""
-  minutes: Int
-
-  """A quantity of hours."""
-  hours: Int
-
-  """A quantity of days."""
-  days: Int
-
-  """A quantity of months."""
-  months: Int
-
-  """A quantity of years."""
-  years: Int
-}
-
-"""An input for mutations affecting \`CompoundType\`"""
-input CompoundTypeInput {
-  a: Int
-  b: String
-  c: Color
-  d: UUID
-  e: EnumCaps
-  f: EnumWithEmptyString
-  g: IntervalInput
-  fooBar: Int
-}
-
-"""
-An interval of time that has passed where the smallest distinct unit is a second.
-"""
-input IntervalInput {
-  """
-  A quantity of seconds. This is the only non-integer field, as all the other
-  fields will dump their overflow into a smaller unit of time. Intervals don’t
-  have a smaller unit than seconds.
-  """
-  seconds: Float
-
-  """A quantity of minutes."""
-  minutes: Int
-
-  """A quantity of hours."""
-  hours: Int
-
-  """A quantity of days."""
-  days: Int
-
-  """A quantity of months."""
-  months: Int
-
-  """A quantity of years."""
-  years: Int
-}
-
-"""A connection to a list of \`Interval\` values."""
-type PostComputedIntervalSetConnection {
-  """A list of \`Interval\` objects."""
-  nodes: [Interval]!
-
-  """
-  A list of edges which contains the \`Interval\` and cursor to aid in pagination.
-  """
-  edges: [PostComputedIntervalSetEdge]!
-
-  """Information to aid in pagination."""
-  pageInfo: PageInfo!
-
-  """The count of *all* \`Interval\` you could get from the connection."""
-  totalCount: Int!
-}
-
-"""A \`Interval\` edge in the connection."""
-type PostComputedIntervalSetEdge {
-  """A cursor for use in pagination."""
-  cursor: Cursor
-
-  """The \`Interval\` at the end of the edge."""
-  node: Interval
-}
-
-"""A location in a connection that can be used for resuming pagination."""
-scalar Cursor
-
-"""Information about pagination in a connection."""
-type PageInfo {
-  """When paginating forwards, are there more items?"""
-  hasNextPage: Boolean!
-
-  """When paginating backwards, are there more items?"""
-  hasPreviousPage: Boolean!
-
-  """When paginating backwards, the cursor to continue."""
-  startCursor: Cursor
-
-  """When paginating forwards, the cursor to continue."""
-  endCursor: Cursor
-}
-
 enum AnEnum {
   AWAITING
   REJECTED
@@ -10669,72 +4592,6 @@ type Person implements Node {
   A globally unique identifier. Can be used in various places throughout the system to identify this single value.
   """
   nodeId: ID!
-  computedComplex(a: Int, b: String): PersonComputedComplexRecord
-  computedFirstArgInout: Person
-  computedFirstArgInoutOut: PersonComputedFirstArgInoutOutRecord
-  computedInout(ino: String): String
-  computedInoutOut(ino: String): PersonComputedInoutOutRecord
-  computedOut: String!
-  computedOutOut: PersonComputedOutOutRecord
-  exists(email: Email): Boolean @deprecated(reason: "This is deprecated (comment on function c.person_exists).")
-
-  """The first name of the person."""
-  firstName: String
-
-  """The first post by the person."""
-  firstPost: Post
-
-  """Reads and enables pagination through a set of \`Person\`."""
-  friends(
-    """Only read the first \`n\` values of the set."""
-    first: Int
-
-    """Only read the last \`n\` values of the set."""
-    last: Int
-
-    """
-    Skip the first \`n\` values from our \`after\` cursor, an alternative to cursor
-    based pagination. May not be used with \`last\`.
-    """
-    offset: Int
-
-    """Read all values in the set before (above) this cursor."""
-    before: Cursor
-
-    """Read all values in the set after (below) this cursor."""
-    after: Cursor
-
-    """The method to use when ordering \`Person\`."""
-    orderBy: [PeopleOrderBy!]
-  ): PeopleConnection!
-  optionalMissingMiddle1(arg0: Int!, b: Int, c: Int): Int
-  optionalMissingMiddle2(a: Int!, b: Int, c: Int): Int
-  optionalMissingMiddle3(a: Int!, arg1: Int, c: Int): Int
-  optionalMissingMiddle4(arg0: Int!, b: Int, arg2: Int): Int
-  optionalMissingMiddle5(a: Int!, arg1: Int, arg2: Int): Int
-  typeFunction(id: Int): Type
-
-  """Reads and enables pagination through a set of \`Type\`."""
-  typeFunctionConnection(
-    """Only read the first \`n\` values of the set."""
-    first: Int
-
-    """Only read the last \`n\` values of the set."""
-    last: Int
-
-    """
-    Skip the first \`n\` values from our \`after\` cursor, an alternative to cursor
-    based pagination. May not be used with \`last\`.
-    """
-    offset: Int
-
-    """Read all values in the set before (above) this cursor."""
-    before: Cursor
-
-    """Read all values in the set after (below) this cursor."""
-    after: Cursor
-  ): TypesConnection!
-  typeFunctionList: [Type]
 
   """The primary unique identifier for the person"""
   id: Int!
@@ -10780,6 +4637,12 @@ type Person implements Node {
     orderBy: [PostsOrderBy!] = [PRIMARY_KEY_ASC]
   ): PostsConnection!
 
+  """This \`Person\`'s \`PersonSecret\`."""
+  personSecretByPersonId: PersonSecret @deprecated(reason: "This is deprecated (comment on table c.person_secret).")
+
+  """Reads a single \`LeftArm\` that is related to this \`Person\`."""
+  leftArmByPersonId: LeftArm
+
   """Reads and enables pagination through a set of \`ForeignKey\`."""
   foreignKeysByPersonId(
     """Only read the first \`n\` values of the set."""
@@ -10808,12 +4671,6 @@ type Person implements Node {
     """The method to use when ordering \`ForeignKey\`."""
     orderBy: [ForeignKeysOrderBy!] = [NATURAL]
   ): ForeignKeysConnection!
-
-  """This \`Person\`'s \`PersonSecret\`."""
-  personSecretByPersonId: PersonSecret @deprecated(reason: "This is deprecated (comment on table c.person_secret).")
-
-  """Reads a single \`LeftArm\` that is related to this \`Person\`."""
-  leftArmByPersonId: LeftArm
 
   """Reads and enables pagination through a set of \`CompoundKey\`."""
   compoundKeysByPersonId1(
@@ -10874,332 +4731,7 @@ type Person implements Node {
   ): CompoundKeysConnection!
 }
 
-type PersonComputedComplexRecord {
-  x: Int
-  y: CompoundType
-  z: Person
-}
-
-type PersonComputedFirstArgInoutOutRecord {
-  person: Person
-  o: Int
-}
-
-type PersonComputedInoutOutRecord {
-  ino: String
-  o: String
-}
-
-type PersonComputedOutOutRecord {
-  o1: String
-  o2: String
-}
-
 scalar Email
-
-"""A connection to a list of \`Person\` values."""
-type PeopleConnection {
-  """A list of \`Person\` objects."""
-  nodes: [Person]!
-
-  """
-  A list of edges which contains the \`Person\` and cursor to aid in pagination.
-  """
-  edges: [PeopleEdge]!
-
-  """Information to aid in pagination."""
-  pageInfo: PageInfo!
-
-  """The count of *all* \`Person\` you could get from the connection."""
-  totalCount: Int!
-}
-
-"""A \`Person\` edge in the connection."""
-type PeopleEdge {
-  """A cursor for use in pagination."""
-  cursor: Cursor
-
-  """The \`Person\` at the end of the edge."""
-  node: Person
-}
-
-"""Methods to use when ordering \`Person\`."""
-enum PeopleOrderBy {
-  NATURAL
-  COMPUTED_OUT_ASC
-  COMPUTED_OUT_DESC
-  FIRST_NAME_ASC
-  FIRST_NAME_DESC
-  PRIMARY_KEY_ASC
-  PRIMARY_KEY_DESC
-  ID_ASC
-  ID_DESC
-  NAME_ASC
-  NAME_DESC
-  ABOUT_ASC
-  ABOUT_DESC
-  EMAIL_ASC
-  EMAIL_DESC
-  SITE_ASC
-  SITE_DESC
-  CONFIG_ASC
-  CONFIG_DESC
-  LAST_LOGIN_FROM_IP_ASC
-  LAST_LOGIN_FROM_IP_DESC
-  LAST_LOGIN_FROM_SUBNET_ASC
-  LAST_LOGIN_FROM_SUBNET_DESC
-  USER_MAC_ASC
-  USER_MAC_DESC
-  CREATED_AT_ASC
-  CREATED_AT_DESC
-}
-
-type Type implements Node {
-  """
-  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
-  """
-  nodeId: ID!
-  id: Int!
-  smallint: Int!
-  bigint: BigInt!
-  numeric: BigFloat!
-  decimal: BigFloat!
-  boolean: Boolean!
-  varchar: String!
-  enum: Color!
-  enumArray: [Color]!
-  domain: AnInt!
-  domain2: AnotherInt!
-  textArray: [String]!
-  json: JSON!
-  jsonb: JSON!
-  jsonpath: JSONPath
-  nullableRange: BigFloatRange
-  numrange: BigFloatRange!
-  daterange: DateRange!
-  anIntRange: AnIntRange!
-  timestamp: Datetime!
-  timestamptz: Datetime!
-  date: Date!
-  time: Time!
-  timetz: Time!
-  interval: Interval!
-  intervalArray: [Interval]!
-  money: Float!
-  compoundType: CompoundType!
-  nestedCompoundType: NestedCompoundType!
-  nullableCompoundType: CompoundType
-  nullableNestedCompoundType: NestedCompoundType
-  point: Point!
-  nullablePoint: Point
-  inet: InternetAddress
-  cidr: String
-  macaddr: String
-  oid: Oid
-  regproc: RegProc
-  regprocedure: RegProcedure
-  regoper: RegOper
-  regoperator: RegOperator
-  regclass: RegClass
-  regtype: RegType
-  regconfig: RegConfig
-  regdictionary: RegDictionary
-  textArrayDomain: [String]
-  int8ArrayDomain: [BigInt]
-  bytea: Base64EncodedBinary
-  byteaArray: [Base64EncodedBinary]
-  ltree: LTree
-  ltreeArray: [LTree]
-
-  """Reads a single \`Post\` that is related to this \`Type\`."""
-  postBySmallint: Post
-
-  """Reads a single \`Post\` that is related to this \`Type\`."""
-  postById: Post
-}
-
-"""
-A signed eight-byte integer. The upper big integer values are greater than the
-max value for a JavaScript number. Therefore all big integers will be output as
-strings and not numbers.
-"""
-scalar BigInt
-
-"""
-A floating point number that requires more precision than IEEE 754 binary 64
-"""
-scalar BigFloat
-
-scalar AnInt
-
-scalar AnotherInt
-
-"""
-A JavaScript object encoded in the JSON format as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
-"""
-scalar JSON
-
-"""A string representing an SQL/JSONPath expression"""
-scalar JSONPath
-
-"""A range of \`BigFloat\`."""
-type BigFloatRange {
-  """
-  If the range has no start or end, it is either unbounded (\`false\`) or empty (\`true\`).
-  """
-  empty: Boolean!
-
-  """The starting bound of our range."""
-  start: BigFloatRangeBound
-
-  """The ending bound of our range."""
-  end: BigFloatRangeBound
-}
-
-"""
-The value at one end of a range. A range can either include this value, or not.
-"""
-type BigFloatRangeBound {
-  """The value at one end of our range."""
-  value: BigFloat!
-
-  """Whether or not the value of this bound is included in the range."""
-  inclusive: Boolean!
-}
-
-"""A range of \`Date\`."""
-type DateRange {
-  """
-  If the range has no start or end, it is either unbounded (\`false\`) or empty (\`true\`).
-  """
-  empty: Boolean!
-
-  """The starting bound of our range."""
-  start: DateRangeBound
-
-  """The ending bound of our range."""
-  end: DateRangeBound
-}
-
-"""
-The value at one end of a range. A range can either include this value, or not.
-"""
-type DateRangeBound {
-  """The value at one end of our range."""
-  value: Date!
-
-  """Whether or not the value of this bound is included in the range."""
-  inclusive: Boolean!
-}
-
-"""A calendar date in YYYY-MM-DD format."""
-scalar Date
-
-"""A range of \`AnInt\`."""
-type AnIntRange {
-  """
-  If the range has no start or end, it is either unbounded (\`false\`) or empty (\`true\`).
-  """
-  empty: Boolean!
-
-  """The starting bound of our range."""
-  start: AnIntRangeBound
-
-  """The ending bound of our range."""
-  end: AnIntRangeBound
-}
-
-"""
-The value at one end of a range. A range can either include this value, or not.
-"""
-type AnIntRangeBound {
-  """The value at one end of our range."""
-  value: AnInt!
-
-  """Whether or not the value of this bound is included in the range."""
-  inclusive: Boolean!
-}
-
-"""
-The exact time of day, does not include the date. May or may not have a timezone offset.
-"""
-scalar Time
-
-type NestedCompoundType {
-  a: CompoundType
-  b: CompoundType
-  bazBuz: Int
-}
-
-"""A cartesian point."""
-type Point {
-  x: Float!
-  y: Float!
-}
-
-"""An IPv4 or IPv6 host address, and optionally its subnet."""
-scalar InternetAddress
-
-"""PostgreSQL identifier for a database entity"""
-scalar Oid
-
-"""A builtin object identifier type for a function name"""
-scalar RegProc
-
-"""A builtin object identifier type for a function with argument types"""
-scalar RegProcedure
-
-"""A builtin object identifier type for an operator"""
-scalar RegOper
-
-"""A builtin object identifier type for an operator with argument types"""
-scalar RegOperator
-
-"""A builtin object identifier type for a relation name"""
-scalar RegClass
-
-"""A builtin object identifier type for a data type name"""
-scalar RegType
-
-"""A builtin object identifier type for a text search configuration"""
-scalar RegConfig
-
-"""A builtin object identifier type for a text search dictionary"""
-scalar RegDictionary
-
-"""Binary data encoded using Base64"""
-scalar Base64EncodedBinary
-
-"""
-Represents an \`ltree\` hierarchical label tree as outlined in https://www.postgresql.org/docs/current/ltree.html
-"""
-scalar LTree
-
-"""A connection to a list of \`Type\` values."""
-type TypesConnection {
-  """A list of \`Type\` objects."""
-  nodes: [Type]!
-
-  """
-  A list of edges which contains the \`Type\` and cursor to aid in pagination.
-  """
-  edges: [TypesEdge]!
-
-  """Information to aid in pagination."""
-  pageInfo: PageInfo!
-
-  """The count of *all* \`Type\` you could get from the connection."""
-  totalCount: Int!
-}
-
-"""A \`Type\` edge in the connection."""
-type TypesEdge {
-  """A cursor for use in pagination."""
-  cursor: Cursor
-
-  """The \`Type\` at the end of the edge."""
-  node: Type
-}
 
 type WrappedUrl {
   url: NotNullUrl!
@@ -11211,6 +4743,9 @@ scalar NotNullUrl
 A set of key/value pairs, keys are strings, values may be a string or null. Exposed as a JSON object.
 """
 scalar KeyValueHash
+
+"""An IPv4 or IPv6 host address, and optionally its subnet."""
+scalar InternetAddress
 
 """A connection to a list of \`Post\` values."""
 type PostsConnection {
@@ -11238,6 +4773,24 @@ type PostsEdge {
   node: Post
 }
 
+"""A location in a connection that can be used for resuming pagination."""
+scalar Cursor
+
+"""Information about pagination in a connection."""
+type PageInfo {
+  """When paginating forwards, are there more items?"""
+  hasNextPage: Boolean!
+
+  """When paginating backwards, are there more items?"""
+  hasPreviousPage: Boolean!
+
+  """When paginating backwards, the cursor to continue."""
+  startCursor: Cursor
+
+  """When paginating forwards, the cursor to continue."""
+  endCursor: Cursor
+}
+
 """
 A condition to be used against \`Post\` object types. All fields are tested for equality and combined with a logical ‘and.’
 """
@@ -11259,9 +4812,6 @@ input PostCondition {
 
   """Checks for equality with the object’s \`comptypes\` field."""
   comptypes: [ComptypeInput]
-
-  """Checks for equality with the object’s \`computedWithOptionalArg\` field."""
-  computedWithOptionalArg: Int
 }
 
 """An input for mutations affecting \`Comptype\`"""
@@ -11273,8 +4823,6 @@ input ComptypeInput {
 """Methods to use when ordering \`Post\`."""
 enum PostsOrderBy {
   NATURAL
-  COMPUTED_WITH_OPTIONAL_ARG_ASC
-  COMPUTED_WITH_OPTIONAL_ARG_DESC
   PRIMARY_KEY_ASC
   PRIMARY_KEY_DESC
   ID_ASC
@@ -11285,6 +4833,36 @@ enum PostsOrderBy {
   BODY_DESC
   AUTHOR_ID_ASC
   AUTHOR_ID_DESC
+}
+
+"""Tracks the person's secret"""
+type PersonSecret implements Node {
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+  personId: Int!
+
+  """A secret held by the associated Person"""
+  secret: String
+
+  """The \`Person\` this \`PersonSecret\` belongs to."""
+  personByPersonId: Person
+}
+
+"""Tracks metadata about the left arms of various people"""
+type LeftArm implements Node {
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+  id: Int!
+  personId: Int
+  lengthInMetres: Float
+  mood: String!
+
+  """Reads a single \`Person\` that is related to this \`LeftArm\`."""
+  personByPersonId: Person
 }
 
 """A connection to a list of \`ForeignKey\` values."""
@@ -11411,36 +4989,6 @@ type ForeignKeysEdge {
   node: ForeignKey
 }
 
-"""Tracks the person's secret"""
-type PersonSecret implements Node {
-  """
-  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
-  """
-  nodeId: ID!
-  personId: Int!
-
-  """A secret held by the associated Person"""
-  secret: String
-
-  """The \`Person\` this \`PersonSecret\` belongs to."""
-  personByPersonId: Person
-}
-
-"""Tracks metadata about the left arms of various people"""
-type LeftArm implements Node {
-  """
-  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
-  """
-  nodeId: ID!
-  id: Int!
-  personId: Int
-  lengthInMetres: Float
-  mood: String!
-
-  """Reads a single \`Person\` that is related to this \`LeftArm\`."""
-  personByPersonId: Person
-}
-
 """A connection to a list of \`CompoundKey\` values."""
 type CompoundKeysConnection {
   """A list of \`CompoundKey\` objects."""
@@ -11493,6 +5041,314 @@ enum CompoundKeysOrderBy {
   PERSON_ID_1_DESC
   EXTRA_ASC
   EXTRA_DESC
+}
+
+"""A connection to a list of \`Type\` values."""
+type TypesConnection {
+  """A list of \`Type\` objects."""
+  nodes: [Type]!
+
+  """
+  A list of edges which contains the \`Type\` and cursor to aid in pagination.
+  """
+  edges: [TypesEdge]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """The count of *all* \`Type\` you could get from the connection."""
+  totalCount: Int!
+}
+
+type Type implements Node {
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+  id: Int!
+  smallint: Int!
+  bigint: BigInt!
+  numeric: BigFloat!
+  decimal: BigFloat!
+  boolean: Boolean!
+  varchar: String!
+  enum: Color!
+  enumArray: [Color]!
+  domain: AnInt!
+  domain2: AnotherInt!
+  textArray: [String]!
+  json: JSON!
+  jsonb: JSON!
+  jsonpath: JSONPath
+  nullableRange: BigFloatRange
+  numrange: BigFloatRange!
+  daterange: DateRange!
+  anIntRange: AnIntRange!
+  timestamp: Datetime!
+  timestamptz: Datetime!
+  date: Date!
+  time: Time!
+  timetz: Time!
+  interval: Interval!
+  intervalArray: [Interval]!
+  money: Float!
+  compoundType: CompoundType!
+  nestedCompoundType: NestedCompoundType!
+  nullableCompoundType: CompoundType
+  nullableNestedCompoundType: NestedCompoundType
+  point: Point!
+  nullablePoint: Point
+  inet: InternetAddress
+  cidr: String
+  macaddr: String
+  oid: Oid
+  regproc: RegProc
+  regprocedure: RegProcedure
+  regoper: RegOper
+  regoperator: RegOperator
+  regclass: RegClass
+  regtype: RegType
+  regconfig: RegConfig
+  regdictionary: RegDictionary
+  textArrayDomain: [String]
+  int8ArrayDomain: [BigInt]
+  bytea: Base64EncodedBinary
+  byteaArray: [Base64EncodedBinary]
+  ltree: LTree
+  ltreeArray: [LTree]
+
+  """Reads a single \`Post\` that is related to this \`Type\`."""
+  postBySmallint: Post
+
+  """Reads a single \`Post\` that is related to this \`Type\`."""
+  postById: Post
+}
+
+"""
+A signed eight-byte integer. The upper big integer values are greater than the
+max value for a JavaScript number. Therefore all big integers will be output as
+strings and not numbers.
+"""
+scalar BigInt
+
+"""
+A floating point number that requires more precision than IEEE 754 binary 64
+"""
+scalar BigFloat
+
+"""Represents the colours red, green and blue."""
+enum Color {
+  RED
+  GREEN
+  BLUE
+}
+
+scalar AnInt
+
+scalar AnotherInt
+
+"""
+A JavaScript object encoded in the JSON format as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
+"""
+scalar JSON
+
+"""A string representing an SQL/JSONPath expression"""
+scalar JSONPath
+
+"""A range of \`BigFloat\`."""
+type BigFloatRange {
+  """
+  If the range has no start or end, it is either unbounded (\`false\`) or empty (\`true\`).
+  """
+  empty: Boolean!
+
+  """The starting bound of our range."""
+  start: BigFloatRangeBound
+
+  """The ending bound of our range."""
+  end: BigFloatRangeBound
+}
+
+"""
+The value at one end of a range. A range can either include this value, or not.
+"""
+type BigFloatRangeBound {
+  """The value at one end of our range."""
+  value: BigFloat!
+
+  """Whether or not the value of this bound is included in the range."""
+  inclusive: Boolean!
+}
+
+"""A range of \`Date\`."""
+type DateRange {
+  """
+  If the range has no start or end, it is either unbounded (\`false\`) or empty (\`true\`).
+  """
+  empty: Boolean!
+
+  """The starting bound of our range."""
+  start: DateRangeBound
+
+  """The ending bound of our range."""
+  end: DateRangeBound
+}
+
+"""
+The value at one end of a range. A range can either include this value, or not.
+"""
+type DateRangeBound {
+  """The value at one end of our range."""
+  value: Date!
+
+  """Whether or not the value of this bound is included in the range."""
+  inclusive: Boolean!
+}
+
+"""A calendar date in YYYY-MM-DD format."""
+scalar Date
+
+"""A range of \`AnInt\`."""
+type AnIntRange {
+  """
+  If the range has no start or end, it is either unbounded (\`false\`) or empty (\`true\`).
+  """
+  empty: Boolean!
+
+  """The starting bound of our range."""
+  start: AnIntRangeBound
+
+  """The ending bound of our range."""
+  end: AnIntRangeBound
+}
+
+"""
+The value at one end of a range. A range can either include this value, or not.
+"""
+type AnIntRangeBound {
+  """The value at one end of our range."""
+  value: AnInt!
+
+  """Whether or not the value of this bound is included in the range."""
+  inclusive: Boolean!
+}
+
+"""
+The exact time of day, does not include the date. May or may not have a timezone offset.
+"""
+scalar Time
+
+"""
+An interval of time that has passed where the smallest distinct unit is a second.
+"""
+type Interval {
+  """
+  A quantity of seconds. This is the only non-integer field, as all the other
+  fields will dump their overflow into a smaller unit of time. Intervals don’t
+  have a smaller unit than seconds.
+  """
+  seconds: Float
+
+  """A quantity of minutes."""
+  minutes: Int
+
+  """A quantity of hours."""
+  hours: Int
+
+  """A quantity of days."""
+  days: Int
+
+  """A quantity of months."""
+  months: Int
+
+  """A quantity of years."""
+  years: Int
+}
+
+"""Awesome feature!"""
+type CompoundType {
+  a: Int
+  b: String
+  c: Color
+  d: UUID
+  e: EnumCaps
+  f: EnumWithEmptyString
+  g: Interval
+  fooBar: Int
+}
+
+"""
+A universally unique identifier as defined by [RFC 4122](https://tools.ietf.org/html/rfc4122).
+"""
+scalar UUID
+
+enum EnumCaps {
+  FOO_BAR
+  BAR_FOO
+  BAZ_QUX
+  _0_BAR
+}
+
+enum EnumWithEmptyString {
+  _EMPTY_
+  ONE
+  TWO
+}
+
+type NestedCompoundType {
+  a: CompoundType
+  b: CompoundType
+  bazBuz: Int
+}
+
+"""A cartesian point."""
+type Point {
+  x: Float!
+  y: Float!
+}
+
+"""PostgreSQL identifier for a database entity"""
+scalar Oid
+
+"""A builtin object identifier type for a function name"""
+scalar RegProc
+
+"""A builtin object identifier type for a function with argument types"""
+scalar RegProcedure
+
+"""A builtin object identifier type for an operator"""
+scalar RegOper
+
+"""A builtin object identifier type for an operator with argument types"""
+scalar RegOperator
+
+"""A builtin object identifier type for a relation name"""
+scalar RegClass
+
+"""A builtin object identifier type for a data type name"""
+scalar RegType
+
+"""A builtin object identifier type for a text search configuration"""
+scalar RegConfig
+
+"""A builtin object identifier type for a text search dictionary"""
+scalar RegDictionary
+
+"""Binary data encoded using Base64"""
+scalar Base64EncodedBinary
+
+"""
+Represents an \`ltree\` hierarchical label tree as outlined in https://www.postgresql.org/docs/current/ltree.html
+"""
+scalar LTree
+
+"""A \`Type\` edge in the connection."""
+type TypesEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The \`Type\` at the end of the edge."""
+  node: Type
 }
 
 """
@@ -11730,6 +5586,45 @@ input AnIntRangeBoundInput {
   inclusive: Boolean!
 }
 
+"""
+An interval of time that has passed where the smallest distinct unit is a second.
+"""
+input IntervalInput {
+  """
+  A quantity of seconds. This is the only non-integer field, as all the other
+  fields will dump their overflow into a smaller unit of time. Intervals don’t
+  have a smaller unit than seconds.
+  """
+  seconds: Float
+
+  """A quantity of minutes."""
+  minutes: Int
+
+  """A quantity of hours."""
+  hours: Int
+
+  """A quantity of days."""
+  days: Int
+
+  """A quantity of months."""
+  months: Int
+
+  """A quantity of years."""
+  years: Int
+}
+
+"""An input for mutations affecting \`CompoundType\`"""
+input CompoundTypeInput {
+  a: Int
+  b: String
+  c: Color
+  d: UUID
+  e: EnumCaps
+  f: EnumWithEmptyString
+  g: IntervalInput
+  fooBar: Int
+}
+
 """An input for mutations affecting \`NestedCompoundType\`"""
 input NestedCompoundTypeInput {
   a: CompoundTypeInput
@@ -11826,6 +5721,38 @@ enum TypesOrderBy {
   REGDICTIONARY_DESC
   LTREE_ASC
   LTREE_DESC
+}
+
+type DefaultValue implements Node {
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+  id: Int!
+  nullValue: String
+}
+
+"""Should output as Input"""
+type Input implements Node {
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+  id: Int!
+}
+
+type NoPrimaryKey {
+  id: Int!
+  str: String!
+}
+
+"""Should output as Patch"""
+type Patch implements Node {
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+  id: Int!
 }
 
 type Reserved implements Node {
@@ -11941,298 +5868,88 @@ type NullTestRecord implements Node {
   nonNullText: String!
 }
 
-"""A connection to a list of \`Interval\` values."""
-type QueryIntervalSetConnection {
-  """A list of \`Interval\` objects."""
-  nodes: [Interval]!
+"""A connection to a list of \`LeftArm\` values."""
+type LeftArmsConnection {
+  """A list of \`LeftArm\` objects."""
+  nodes: [LeftArm]!
 
   """
-  A list of edges which contains the \`Interval\` and cursor to aid in pagination.
+  A list of edges which contains the \`LeftArm\` and cursor to aid in pagination.
   """
-  edges: [QueryIntervalSetEdge]!
+  edges: [LeftArmsEdge]!
 
   """Information to aid in pagination."""
   pageInfo: PageInfo!
 
-  """The count of *all* \`Interval\` you could get from the connection."""
+  """The count of *all* \`LeftArm\` you could get from the connection."""
   totalCount: Int!
 }
 
-"""A \`Interval\` edge in the connection."""
-type QueryIntervalSetEdge {
+"""A \`LeftArm\` edge in the connection."""
+type LeftArmsEdge {
   """A cursor for use in pagination."""
   cursor: Cursor
 
-  """The \`Interval\` at the end of the edge."""
-  node: Interval
+  """The \`LeftArm\` at the end of the edge."""
+  node: LeftArm
 }
 
-"""A connection to a list of \`BigInt\` values."""
-type StaticBigIntegerConnection {
-  """A list of \`BigInt\` objects."""
-  nodes: [BigInt]!
-
-  """
-  A list of edges which contains the \`BigInt\` and cursor to aid in pagination.
-  """
-  edges: [StaticBigIntegerEdge]!
-
-  """Information to aid in pagination."""
-  pageInfo: PageInfo!
-
-  """The count of *all* \`BigInt\` you could get from the connection."""
-  totalCount: Int!
-}
-
-"""A \`BigInt\` edge in the connection."""
-type StaticBigIntegerEdge {
-  """A cursor for use in pagination."""
-  cursor: Cursor
-
-  """The \`BigInt\` at the end of the edge."""
-  node: BigInt
-}
-
-"""A connection to a list of \`CompoundType\` values."""
-type CompoundTypesConnection {
-  """A list of \`CompoundType\` objects."""
-  nodes: [CompoundType]!
-
-  """
-  A list of edges which contains the \`CompoundType\` and cursor to aid in pagination.
-  """
-  edges: [CompoundTypesEdge]!
-
-  """Information to aid in pagination."""
-  pageInfo: PageInfo!
-
-  """The count of *all* \`CompoundType\` you could get from the connection."""
-  totalCount: Int!
-}
-
-"""A \`CompoundType\` edge in the connection."""
-type CompoundTypesEdge {
-  """A cursor for use in pagination."""
-  cursor: Cursor
-
-  """The \`CompoundType\` at the end of the edge."""
-  node: CompoundType
-}
-
-type FuncOutComplexRecord {
-  x: Int
-  y: CompoundType
-  z: Person
-}
-
-"""A connection to a list of \`FuncOutComplexSetofRecord\` values."""
-type FuncOutComplexSetofConnection {
-  """A list of \`FuncOutComplexSetofRecord\` objects."""
-  nodes: [FuncOutComplexSetofRecord]!
-
-  """
-  A list of edges which contains the \`FuncOutComplexSetofRecord\` and cursor to aid in pagination.
-  """
-  edges: [FuncOutComplexSetofEdge]!
-
-  """Information to aid in pagination."""
-  pageInfo: PageInfo!
-
-  """
-  The count of *all* \`FuncOutComplexSetofRecord\` you could get from the connection.
-  """
-  totalCount: Int!
-}
-
-type FuncOutComplexSetofRecord {
-  x: Int
-  y: CompoundType
-  z: Person
-}
-
-"""A \`FuncOutComplexSetofRecord\` edge in the connection."""
-type FuncOutComplexSetofEdge {
-  """A cursor for use in pagination."""
-  cursor: Cursor
-
-  """The \`FuncOutComplexSetofRecord\` at the end of the edge."""
-  node: FuncOutComplexSetofRecord
-}
-
-type FuncOutOutRecord {
-  firstOut: Int
-  secondOut: String
-}
-
-type FuncOutOutCompoundTypeRecord {
-  o1: Int
-  o2: CompoundType
-}
-
-"""A connection to a list of \`FuncOutOutSetofRecord\` values."""
-type FuncOutOutSetofConnection {
-  """A list of \`FuncOutOutSetofRecord\` objects."""
-  nodes: [FuncOutOutSetofRecord]!
-
-  """
-  A list of edges which contains the \`FuncOutOutSetofRecord\` and cursor to aid in pagination.
-  """
-  edges: [FuncOutOutSetofEdge]!
-
-  """Information to aid in pagination."""
-  pageInfo: PageInfo!
-
-  """
-  The count of *all* \`FuncOutOutSetofRecord\` you could get from the connection.
-  """
-  totalCount: Int!
-}
-
-type FuncOutOutSetofRecord {
-  o1: Int
-  o2: String
-}
-
-"""A \`FuncOutOutSetofRecord\` edge in the connection."""
-type FuncOutOutSetofEdge {
-  """A cursor for use in pagination."""
-  cursor: Cursor
-
-  """The \`FuncOutOutSetofRecord\` at the end of the edge."""
-  node: FuncOutOutSetofRecord
-}
-
-type FuncOutOutUnnamedRecord {
-  arg1: Int
-  arg2: String
-}
-
-"""A connection to a list of \`Int\` values."""
-type FuncOutSetofConnection {
-  """A list of \`Int\` objects."""
-  nodes: [Int]!
-
-  """
-  A list of edges which contains the \`Int\` and cursor to aid in pagination.
-  """
-  edges: [FuncOutSetofEdge]!
-
-  """Information to aid in pagination."""
-  pageInfo: PageInfo!
-
-  """The count of *all* \`Int\` you could get from the connection."""
-  totalCount: Int!
-}
-
-"""A \`Int\` edge in the connection."""
-type FuncOutSetofEdge {
-  """A cursor for use in pagination."""
-  cursor: Cursor
-
-  """The \`Int\` at the end of the edge."""
-  node: Int
-}
-
-type FuncOutUnnamedOutOutUnnamedRecord {
-  arg1: Int
-  o2: String
-  arg3: Int
-}
-
-"""A connection to a list of \`FuncReturnsTableMultiColRecord\` values."""
-type FuncReturnsTableMultiColConnection {
-  """A list of \`FuncReturnsTableMultiColRecord\` objects."""
-  nodes: [FuncReturnsTableMultiColRecord]!
-
-  """
-  A list of edges which contains the \`FuncReturnsTableMultiColRecord\` and cursor to aid in pagination.
-  """
-  edges: [FuncReturnsTableMultiColEdge]!
-
-  """Information to aid in pagination."""
-  pageInfo: PageInfo!
-
-  """
-  The count of *all* \`FuncReturnsTableMultiColRecord\` you could get from the connection.
-  """
-  totalCount: Int!
-}
-
-type FuncReturnsTableMultiColRecord {
-  col1: Int
-  col2: String
-}
-
-"""A \`FuncReturnsTableMultiColRecord\` edge in the connection."""
-type FuncReturnsTableMultiColEdge {
-  """A cursor for use in pagination."""
-  cursor: Cursor
-
-  """The \`FuncReturnsTableMultiColRecord\` at the end of the edge."""
-  node: FuncReturnsTableMultiColRecord
-}
-
-"""A connection to a list of \`Int\` values."""
-type FuncReturnsTableOneColConnection {
-  """A list of \`Int\` objects."""
-  nodes: [Int]!
-
-  """
-  A list of edges which contains the \`Int\` and cursor to aid in pagination.
-  """
-  edges: [FuncReturnsTableOneColEdge]!
-
-  """Information to aid in pagination."""
-  pageInfo: PageInfo!
-
-  """The count of *all* \`Int\` you could get from the connection."""
-  totalCount: Int!
-}
-
-"""A \`Int\` edge in the connection."""
-type FuncReturnsTableOneColEdge {
-  """A cursor for use in pagination."""
-  cursor: Cursor
-
-  """The \`Int\` at the end of the edge."""
-  node: Int
-}
-
-"""A connection to a list of \`Int\` values."""
-type IntSetQueryConnection {
-  """A list of \`Int\` objects."""
-  nodes: [Int]!
-
-  """
-  A list of edges which contains the \`Int\` and cursor to aid in pagination.
-  """
-  edges: [IntSetQueryEdge]!
-
-  """Information to aid in pagination."""
-  pageInfo: PageInfo!
-
-  """The count of *all* \`Int\` you could get from the connection."""
-  totalCount: Int!
-}
-
-"""A \`Int\` edge in the connection."""
-type IntSetQueryEdge {
-  """A cursor for use in pagination."""
-  cursor: Cursor
-
-  """The \`Int\` at the end of the edge."""
-  node: Int
-}
-
-type QueryOutputTwoRowsRecord {
-  txt: String
-  leftArm: LeftArm
-  post: Post
-}
-
-type SearchTestSummariesRecord {
+"""
+A condition to be used against \`LeftArm\` object types. All fields are tested for equality and combined with a logical ‘and.’
+"""
+input LeftArmCondition {
+  """Checks for equality with the object’s \`id\` field."""
   id: Int
-  totalDuration: Interval
+
+  """Checks for equality with the object’s \`personId\` field."""
+  personId: Int
+
+  """Checks for equality with the object’s \`lengthInMetres\` field."""
+  lengthInMetres: Float
+
+  """Checks for equality with the object’s \`mood\` field."""
+  mood: String
+}
+
+"""Methods to use when ordering \`LeftArm\`."""
+enum LeftArmsOrderBy {
+  NATURAL
+  PRIMARY_KEY_ASC
+  PRIMARY_KEY_DESC
+  ID_ASC
+  ID_DESC
+  PERSON_ID_ASC
+  PERSON_ID_DESC
+  LENGTH_IN_METRES_ASC
+  LENGTH_IN_METRES_DESC
+  MOOD_ASC
+  MOOD_DESC
+}
+
+"""A connection to a list of \`Person\` values."""
+type PeopleConnection {
+  """A list of \`Person\` objects."""
+  nodes: [Person]!
+
+  """
+  A list of edges which contains the \`Person\` and cursor to aid in pagination.
+  """
+  edges: [PeopleEdge]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """The count of *all* \`Person\` you could get from the connection."""
+  totalCount: Int!
+}
+
+"""A \`Person\` edge in the connection."""
+type PeopleEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The \`Person\` at the end of the edge."""
+  node: Person
 }
 
 """
@@ -12271,9 +5988,6 @@ input PersonCondition {
 
   """Checks for equality with the object’s \`createdAt\` field."""
   createdAt: Datetime
-
-  """Checks for equality with the object’s \`computedOut\` field."""
-  computedOut: String
 }
 
 """An input for mutations affecting \`WrappedUrl\`"""
@@ -12281,31 +5995,80 @@ input WrappedUrlInput {
   url: NotNullUrl!
 }
 
-"""A range of \`Float\`."""
-input FloatRangeInput {
-  """
-  If \`true\`, the range is seen as empty and \`start\`/\`end\` are ignored. If
-  \`false\` (default), setting \`start\` and \`end\` to \`null\` (or omitting them)
-  indicates an unbounded range.
-  """
-  empty: Boolean! = false
+"""Methods to use when ordering \`Person\`."""
+enum PeopleOrderBy {
+  NATURAL
+  PRIMARY_KEY_ASC
+  PRIMARY_KEY_DESC
+  ID_ASC
+  ID_DESC
+  NAME_ASC
+  NAME_DESC
+  ABOUT_ASC
+  ABOUT_DESC
+  EMAIL_ASC
+  EMAIL_DESC
+  SITE_ASC
+  SITE_DESC
+  CONFIG_ASC
+  CONFIG_DESC
+  LAST_LOGIN_FROM_IP_ASC
+  LAST_LOGIN_FROM_IP_DESC
+  LAST_LOGIN_FROM_SUBNET_ASC
+  LAST_LOGIN_FROM_SUBNET_DESC
+  USER_MAC_ASC
+  USER_MAC_DESC
+  CREATED_AT_ASC
+  CREATED_AT_DESC
+}
 
-  """The starting bound of our range."""
-  start: FloatRangeBoundInput
+"""A connection to a list of \`PersonSecret\` values."""
+type PersonSecretsConnection {
+  """A list of \`PersonSecret\` objects."""
+  nodes: [PersonSecret]!
 
-  """The ending bound of our range."""
-  end: FloatRangeBoundInput
+  """
+  A list of edges which contains the \`PersonSecret\` and cursor to aid in pagination.
+  """
+  edges: [PersonSecretsEdge]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """The count of *all* \`PersonSecret\` you could get from the connection."""
+  totalCount: Int!
+}
+
+"""A \`PersonSecret\` edge in the connection."""
+type PersonSecretsEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The \`PersonSecret\` at the end of the edge."""
+  node: PersonSecret
 }
 
 """
-The value at one end of a range. A range can either include this value, or not.
+A condition to be used against \`PersonSecret\` object types. All fields are
+tested for equality and combined with a logical ‘and.’
 """
-input FloatRangeBoundInput {
-  """The value at one end of our range."""
-  value: Float!
+input PersonSecretCondition {
+  """Checks for equality with the object’s \`personId\` field."""
+  personId: Int
 
-  """Whether or not the value of this bound is included in the range."""
-  inclusive: Boolean!
+  """Checks for equality with the object’s \`secret\` field."""
+  secret: String
+}
+
+"""Methods to use when ordering \`PersonSecret\`."""
+enum PersonSecretsOrderBy {
+  NATURAL
+  PRIMARY_KEY_ASC
+  PRIMARY_KEY_DESC
+  PERSON_ID_ASC
+  PERSON_ID_DESC
+  SECRET_ASC
+  SECRET_DESC
 }
 
 """A connection to a list of \`DefaultValue\` values."""
@@ -13062,7 +6825,6 @@ type EdgeCasesConnection {
 }
 
 type EdgeCase {
-  computed: String
   notNullHasDefault: Boolean!
   wontCastEasy: Int
   rowId: Int
@@ -13095,8 +6857,6 @@ input EdgeCaseCondition {
 """Methods to use when ordering \`EdgeCase\`."""
 enum EdgeCasesOrderBy {
   NATURAL
-  COMPUTED_ASC
-  COMPUTED_DESC
   NOT_NULL_HAS_DEFAULT_ASC
   NOT_NULL_HAS_DEFAULT_DESC
   WONT_CAST_EASY_ASC
@@ -13152,64 +6912,6 @@ enum Issue756SOrderBy {
   ID_DESC
   TS_ASC
   TS_DESC
-}
-
-"""A connection to a list of \`LeftArm\` values."""
-type LeftArmsConnection {
-  """A list of \`LeftArm\` objects."""
-  nodes: [LeftArm]!
-
-  """
-  A list of edges which contains the \`LeftArm\` and cursor to aid in pagination.
-  """
-  edges: [LeftArmsEdge]!
-
-  """Information to aid in pagination."""
-  pageInfo: PageInfo!
-
-  """The count of *all* \`LeftArm\` you could get from the connection."""
-  totalCount: Int!
-}
-
-"""A \`LeftArm\` edge in the connection."""
-type LeftArmsEdge {
-  """A cursor for use in pagination."""
-  cursor: Cursor
-
-  """The \`LeftArm\` at the end of the edge."""
-  node: LeftArm
-}
-
-"""
-A condition to be used against \`LeftArm\` object types. All fields are tested for equality and combined with a logical ‘and.’
-"""
-input LeftArmCondition {
-  """Checks for equality with the object’s \`id\` field."""
-  id: Int
-
-  """Checks for equality with the object’s \`personId\` field."""
-  personId: Int
-
-  """Checks for equality with the object’s \`lengthInMetres\` field."""
-  lengthInMetres: Float
-
-  """Checks for equality with the object’s \`mood\` field."""
-  mood: String
-}
-
-"""Methods to use when ordering \`LeftArm\`."""
-enum LeftArmsOrderBy {
-  NATURAL
-  PRIMARY_KEY_ASC
-  PRIMARY_KEY_DESC
-  ID_ASC
-  ID_DESC
-  PERSON_ID_ASC
-  PERSON_ID_DESC
-  LENGTH_IN_METRES_ASC
-  LENGTH_IN_METRES_DESC
-  MOOD_ASC
-  MOOD_DESC
 }
 
 """A connection to a list of \`MyTable\` values."""
@@ -13319,408 +7021,54 @@ enum NullTestRecordsOrderBy {
   NON_NULL_TEXT_DESC
 }
 
-"""A connection to a list of \`PersonSecret\` values."""
-type PersonSecretsConnection {
-  """A list of \`PersonSecret\` objects."""
-  nodes: [PersonSecret]!
-
-  """
-  A list of edges which contains the \`PersonSecret\` and cursor to aid in pagination.
-  """
-  edges: [PersonSecretsEdge]!
-
-  """Information to aid in pagination."""
-  pageInfo: PageInfo!
-
-  """The count of *all* \`PersonSecret\` you could get from the connection."""
-  totalCount: Int!
-}
-
-"""A \`PersonSecret\` edge in the connection."""
-type PersonSecretsEdge {
-  """A cursor for use in pagination."""
-  cursor: Cursor
-
-  """The \`PersonSecret\` at the end of the edge."""
-  node: PersonSecret
-}
-
-"""
-A condition to be used against \`PersonSecret\` object types. All fields are
-tested for equality and combined with a logical ‘and.’
-"""
-input PersonSecretCondition {
-  """Checks for equality with the object’s \`personId\` field."""
-  personId: Int
-
-  """Checks for equality with the object’s \`secret\` field."""
-  secret: String
-}
-
-"""Methods to use when ordering \`PersonSecret\`."""
-enum PersonSecretsOrderBy {
-  NATURAL
-  PRIMARY_KEY_ASC
-  PRIMARY_KEY_DESC
-  PERSON_ID_ASC
-  PERSON_ID_DESC
-  SECRET_ASC
-  SECRET_DESC
-}
-
 """
 The root mutation type which contains root level fields which mutate data.
 """
 type Mutation {
-  """lol, add some stuff 1 mutation"""
-  add1Mutation(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: Add1MutationInput!
-  ): Add1MutationPayload
-
-  """lol, add some stuff 2 mutation"""
-  add2Mutation(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: Add2MutationInput!
-  ): Add2MutationPayload
-
-  """lol, add some stuff 3 mutation"""
-  add3Mutation(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: Add3MutationInput!
-  ): Add3MutationPayload
-
-  """lol, add some stuff 4 mutation"""
-  add4Mutation(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: Add4MutationInput!
-  ): Add4MutationPayload
-  add4MutationError(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: Add4MutationErrorInput!
-  ): Add4MutationErrorPayload
-  mutationCompoundTypeArray(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: MutationCompoundTypeArrayInput!
-  ): MutationCompoundTypeArrayPayload
-  mutationIntervalArray(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: MutationIntervalArrayInput!
-  ): MutationIntervalArrayPayload
-  mutationIntervalSet(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: MutationIntervalSetInput!
-  ): MutationIntervalSetPayload
-  mutationTextArray(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: MutationTextArrayInput!
-  ): MutationTextArrayPayload
-  postMany(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: PostManyInput!
-  ): PostManyPayload
   postWithSuffix(
     """
     The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
     """
     input: PostWithSuffixInput!
   ): PostWithSuffixPayload @deprecated(reason: "This is deprecated (comment on function a.post_with_suffix).")
-  returnVoidMutation(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: ReturnVoidMutationInput!
-  ): ReturnVoidMutationPayload
-  authenticate(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: AuthenticateInput!
-  ): AuthenticatePayload
-  authenticateFail(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: AuthenticateFailInput!
-  ): AuthenticateFailPayload
-  authenticateMany(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: AuthenticateManyInput!
-  ): AuthenticateManyPayload
-  authenticatePayload(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: AuthenticatePayloadInput!
-  ): AuthenticatePayloadPayload
-  compoundTypeArrayMutation(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: CompoundTypeArrayMutationInput!
-  ): CompoundTypeArrayMutationPayload
-  compoundTypeMutation(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: CompoundTypeMutationInput!
-  ): CompoundTypeMutationPayload
-  compoundTypeSetMutation(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: CompoundTypeSetMutationInput!
-  ): CompoundTypeSetMutationPayload
-  guidFn(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: GuidFnInput!
-  ): GuidFnPayload
-  listBdeMutation(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: ListBdeMutationInput!
-  ): ListBdeMutationPayload
-  mult1(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: Mult1Input!
-  ): Mult1Payload
-  mult2(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: Mult2Input!
-  ): Mult2Payload
-  mult3(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: Mult3Input!
-  ): Mult3Payload
-  mult4(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: Mult4Input!
-  ): Mult4Payload
-  typeFunctionConnectionMutation(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: TypeFunctionConnectionMutationInput!
-  ): TypeFunctionConnectionMutationPayload
-  typeFunctionListMutation(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: TypeFunctionListMutationInput!
-  ): TypeFunctionListMutationPayload
-  typeFunctionMutation(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: TypeFunctionMutationInput!
-  ): TypeFunctionMutationPayload
-  intSetMutation(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: IntSetMutationInput!
-  ): IntSetMutationPayload
-  issue756Mutation(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: Issue756MutationInput!
-  ): Issue756MutationPayload
-  issue756SetMutation(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: Issue756SetMutationInput!
-  ): Issue756SetMutationPayload
-  jsonIdentityMutation(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: JsonIdentityMutationInput!
-  ): JsonIdentityMutationPayload
-  jsonbIdentityMutation(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: JsonbIdentityMutationInput!
-  ): JsonbIdentityMutationPayload
-  jsonbIdentityMutationPlpgsql(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: JsonbIdentityMutationPlpgsqlInput!
-  ): JsonbIdentityMutationPlpgsqlPayload
-  jsonbIdentityMutationPlpgsqlWithDefault(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: JsonbIdentityMutationPlpgsqlWithDefaultInput!
-  ): JsonbIdentityMutationPlpgsqlWithDefaultPayload
   leftArmIdentity(
     """
     The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
     """
     input: LeftArmIdentityInput!
   ): LeftArmIdentityPayload
-  listOfCompoundTypesMutation(
+
+  """Creates a single \`Post\`."""
+  createPost(
     """
     The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
     """
-    input: ListOfCompoundTypesMutationInput!
-  ): ListOfCompoundTypesMutationPayload
-  mutationInInout(
+    input: CreatePostInput!
+  ): CreatePostPayload
+
+  """Creates a single \`LeftArm\`."""
+  createLeftArm(
     """
     The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
     """
-    input: MutationInInoutInput!
-  ): MutationInInoutPayload
-  mutationInOut(
+    input: CreateLeftArmInput!
+  ): CreateLeftArmPayload
+
+  """Creates a single \`Person\`."""
+  createPerson(
     """
     The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
     """
-    input: MutationInOutInput!
-  ): MutationInOutPayload
-  mutationOut(
+    input: CreatePersonInput!
+  ): CreatePersonPayload
+
+  """Creates a single \`PersonSecret\`."""
+  createPersonSecret(
     """
     The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
     """
-    input: MutationOutInput!
-  ): MutationOutPayload
-  mutationOutComplex(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: MutationOutComplexInput!
-  ): MutationOutComplexPayload
-  mutationOutComplexSetof(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: MutationOutComplexSetofInput!
-  ): MutationOutComplexSetofPayload
-  mutationOutOut(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: MutationOutOutInput!
-  ): MutationOutOutPayload
-  mutationOutOutCompoundType(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: MutationOutOutCompoundTypeInput!
-  ): MutationOutOutCompoundTypePayload
-  mutationOutOutSetof(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: MutationOutOutSetofInput!
-  ): MutationOutOutSetofPayload
-  mutationOutOutUnnamed(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: MutationOutOutUnnamedInput!
-  ): MutationOutOutUnnamedPayload
-  mutationOutSetof(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: MutationOutSetofInput!
-  ): MutationOutSetofPayload
-  mutationOutTable(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: MutationOutTableInput!
-  ): MutationOutTablePayload
-  mutationOutTableSetof(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: MutationOutTableSetofInput!
-  ): MutationOutTableSetofPayload
-  mutationOutUnnamed(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: MutationOutUnnamedInput!
-  ): MutationOutUnnamedPayload
-  mutationOutUnnamedOutOutUnnamed(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: MutationOutUnnamedOutOutUnnamedInput!
-  ): MutationOutUnnamedOutOutUnnamedPayload
-  mutationReturnsTableMultiCol(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: MutationReturnsTableMultiColInput!
-  ): MutationReturnsTableMultiColPayload
-  mutationReturnsTableOneCol(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: MutationReturnsTableOneColInput!
-  ): MutationReturnsTableOneColPayload
-  noArgsMutation(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: NoArgsMutationInput!
-  ): NoArgsMutationPayload
-  tableMutation(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: TableMutationInput!
-  ): TableMutationPayload
-  tableSetMutation(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: TableSetMutationInput!
-  ): TableSetMutationPayload
-  typesMutation(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: TypesMutationInput!
-  ): TypesMutationPayload
+    input: CreatePersonSecretInput!
+  ): CreatePersonSecretPayload @deprecated(reason: "This is deprecated (comment on table c.person_secret).")
 
   """Creates a single \`DefaultValue\`."""
   createDefaultValue(
@@ -13761,14 +7109,6 @@ type Mutation {
     """
     input: CreatePatchInput!
   ): CreatePatchPayload
-
-  """Creates a single \`Post\`."""
-  createPost(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: CreatePostInput!
-  ): CreatePostPayload
 
   """Creates a single \`Reserved\`."""
   createReserved(
@@ -13874,14 +7214,6 @@ type Mutation {
     input: CreateIssue756Input!
   ): CreateIssue756Payload
 
-  """Creates a single \`LeftArm\`."""
-  createLeftArm(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: CreateLeftArmInput!
-  ): CreateLeftArmPayload
-
   """Creates a single \`MyTable\`."""
   createMyTable(
     """
@@ -13898,21 +7230,87 @@ type Mutation {
     input: CreateNullTestRecordInput!
   ): CreateNullTestRecordPayload
 
-  """Creates a single \`Person\`."""
-  createPerson(
+  """Updates a single \`Post\` using its globally unique id and a patch."""
+  updatePost(
     """
     The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
     """
-    input: CreatePersonInput!
-  ): CreatePersonPayload
+    input: UpdatePostInput!
+  ): UpdatePostPayload
 
-  """Creates a single \`PersonSecret\`."""
-  createPersonSecret(
+  """Updates a single \`Post\` using a unique key and a patch."""
+  updatePostById(
     """
     The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
     """
-    input: CreatePersonSecretInput!
-  ): CreatePersonSecretPayload @deprecated(reason: "This is deprecated (comment on table c.person_secret).")
+    input: UpdatePostByIdInput!
+  ): UpdatePostPayload
+
+  """Updates a single \`LeftArm\` using its globally unique id and a patch."""
+  updateLeftArm(
+    """
+    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
+    """
+    input: UpdateLeftArmInput!
+  ): UpdateLeftArmPayload
+
+  """Updates a single \`LeftArm\` using a unique key and a patch."""
+  updateLeftArmById(
+    """
+    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
+    """
+    input: UpdateLeftArmByIdInput!
+  ): UpdateLeftArmPayload
+
+  """Updates a single \`LeftArm\` using a unique key and a patch."""
+  updateLeftArmByPersonId(
+    """
+    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
+    """
+    input: UpdateLeftArmByPersonIdInput!
+  ): UpdateLeftArmPayload
+
+  """Updates a single \`Person\` using its globally unique id and a patch."""
+  updatePerson(
+    """
+    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
+    """
+    input: UpdatePersonInput!
+  ): UpdatePersonPayload
+
+  """Updates a single \`Person\` using a unique key and a patch."""
+  updatePersonById(
+    """
+    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
+    """
+    input: UpdatePersonByIdInput!
+  ): UpdatePersonPayload
+
+  """Updates a single \`Person\` using a unique key and a patch."""
+  updatePersonByEmail(
+    """
+    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
+    """
+    input: UpdatePersonByEmailInput!
+  ): UpdatePersonPayload
+
+  """
+  Updates a single \`PersonSecret\` using its globally unique id and a patch.
+  """
+  updatePersonSecret(
+    """
+    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
+    """
+    input: UpdatePersonSecretInput!
+  ): UpdatePersonSecretPayload @deprecated(reason: "This is deprecated (comment on table c.person_secret).")
+
+  """Updates a single \`PersonSecret\` using a unique key and a patch."""
+  updatePersonSecretByPersonId(
+    """
+    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
+    """
+    input: UpdatePersonSecretByPersonIdInput!
+  ): UpdatePersonSecretPayload @deprecated(reason: "This is deprecated (comment on table c.person_secret).")
 
   """
   Updates a single \`DefaultValue\` using its globally unique id and a patch.
@@ -13971,22 +7369,6 @@ type Mutation {
     """
     input: UpdatePatchByIdInput!
   ): UpdatePatchPayload
-
-  """Updates a single \`Post\` using its globally unique id and a patch."""
-  updatePost(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: UpdatePostInput!
-  ): UpdatePostPayload
-
-  """Updates a single \`Post\` using a unique key and a patch."""
-  updatePostById(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: UpdatePostByIdInput!
-  ): UpdatePostPayload
 
   """Updates a single \`Reserved\` using its globally unique id and a patch."""
   updateReserved(
@@ -14158,30 +7540,6 @@ type Mutation {
     input: UpdateIssue756ByIdInput!
   ): UpdateIssue756Payload
 
-  """Updates a single \`LeftArm\` using its globally unique id and a patch."""
-  updateLeftArm(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: UpdateLeftArmInput!
-  ): UpdateLeftArmPayload
-
-  """Updates a single \`LeftArm\` using a unique key and a patch."""
-  updateLeftArmById(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: UpdateLeftArmByIdInput!
-  ): UpdateLeftArmPayload
-
-  """Updates a single \`LeftArm\` using a unique key and a patch."""
-  updateLeftArmByPersonId(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: UpdateLeftArmByPersonIdInput!
-  ): UpdateLeftArmPayload
-
   """Updates a single \`MyTable\` using its globally unique id and a patch."""
   updateMyTable(
     """
@@ -14216,47 +7574,85 @@ type Mutation {
     input: UpdateNullTestRecordByIdInput!
   ): UpdateNullTestRecordPayload
 
-  """Updates a single \`Person\` using its globally unique id and a patch."""
-  updatePerson(
+  """Deletes a single \`Post\` using its globally unique id."""
+  deletePost(
     """
     The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
     """
-    input: UpdatePersonInput!
-  ): UpdatePersonPayload
+    input: DeletePostInput!
+  ): DeletePostPayload
 
-  """Updates a single \`Person\` using a unique key and a patch."""
-  updatePersonById(
+  """Deletes a single \`Post\` using a unique key."""
+  deletePostById(
     """
     The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
     """
-    input: UpdatePersonByIdInput!
-  ): UpdatePersonPayload
+    input: DeletePostByIdInput!
+  ): DeletePostPayload
 
-  """Updates a single \`Person\` using a unique key and a patch."""
-  updatePersonByEmail(
+  """Deletes a single \`LeftArm\` using its globally unique id."""
+  deleteLeftArm(
     """
     The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
     """
-    input: UpdatePersonByEmailInput!
-  ): UpdatePersonPayload
+    input: DeleteLeftArmInput!
+  ): DeleteLeftArmPayload
 
-  """
-  Updates a single \`PersonSecret\` using its globally unique id and a patch.
-  """
-  updatePersonSecret(
+  """Deletes a single \`LeftArm\` using a unique key."""
+  deleteLeftArmById(
     """
     The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
     """
-    input: UpdatePersonSecretInput!
-  ): UpdatePersonSecretPayload @deprecated(reason: "This is deprecated (comment on table c.person_secret).")
+    input: DeleteLeftArmByIdInput!
+  ): DeleteLeftArmPayload
 
-  """Updates a single \`PersonSecret\` using a unique key and a patch."""
-  updatePersonSecretByPersonId(
+  """Deletes a single \`LeftArm\` using a unique key."""
+  deleteLeftArmByPersonId(
     """
     The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
     """
-    input: UpdatePersonSecretByPersonIdInput!
-  ): UpdatePersonSecretPayload @deprecated(reason: "This is deprecated (comment on table c.person_secret).")
+    input: DeleteLeftArmByPersonIdInput!
+  ): DeleteLeftArmPayload
+
+  """Deletes a single \`Person\` using its globally unique id."""
+  deletePerson(
+    """
+    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
+    """
+    input: DeletePersonInput!
+  ): DeletePersonPayload
+
+  """Deletes a single \`Person\` using a unique key."""
+  deletePersonById(
+    """
+    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
+    """
+    input: DeletePersonByIdInput!
+  ): DeletePersonPayload
+
+  """Deletes a single \`Person\` using a unique key."""
+  deletePersonByEmail(
+    """
+    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
+    """
+    input: DeletePersonByEmailInput!
+  ): DeletePersonPayload
+
+  """Deletes a single \`PersonSecret\` using its globally unique id."""
+  deletePersonSecret(
+    """
+    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
+    """
+    input: DeletePersonSecretInput!
+  ): DeletePersonSecretPayload @deprecated(reason: "This is deprecated (comment on table c.person_secret).")
+
+  """Deletes a single \`PersonSecret\` using a unique key."""
+  deletePersonSecretByPersonId(
+    """
+    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
+    """
+    input: DeletePersonSecretByPersonIdInput!
+  ): DeletePersonSecretPayload @deprecated(reason: "This is deprecated (comment on table c.person_secret).")
 
   """Deletes a single \`DefaultValue\` using its globally unique id."""
   deleteDefaultValue(
@@ -14313,22 +7709,6 @@ type Mutation {
     """
     input: DeletePatchByIdInput!
   ): DeletePatchPayload
-
-  """Deletes a single \`Post\` using its globally unique id."""
-  deletePost(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: DeletePostInput!
-  ): DeletePostPayload
-
-  """Deletes a single \`Post\` using a unique key."""
-  deletePostById(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: DeletePostByIdInput!
-  ): DeletePostPayload
 
   """Deletes a single \`Reserved\` using its globally unique id."""
   deleteReserved(
@@ -14490,30 +7870,6 @@ type Mutation {
     input: DeleteIssue756ByIdInput!
   ): DeleteIssue756Payload
 
-  """Deletes a single \`LeftArm\` using its globally unique id."""
-  deleteLeftArm(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: DeleteLeftArmInput!
-  ): DeleteLeftArmPayload
-
-  """Deletes a single \`LeftArm\` using a unique key."""
-  deleteLeftArmById(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: DeleteLeftArmByIdInput!
-  ): DeleteLeftArmPayload
-
-  """Deletes a single \`LeftArm\` using a unique key."""
-  deleteLeftArmByPersonId(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: DeleteLeftArmByPersonIdInput!
-  ): DeleteLeftArmPayload
-
   """Deletes a single \`MyTable\` using its globally unique id."""
   deleteMyTable(
     """
@@ -14545,308 +7901,6 @@ type Mutation {
     """
     input: DeleteNullTestRecordByIdInput!
   ): DeleteNullTestRecordPayload
-
-  """Deletes a single \`Person\` using its globally unique id."""
-  deletePerson(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: DeletePersonInput!
-  ): DeletePersonPayload
-
-  """Deletes a single \`Person\` using a unique key."""
-  deletePersonById(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: DeletePersonByIdInput!
-  ): DeletePersonPayload
-
-  """Deletes a single \`Person\` using a unique key."""
-  deletePersonByEmail(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: DeletePersonByEmailInput!
-  ): DeletePersonPayload
-
-  """Deletes a single \`PersonSecret\` using its globally unique id."""
-  deletePersonSecret(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: DeletePersonSecretInput!
-  ): DeletePersonSecretPayload @deprecated(reason: "This is deprecated (comment on table c.person_secret).")
-
-  """Deletes a single \`PersonSecret\` using a unique key."""
-  deletePersonSecretByPersonId(
-    """
-    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
-    """
-    input: DeletePersonSecretByPersonIdInput!
-  ): DeletePersonSecretPayload @deprecated(reason: "This is deprecated (comment on table c.person_secret).")
-}
-
-"""The output of our \`add1Mutation\` mutation."""
-type Add1MutationPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  integer: Int!
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`add1Mutation\` mutation."""
-input Add1MutationInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  arg0: Int!
-  arg1: Int!
-}
-
-"""The output of our \`add2Mutation\` mutation."""
-type Add2MutationPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  integer: Int
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`add2Mutation\` mutation."""
-input Add2MutationInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  a: Int!
-  b: Int
-}
-
-"""The output of our \`add3Mutation\` mutation."""
-type Add3MutationPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  integer: Int
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`add3Mutation\` mutation."""
-input Add3MutationInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  a: Int
-  arg1: Int
-}
-
-"""The output of our \`add4Mutation\` mutation."""
-type Add4MutationPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  integer: Int
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`add4Mutation\` mutation."""
-input Add4MutationInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  arg0: Int
-  b: Int
-}
-
-"""The output of our \`add4MutationError\` mutation."""
-type Add4MutationErrorPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  integer: Int
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`add4MutationError\` mutation."""
-input Add4MutationErrorInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  arg0: Int
-  b: Int
-}
-
-"""The output of our \`mutationCompoundTypeArray\` mutation."""
-type MutationCompoundTypeArrayPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  compoundTypes: [CompoundType]
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`mutationCompoundTypeArray\` mutation."""
-input MutationCompoundTypeArrayInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  object: CompoundTypeInput
-}
-
-"""The output of our \`mutationIntervalArray\` mutation."""
-type MutationIntervalArrayPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  intervals: [Interval]
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`mutationIntervalArray\` mutation."""
-input MutationIntervalArrayInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-}
-
-"""The output of our \`mutationIntervalSet\` mutation."""
-type MutationIntervalSetPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  intervals: [Interval]
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`mutationIntervalSet\` mutation."""
-input MutationIntervalSetInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-}
-
-"""The output of our \`mutationTextArray\` mutation."""
-type MutationTextArrayPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  strings: [String]
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`mutationTextArray\` mutation."""
-input MutationTextArrayInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-}
-
-"""The output of our \`postMany\` mutation."""
-type PostManyPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  posts: [Post]
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`postMany\` mutation."""
-input PostManyInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  posts: [PostInput]
-}
-
-"""An input for mutations affecting \`Post\`"""
-input PostInput {
-  id: Int
-  headline: String!
-  body: String
-  authorId: Int
-  enums: [AnEnum]
-  comptypes: [ComptypeInput]
 }
 
 """The output of our \`postWithSuffix\` mutation."""
@@ -14884,651 +7938,14 @@ input PostWithSuffixInput {
   suffix: String
 }
 
-"""The output of our \`returnVoidMutation\` mutation."""
-type ReturnVoidMutationPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`returnVoidMutation\` mutation."""
-input ReturnVoidMutationInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-}
-
-"""The output of our \`authenticate\` mutation."""
-type AuthenticatePayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  jwtToken: JwtToken
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-type JwtToken {
-  role: String
-  exp: BigInt
-  a: Int
-  b: BigFloat
-  c: BigInt
-}
-
-"""All input for the \`authenticate\` mutation."""
-input AuthenticateInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  a: Int
-  b: BigFloat
-  c: BigInt
-}
-
-"""The output of our \`authenticateFail\` mutation."""
-type AuthenticateFailPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  jwtToken: JwtToken
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`authenticateFail\` mutation."""
-input AuthenticateFailInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-}
-
-"""The output of our \`authenticateMany\` mutation."""
-type AuthenticateManyPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  jwtTokens: [JwtToken]
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`authenticateMany\` mutation."""
-input AuthenticateManyInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  a: Int
-  b: BigFloat
-  c: BigInt
-}
-
-"""The output of our \`authenticatePayload\` mutation."""
-type AuthenticatePayloadPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  authPayload: AuthPayload
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-
-  """Reads a single \`Person\` that is related to this \`AuthPayload\`."""
-  personById: Person
-}
-
-type AuthPayload {
-  jwt: JwtToken
+"""An input for mutations affecting \`Post\`"""
+input PostInput {
   id: Int
-  admin: Boolean
-
-  """Reads a single \`Person\` that is related to this \`AuthPayload\`."""
-  personById: Person
-}
-
-"""All input for the \`authenticatePayload\` mutation."""
-input AuthenticatePayloadInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  a: Int
-  b: BigFloat
-  c: BigInt
-}
-
-"""The output of our \`compoundTypeArrayMutation\` mutation."""
-type CompoundTypeArrayMutationPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  compoundTypes: [CompoundType]
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`compoundTypeArrayMutation\` mutation."""
-input CompoundTypeArrayMutationInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  object: CompoundTypeInput
-}
-
-"""The output of our \`compoundTypeMutation\` mutation."""
-type CompoundTypeMutationPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  compoundType: CompoundType
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`compoundTypeMutation\` mutation."""
-input CompoundTypeMutationInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  object: CompoundTypeInput
-}
-
-"""The output of our \`compoundTypeSetMutation\` mutation."""
-type CompoundTypeSetMutationPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  compoundTypes: [CompoundType]
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`compoundTypeSetMutation\` mutation."""
-input CompoundTypeSetMutationInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  object: CompoundTypeInput
-}
-
-"""The output of our \`guidFn\` mutation."""
-type GuidFnPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  guid: Guid
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-scalar Guid
-
-"""All input for the \`guidFn\` mutation."""
-input GuidFnInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  g: Guid
-}
-
-"""The output of our \`listBdeMutation\` mutation."""
-type ListBdeMutationPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  uuids: [UUID]
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`listBdeMutation\` mutation."""
-input ListBdeMutationInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  b: [String]
-  d: String
-  e: String
-}
-
-"""The output of our \`mult1\` mutation."""
-type Mult1Payload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  integer: Int
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`mult1\` mutation."""
-input Mult1Input {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  arg0: Int
-  arg1: Int
-}
-
-"""The output of our \`mult2\` mutation."""
-type Mult2Payload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  integer: Int
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`mult2\` mutation."""
-input Mult2Input {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  arg0: Int
-  arg1: Int
-}
-
-"""The output of our \`mult3\` mutation."""
-type Mult3Payload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  integer: Int
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`mult3\` mutation."""
-input Mult3Input {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  arg0: Int!
-  arg1: Int!
-}
-
-"""The output of our \`mult4\` mutation."""
-type Mult4Payload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  integer: Int
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`mult4\` mutation."""
-input Mult4Input {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  arg0: Int!
-  arg1: Int!
-}
-
-"""The output of our \`typeFunctionConnectionMutation\` mutation."""
-type TypeFunctionConnectionMutationPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  types: [Type]
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`typeFunctionConnectionMutation\` mutation."""
-input TypeFunctionConnectionMutationInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-}
-
-"""The output of our \`typeFunctionListMutation\` mutation."""
-type TypeFunctionListMutationPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  types: [Type]
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`typeFunctionListMutation\` mutation."""
-input TypeFunctionListMutationInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-}
-
-"""The output of our \`typeFunctionMutation\` mutation."""
-type TypeFunctionMutationPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  type: Type
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-
-  """An edge for our \`Type\`. May be used by Relay 1."""
-  typeEdge(
-    """The method to use when ordering \`Type\`."""
-    orderBy: [TypesOrderBy!]! = [PRIMARY_KEY_ASC]
-  ): TypesEdge
-
-  """Reads a single \`Post\` that is related to this \`Type\`."""
-  postBySmallint: Post
-
-  """Reads a single \`Post\` that is related to this \`Type\`."""
-  postById: Post
-}
-
-"""All input for the \`typeFunctionMutation\` mutation."""
-input TypeFunctionMutationInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  id: Int
-}
-
-"""The output of our \`intSetMutation\` mutation."""
-type IntSetMutationPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  integers: [Int]
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`intSetMutation\` mutation."""
-input IntSetMutationInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  x: Int
-  y: Int
-  z: Int
-}
-
-"""The output of our \`issue756Mutation\` mutation."""
-type Issue756MutationPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  issue756: Issue756
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-
-  """An edge for our \`Issue756\`. May be used by Relay 1."""
-  issue756Edge(
-    """The method to use when ordering \`Issue756\`."""
-    orderBy: [Issue756SOrderBy!]! = [PRIMARY_KEY_ASC]
-  ): Issue756SEdge
-}
-
-"""All input for the \`issue756Mutation\` mutation."""
-input Issue756MutationInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-}
-
-"""The output of our \`issue756SetMutation\` mutation."""
-type Issue756SetMutationPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  issue756S: [Issue756]
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`issue756SetMutation\` mutation."""
-input Issue756SetMutationInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-}
-
-"""The output of our \`jsonIdentityMutation\` mutation."""
-type JsonIdentityMutationPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  json: JSON
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`jsonIdentityMutation\` mutation."""
-input JsonIdentityMutationInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  json: JSON
-}
-
-"""The output of our \`jsonbIdentityMutation\` mutation."""
-type JsonbIdentityMutationPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  json: JSON
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`jsonbIdentityMutation\` mutation."""
-input JsonbIdentityMutationInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  json: JSON
-}
-
-"""The output of our \`jsonbIdentityMutationPlpgsql\` mutation."""
-type JsonbIdentityMutationPlpgsqlPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  json: JSON
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`jsonbIdentityMutationPlpgsql\` mutation."""
-input JsonbIdentityMutationPlpgsqlInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  _theJson: JSON!
-}
-
-"""The output of our \`jsonbIdentityMutationPlpgsqlWithDefault\` mutation."""
-type JsonbIdentityMutationPlpgsqlWithDefaultPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  json: JSON
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`jsonbIdentityMutationPlpgsqlWithDefault\` mutation."""
-input JsonbIdentityMutationPlpgsqlWithDefaultInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  _theJson: JSON
+  headline: String!
+  body: String
+  authorId: Int
+  enums: [AnEnum]
+  comptypes: [ComptypeInput]
 }
 
 """The output of our \`leftArmIdentity\` mutation."""
@@ -15573,505 +7990,15 @@ input LeftArmBaseInput {
   mood: String
 }
 
-"""The output of our \`listOfCompoundTypesMutation\` mutation."""
-type ListOfCompoundTypesMutationPayload {
+"""The output of our create \`Post\` mutation."""
+type CreatePostPayload {
   """
   The exact same \`clientMutationId\` that was provided in the mutation input,
   unchanged and unused. May be used by a client to track mutations.
   """
   clientMutationId: String
-  compoundTypes: [CompoundType]
 
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`listOfCompoundTypesMutation\` mutation."""
-input ListOfCompoundTypesMutationInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  records: [CompoundTypeInput]
-}
-
-"""The output of our \`mutationInInout\` mutation."""
-type MutationInInoutPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  ino: Int
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`mutationInInout\` mutation."""
-input MutationInInoutInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  i: Int
-  ino: Int
-}
-
-"""The output of our \`mutationInOut\` mutation."""
-type MutationInOutPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  o: Int
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`mutationInOut\` mutation."""
-input MutationInOutInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  i: Int
-}
-
-"""The output of our \`mutationOut\` mutation."""
-type MutationOutPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  o: Int
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`mutationOut\` mutation."""
-input MutationOutInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-}
-
-"""The output of our \`mutationOutComplex\` mutation."""
-type MutationOutComplexPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  result: MutationOutComplexRecord
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-type MutationOutComplexRecord {
-  x: Int
-  y: CompoundType
-  z: Person
-}
-
-"""All input for the \`mutationOutComplex\` mutation."""
-input MutationOutComplexInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  a: Int
-  b: String
-}
-
-"""The output of our \`mutationOutComplexSetof\` mutation."""
-type MutationOutComplexSetofPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  results: [MutationOutComplexSetofRecord]
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-type MutationOutComplexSetofRecord {
-  x: Int
-  y: CompoundType
-  z: Person
-}
-
-"""All input for the \`mutationOutComplexSetof\` mutation."""
-input MutationOutComplexSetofInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  a: Int
-  b: String
-}
-
-"""The output of our \`mutationOutOut\` mutation."""
-type MutationOutOutPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  result: MutationOutOutRecord
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-type MutationOutOutRecord {
-  firstOut: Int
-  secondOut: String
-}
-
-"""All input for the \`mutationOutOut\` mutation."""
-input MutationOutOutInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-}
-
-"""The output of our \`mutationOutOutCompoundType\` mutation."""
-type MutationOutOutCompoundTypePayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  result: MutationOutOutCompoundTypeRecord
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-type MutationOutOutCompoundTypeRecord {
-  o1: Int
-  o2: CompoundType
-}
-
-"""All input for the \`mutationOutOutCompoundType\` mutation."""
-input MutationOutOutCompoundTypeInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  i1: Int
-}
-
-"""The output of our \`mutationOutOutSetof\` mutation."""
-type MutationOutOutSetofPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  results: [MutationOutOutSetofRecord]
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-type MutationOutOutSetofRecord {
-  o1: Int
-  o2: String
-}
-
-"""All input for the \`mutationOutOutSetof\` mutation."""
-input MutationOutOutSetofInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-}
-
-"""The output of our \`mutationOutOutUnnamed\` mutation."""
-type MutationOutOutUnnamedPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  result: MutationOutOutUnnamedRecord
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-type MutationOutOutUnnamedRecord {
-  arg1: Int
-  arg2: String
-}
-
-"""All input for the \`mutationOutOutUnnamed\` mutation."""
-input MutationOutOutUnnamedInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-}
-
-"""The output of our \`mutationOutSetof\` mutation."""
-type MutationOutSetofPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  os: [Int]
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`mutationOutSetof\` mutation."""
-input MutationOutSetofInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-}
-
-"""The output of our \`mutationOutTable\` mutation."""
-type MutationOutTablePayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  person: Person
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-
-  """An edge for our \`Person\`. May be used by Relay 1."""
-  personEdge(
-    """The method to use when ordering \`Person\`."""
-    orderBy: [PeopleOrderBy!]! = [PRIMARY_KEY_ASC]
-  ): PeopleEdge
-}
-
-"""All input for the \`mutationOutTable\` mutation."""
-input MutationOutTableInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-}
-
-"""The output of our \`mutationOutTableSetof\` mutation."""
-type MutationOutTableSetofPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  people: [Person]
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`mutationOutTableSetof\` mutation."""
-input MutationOutTableSetofInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-}
-
-"""The output of our \`mutationOutUnnamed\` mutation."""
-type MutationOutUnnamedPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  integer: Int
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`mutationOutUnnamed\` mutation."""
-input MutationOutUnnamedInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-}
-
-"""The output of our \`mutationOutUnnamedOutOutUnnamed\` mutation."""
-type MutationOutUnnamedOutOutUnnamedPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  result: MutationOutUnnamedOutOutUnnamedRecord
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-type MutationOutUnnamedOutOutUnnamedRecord {
-  arg1: Int
-  o2: String
-  arg3: Int
-}
-
-"""All input for the \`mutationOutUnnamedOutOutUnnamed\` mutation."""
-input MutationOutUnnamedOutOutUnnamedInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-}
-
-"""The output of our \`mutationReturnsTableMultiCol\` mutation."""
-type MutationReturnsTableMultiColPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  results: [MutationReturnsTableMultiColRecord]
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-type MutationReturnsTableMultiColRecord {
-  col1: Int
-  col2: String
-}
-
-"""All input for the \`mutationReturnsTableMultiCol\` mutation."""
-input MutationReturnsTableMultiColInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  i: Int
-}
-
-"""The output of our \`mutationReturnsTableOneCol\` mutation."""
-type MutationReturnsTableOneColPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  col1S: [Int]
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`mutationReturnsTableOneCol\` mutation."""
-input MutationReturnsTableOneColInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  i: Int
-}
-
-"""The output of our \`noArgsMutation\` mutation."""
-type NoArgsMutationPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-  integer: Int
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-}
-
-"""All input for the \`noArgsMutation\` mutation."""
-input NoArgsMutationInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-}
-
-"""The output of our \`tableMutation\` mutation."""
-type TableMutationPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
+  """The \`Post\` that was created by this mutation."""
   post: Post
 
   """
@@ -16089,68 +8016,161 @@ type TableMutationPayload {
   personByAuthorId: Person
 }
 
-"""All input for the \`tableMutation\` mutation."""
-input TableMutationInput {
+"""All input for the create \`Post\` mutation."""
+input CreatePostInput {
   """
   An arbitrary string value with no semantic meaning. Will be included in the
   payload verbatim. May be used to track mutations by the client.
   """
   clientMutationId: String
+
+  """The \`Post\` to be created by this mutation."""
+  post: PostInput!
+}
+
+"""The output of our create \`LeftArm\` mutation."""
+type CreateLeftArmPayload {
+  """
+  The exact same \`clientMutationId\` that was provided in the mutation input,
+  unchanged and unused. May be used by a client to track mutations.
+  """
+  clientMutationId: String
+
+  """The \`LeftArm\` that was created by this mutation."""
+  leftArm: LeftArm
+
+  """
+  Our root query field type. Allows us to run any query from our mutation payload.
+  """
+  query: Query
+
+  """An edge for our \`LeftArm\`. May be used by Relay 1."""
+  leftArmEdge(
+    """The method to use when ordering \`LeftArm\`."""
+    orderBy: [LeftArmsOrderBy!]! = [PRIMARY_KEY_ASC]
+  ): LeftArmsEdge
+
+  """Reads a single \`Person\` that is related to this \`LeftArm\`."""
+  personByPersonId: Person
+}
+
+"""All input for the create \`LeftArm\` mutation."""
+input CreateLeftArmInput {
+  """
+  An arbitrary string value with no semantic meaning. Will be included in the
+  payload verbatim. May be used to track mutations by the client.
+  """
+  clientMutationId: String
+
+  """The \`LeftArm\` to be created by this mutation."""
+  leftArm: LeftArmInput!
+}
+
+"""An input for mutations affecting \`LeftArm\`"""
+input LeftArmInput {
   id: Int
+  personId: Int
+  lengthInMetres: Float
+  mood: String
 }
 
-"""The output of our \`tableSetMutation\` mutation."""
-type TableSetMutationPayload {
+"""The output of our create \`Person\` mutation."""
+type CreatePersonPayload {
   """
   The exact same \`clientMutationId\` that was provided in the mutation input,
   unchanged and unused. May be used by a client to track mutations.
   """
   clientMutationId: String
-  people: [Person]
+
+  """The \`Person\` that was created by this mutation."""
+  person: Person
 
   """
   Our root query field type. Allows us to run any query from our mutation payload.
   """
   query: Query
+
+  """An edge for our \`Person\`. May be used by Relay 1."""
+  personEdge(
+    """The method to use when ordering \`Person\`."""
+    orderBy: [PeopleOrderBy!]! = [PRIMARY_KEY_ASC]
+  ): PeopleEdge
 }
 
-"""All input for the \`tableSetMutation\` mutation."""
-input TableSetMutationInput {
+"""All input for the create \`Person\` mutation."""
+input CreatePersonInput {
   """
   An arbitrary string value with no semantic meaning. Will be included in the
   payload verbatim. May be used to track mutations by the client.
   """
   clientMutationId: String
+
+  """The \`Person\` to be created by this mutation."""
+  person: PersonInput!
 }
 
-"""The output of our \`typesMutation\` mutation."""
-type TypesMutationPayload {
+"""An input for mutations affecting \`Person\`"""
+input PersonInput {
+  """The primary unique identifier for the person"""
+  id: Int
+
+  """The person’s name"""
+  name: String!
+  aliases: [String]
+  about: String
+  email: Email!
+  site: WrappedUrlInput
+  config: KeyValueHash
+  lastLoginFromIp: InternetAddress
+  lastLoginFromSubnet: String
+  userMac: String
+  createdAt: Datetime
+}
+
+"""The output of our create \`PersonSecret\` mutation."""
+type CreatePersonSecretPayload {
   """
   The exact same \`clientMutationId\` that was provided in the mutation input,
   unchanged and unused. May be used by a client to track mutations.
   """
   clientMutationId: String
-  boolean: Boolean
+
+  """The \`PersonSecret\` that was created by this mutation."""
+  personSecret: PersonSecret @deprecated(reason: "This is deprecated (comment on table c.person_secret).")
 
   """
   Our root query field type. Allows us to run any query from our mutation payload.
   """
   query: Query
+
+  """An edge for our \`PersonSecret\`. May be used by Relay 1."""
+  personSecretEdge(
+    """The method to use when ordering \`PersonSecret\`."""
+    orderBy: [PersonSecretsOrderBy!]! = [PRIMARY_KEY_ASC]
+  ): PersonSecretsEdge @deprecated(reason: "This is deprecated (comment on table c.person_secret).")
+
+  """The \`Person\` this \`PersonSecret\` belongs to."""
+  personByPersonId: Person
 }
 
-"""All input for the \`typesMutation\` mutation."""
-input TypesMutationInput {
+"""All input for the create \`PersonSecret\` mutation."""
+input CreatePersonSecretInput {
   """
   An arbitrary string value with no semantic meaning. Will be included in the
   payload verbatim. May be used to track mutations by the client.
   """
   clientMutationId: String
-  a: BigInt!
-  b: Boolean!
-  c: String!
-  d: [Int]!
-  e: JSON!
-  f: FloatRangeInput!
+
+  """The \`PersonSecret\` to be created by this mutation."""
+  personSecret: PersonSecretInput!
+}
+
+"""An input for mutations affecting \`PersonSecret\`"""
+input PersonSecretInput {
+  personId: Int!
+
+  """A secret held by the associated Person"""
+  secret: String
 }
 
 """The output of our create \`DefaultValue\` mutation."""
@@ -16349,44 +8369,6 @@ input CreatePatchInput {
 """An input for mutations affecting \`Patch\`"""
 input PatchInput {
   id: Int
-}
-
-"""The output of our create \`Post\` mutation."""
-type CreatePostPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-
-  """The \`Post\` that was created by this mutation."""
-  post: Post
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-
-  """An edge for our \`Post\`. May be used by Relay 1."""
-  postEdge(
-    """The method to use when ordering \`Post\`."""
-    orderBy: [PostsOrderBy!]! = [PRIMARY_KEY_ASC]
-  ): PostsEdge
-
-  """Reads a single \`Person\` that is related to this \`Post\`."""
-  personByAuthorId: Person
-}
-
-"""All input for the create \`Post\` mutation."""
-input CreatePostInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-
-  """The \`Post\` to be created by this mutation."""
-  post: PostInput!
 }
 
 """The output of our create \`Reserved\` mutation."""
@@ -16985,52 +8967,6 @@ input Issue756Input {
   ts: NotNullTimestamp
 }
 
-"""The output of our create \`LeftArm\` mutation."""
-type CreateLeftArmPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-
-  """The \`LeftArm\` that was created by this mutation."""
-  leftArm: LeftArm
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-
-  """An edge for our \`LeftArm\`. May be used by Relay 1."""
-  leftArmEdge(
-    """The method to use when ordering \`LeftArm\`."""
-    orderBy: [LeftArmsOrderBy!]! = [PRIMARY_KEY_ASC]
-  ): LeftArmsEdge
-
-  """Reads a single \`Person\` that is related to this \`LeftArm\`."""
-  personByPersonId: Person
-}
-
-"""All input for the create \`LeftArm\` mutation."""
-input CreateLeftArmInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-
-  """The \`LeftArm\` to be created by this mutation."""
-  leftArm: LeftArmInput!
-}
-
-"""An input for mutations affecting \`LeftArm\`"""
-input LeftArmInput {
-  id: Int
-  personId: Int
-  lengthInMetres: Float
-  mood: String
-}
-
 """The output of our create \`MyTable\` mutation."""
 type CreateMyTablePayload {
   """
@@ -17115,15 +9051,170 @@ input NullTestRecordInput {
   nonNullText: String!
 }
 
-"""The output of our create \`Person\` mutation."""
-type CreatePersonPayload {
+"""The output of our update \`Post\` mutation."""
+type UpdatePostPayload {
   """
   The exact same \`clientMutationId\` that was provided in the mutation input,
   unchanged and unused. May be used by a client to track mutations.
   """
   clientMutationId: String
 
-  """The \`Person\` that was created by this mutation."""
+  """The \`Post\` that was updated by this mutation."""
+  post: Post
+
+  """
+  Our root query field type. Allows us to run any query from our mutation payload.
+  """
+  query: Query
+
+  """An edge for our \`Post\`. May be used by Relay 1."""
+  postEdge(
+    """The method to use when ordering \`Post\`."""
+    orderBy: [PostsOrderBy!]! = [PRIMARY_KEY_ASC]
+  ): PostsEdge
+
+  """Reads a single \`Person\` that is related to this \`Post\`."""
+  personByAuthorId: Person
+}
+
+"""All input for the \`updatePost\` mutation."""
+input UpdatePostInput {
+  """
+  An arbitrary string value with no semantic meaning. Will be included in the
+  payload verbatim. May be used to track mutations by the client.
+  """
+  clientMutationId: String
+
+  """
+  The globally unique \`ID\` which will identify a single \`Post\` to be updated.
+  """
+  nodeId: ID!
+
+  """
+  An object where the defined keys will be set on the \`Post\` being updated.
+  """
+  postPatch: PostPatch!
+}
+
+"""Represents an update to a \`Post\`. Fields that are set will be updated."""
+input PostPatch {
+  id: Int
+  headline: String
+  body: String
+  authorId: Int
+  enums: [AnEnum]
+  comptypes: [ComptypeInput]
+}
+
+"""All input for the \`updatePostById\` mutation."""
+input UpdatePostByIdInput {
+  """
+  An arbitrary string value with no semantic meaning. Will be included in the
+  payload verbatim. May be used to track mutations by the client.
+  """
+  clientMutationId: String
+  id: Int!
+
+  """
+  An object where the defined keys will be set on the \`Post\` being updated.
+  """
+  postPatch: PostPatch!
+}
+
+"""The output of our update \`LeftArm\` mutation."""
+type UpdateLeftArmPayload {
+  """
+  The exact same \`clientMutationId\` that was provided in the mutation input,
+  unchanged and unused. May be used by a client to track mutations.
+  """
+  clientMutationId: String
+
+  """The \`LeftArm\` that was updated by this mutation."""
+  leftArm: LeftArm
+
+  """
+  Our root query field type. Allows us to run any query from our mutation payload.
+  """
+  query: Query
+
+  """An edge for our \`LeftArm\`. May be used by Relay 1."""
+  leftArmEdge(
+    """The method to use when ordering \`LeftArm\`."""
+    orderBy: [LeftArmsOrderBy!]! = [PRIMARY_KEY_ASC]
+  ): LeftArmsEdge
+
+  """Reads a single \`Person\` that is related to this \`LeftArm\`."""
+  personByPersonId: Person
+}
+
+"""All input for the \`updateLeftArm\` mutation."""
+input UpdateLeftArmInput {
+  """
+  An arbitrary string value with no semantic meaning. Will be included in the
+  payload verbatim. May be used to track mutations by the client.
+  """
+  clientMutationId: String
+
+  """
+  The globally unique \`ID\` which will identify a single \`LeftArm\` to be updated.
+  """
+  nodeId: ID!
+
+  """
+  An object where the defined keys will be set on the \`LeftArm\` being updated.
+  """
+  leftArmPatch: LeftArmPatch!
+}
+
+"""
+Represents an update to a \`LeftArm\`. Fields that are set will be updated.
+"""
+input LeftArmPatch {
+  id: Int
+  personId: Int
+  lengthInMetres: Float
+  mood: String
+}
+
+"""All input for the \`updateLeftArmById\` mutation."""
+input UpdateLeftArmByIdInput {
+  """
+  An arbitrary string value with no semantic meaning. Will be included in the
+  payload verbatim. May be used to track mutations by the client.
+  """
+  clientMutationId: String
+  id: Int!
+
+  """
+  An object where the defined keys will be set on the \`LeftArm\` being updated.
+  """
+  leftArmPatch: LeftArmPatch!
+}
+
+"""All input for the \`updateLeftArmByPersonId\` mutation."""
+input UpdateLeftArmByPersonIdInput {
+  """
+  An arbitrary string value with no semantic meaning. Will be included in the
+  payload verbatim. May be used to track mutations by the client.
+  """
+  clientMutationId: String
+  personId: Int!
+
+  """
+  An object where the defined keys will be set on the \`LeftArm\` being updated.
+  """
+  leftArmPatch: LeftArmPatch!
+}
+
+"""The output of our update \`Person\` mutation."""
+type UpdatePersonPayload {
+  """
+  The exact same \`clientMutationId\` that was provided in the mutation input,
+  unchanged and unused. May be used by a client to track mutations.
+  """
+  clientMutationId: String
+
+  """The \`Person\` that was updated by this mutation."""
   person: Person
 
   """
@@ -17138,28 +9229,37 @@ type CreatePersonPayload {
   ): PeopleEdge
 }
 
-"""All input for the create \`Person\` mutation."""
-input CreatePersonInput {
+"""All input for the \`updatePerson\` mutation."""
+input UpdatePersonInput {
   """
   An arbitrary string value with no semantic meaning. Will be included in the
   payload verbatim. May be used to track mutations by the client.
   """
   clientMutationId: String
 
-  """The \`Person\` to be created by this mutation."""
-  person: PersonInput!
+  """
+  The globally unique \`ID\` which will identify a single \`Person\` to be updated.
+  """
+  nodeId: ID!
+
+  """
+  An object where the defined keys will be set on the \`Person\` being updated.
+  """
+  personPatch: PersonPatch!
 }
 
-"""An input for mutations affecting \`Person\`"""
-input PersonInput {
+"""
+Represents an update to a \`Person\`. Fields that are set will be updated.
+"""
+input PersonPatch {
   """The primary unique identifier for the person"""
   id: Int
 
   """The person’s name"""
-  name: String!
+  name: String
   aliases: [String]
   about: String
-  email: Email!
+  email: Email
   site: WrappedUrlInput
   config: KeyValueHash
   lastLoginFromIp: InternetAddress
@@ -17168,16 +9268,48 @@ input PersonInput {
   createdAt: Datetime
 }
 
-"""The output of our create \`PersonSecret\` mutation."""
-type CreatePersonSecretPayload {
+"""All input for the \`updatePersonById\` mutation."""
+input UpdatePersonByIdInput {
+  """
+  An arbitrary string value with no semantic meaning. Will be included in the
+  payload verbatim. May be used to track mutations by the client.
+  """
+  clientMutationId: String
+
+  """The primary unique identifier for the person"""
+  id: Int!
+
+  """
+  An object where the defined keys will be set on the \`Person\` being updated.
+  """
+  personPatch: PersonPatch!
+}
+
+"""All input for the \`updatePersonByEmail\` mutation."""
+input UpdatePersonByEmailInput {
+  """
+  An arbitrary string value with no semantic meaning. Will be included in the
+  payload verbatim. May be used to track mutations by the client.
+  """
+  clientMutationId: String
+  email: Email!
+
+  """
+  An object where the defined keys will be set on the \`Person\` being updated.
+  """
+  personPatch: PersonPatch!
+}
+
+"""The output of our update \`PersonSecret\` mutation."""
+type UpdatePersonSecretPayload {
   """
   The exact same \`clientMutationId\` that was provided in the mutation input,
   unchanged and unused. May be used by a client to track mutations.
   """
   clientMutationId: String
 
-  """The \`PersonSecret\` that was created by this mutation."""
-  personSecret: PersonSecret @deprecated(reason: "This is deprecated (comment on table c.person_secret).")
+  """The \`PersonSecret\` that was updated by this mutation."""
+  personSecret: PersonSecret
 
   """
   Our root query field type. Allows us to run any query from our mutation payload.
@@ -17194,24 +9326,48 @@ type CreatePersonSecretPayload {
   personByPersonId: Person
 }
 
-"""All input for the create \`PersonSecret\` mutation."""
-input CreatePersonSecretInput {
+"""All input for the \`updatePersonSecret\` mutation."""
+input UpdatePersonSecretInput {
   """
   An arbitrary string value with no semantic meaning. Will be included in the
   payload verbatim. May be used to track mutations by the client.
   """
   clientMutationId: String
 
-  """The \`PersonSecret\` to be created by this mutation."""
-  personSecret: PersonSecretInput!
+  """
+  The globally unique \`ID\` which will identify a single \`PersonSecret\` to be updated.
+  """
+  nodeId: ID!
+
+  """
+  An object where the defined keys will be set on the \`PersonSecret\` being updated.
+  """
+  personSecretPatch: PersonSecretPatch!
 }
 
-"""An input for mutations affecting \`PersonSecret\`"""
-input PersonSecretInput {
-  personId: Int!
+"""
+Represents an update to a \`PersonSecret\`. Fields that are set will be updated.
+"""
+input PersonSecretPatch {
+  personId: Int
 
   """A secret held by the associated Person"""
   secret: String
+}
+
+"""All input for the \`updatePersonSecretByPersonId\` mutation."""
+input UpdatePersonSecretByPersonIdInput {
+  """
+  An arbitrary string value with no semantic meaning. Will be included in the
+  payload verbatim. May be used to track mutations by the client.
+  """
+  clientMutationId: String
+  personId: Int!
+
+  """
+  An object where the defined keys will be set on the \`PersonSecret\` being updated.
+  """
+  personSecretPatch: PersonSecretPatch!
 }
 
 """The output of our update \`DefaultValue\` mutation."""
@@ -17445,76 +9601,6 @@ input UpdatePatchByIdInput {
   An object where the defined keys will be set on the \`Patch\` being updated.
   """
   patchPatch: PatchPatch!
-}
-
-"""The output of our update \`Post\` mutation."""
-type UpdatePostPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-
-  """The \`Post\` that was updated by this mutation."""
-  post: Post
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-
-  """An edge for our \`Post\`. May be used by Relay 1."""
-  postEdge(
-    """The method to use when ordering \`Post\`."""
-    orderBy: [PostsOrderBy!]! = [PRIMARY_KEY_ASC]
-  ): PostsEdge
-
-  """Reads a single \`Person\` that is related to this \`Post\`."""
-  personByAuthorId: Person
-}
-
-"""All input for the \`updatePost\` mutation."""
-input UpdatePostInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-
-  """
-  The globally unique \`ID\` which will identify a single \`Post\` to be updated.
-  """
-  nodeId: ID!
-
-  """
-  An object where the defined keys will be set on the \`Post\` being updated.
-  """
-  postPatch: PostPatch!
-}
-
-"""Represents an update to a \`Post\`. Fields that are set will be updated."""
-input PostPatch {
-  id: Int
-  headline: String
-  body: String
-  authorId: Int
-  enums: [AnEnum]
-  comptypes: [ComptypeInput]
-}
-
-"""All input for the \`updatePostById\` mutation."""
-input UpdatePostByIdInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  id: Int!
-
-  """
-  An object where the defined keys will be set on the \`Post\` being updated.
-  """
-  postPatch: PostPatch!
 }
 
 """The output of our update \`Reserved\` mutation."""
@@ -18239,91 +10325,6 @@ input UpdateIssue756ByIdInput {
   issue756Patch: Issue756Patch!
 }
 
-"""The output of our update \`LeftArm\` mutation."""
-type UpdateLeftArmPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-
-  """The \`LeftArm\` that was updated by this mutation."""
-  leftArm: LeftArm
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-
-  """An edge for our \`LeftArm\`. May be used by Relay 1."""
-  leftArmEdge(
-    """The method to use when ordering \`LeftArm\`."""
-    orderBy: [LeftArmsOrderBy!]! = [PRIMARY_KEY_ASC]
-  ): LeftArmsEdge
-
-  """Reads a single \`Person\` that is related to this \`LeftArm\`."""
-  personByPersonId: Person
-}
-
-"""All input for the \`updateLeftArm\` mutation."""
-input UpdateLeftArmInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-
-  """
-  The globally unique \`ID\` which will identify a single \`LeftArm\` to be updated.
-  """
-  nodeId: ID!
-
-  """
-  An object where the defined keys will be set on the \`LeftArm\` being updated.
-  """
-  leftArmPatch: LeftArmPatch!
-}
-
-"""
-Represents an update to a \`LeftArm\`. Fields that are set will be updated.
-"""
-input LeftArmPatch {
-  id: Int
-  personId: Int
-  lengthInMetres: Float
-  mood: String
-}
-
-"""All input for the \`updateLeftArmById\` mutation."""
-input UpdateLeftArmByIdInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  id: Int!
-
-  """
-  An object where the defined keys will be set on the \`LeftArm\` being updated.
-  """
-  leftArmPatch: LeftArmPatch!
-}
-
-"""All input for the \`updateLeftArmByPersonId\` mutation."""
-input UpdateLeftArmByPersonIdInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  personId: Int!
-
-  """
-  An object where the defined keys will be set on the \`LeftArm\` being updated.
-  """
-  leftArmPatch: LeftArmPatch!
-}
-
 """The output of our update \`MyTable\` mutation."""
 type UpdateMyTablePayload {
   """
@@ -18456,16 +10457,129 @@ input UpdateNullTestRecordByIdInput {
   nullTestRecordPatch: NullTestRecordPatch!
 }
 
-"""The output of our update \`Person\` mutation."""
-type UpdatePersonPayload {
+"""The output of our delete \`Post\` mutation."""
+type DeletePostPayload {
   """
   The exact same \`clientMutationId\` that was provided in the mutation input,
   unchanged and unused. May be used by a client to track mutations.
   """
   clientMutationId: String
 
-  """The \`Person\` that was updated by this mutation."""
+  """The \`Post\` that was deleted by this mutation."""
+  post: Post
+  deletedPostId: ID
+
+  """
+  Our root query field type. Allows us to run any query from our mutation payload.
+  """
+  query: Query
+
+  """An edge for our \`Post\`. May be used by Relay 1."""
+  postEdge(
+    """The method to use when ordering \`Post\`."""
+    orderBy: [PostsOrderBy!]! = [PRIMARY_KEY_ASC]
+  ): PostsEdge
+
+  """Reads a single \`Person\` that is related to this \`Post\`."""
+  personByAuthorId: Person
+}
+
+"""All input for the \`deletePost\` mutation."""
+input DeletePostInput {
+  """
+  An arbitrary string value with no semantic meaning. Will be included in the
+  payload verbatim. May be used to track mutations by the client.
+  """
+  clientMutationId: String
+
+  """
+  The globally unique \`ID\` which will identify a single \`Post\` to be deleted.
+  """
+  nodeId: ID!
+}
+
+"""All input for the \`deletePostById\` mutation."""
+input DeletePostByIdInput {
+  """
+  An arbitrary string value with no semantic meaning. Will be included in the
+  payload verbatim. May be used to track mutations by the client.
+  """
+  clientMutationId: String
+  id: Int!
+}
+
+"""The output of our delete \`LeftArm\` mutation."""
+type DeleteLeftArmPayload {
+  """
+  The exact same \`clientMutationId\` that was provided in the mutation input,
+  unchanged and unused. May be used by a client to track mutations.
+  """
+  clientMutationId: String
+
+  """The \`LeftArm\` that was deleted by this mutation."""
+  leftArm: LeftArm
+  deletedLeftArmId: ID
+
+  """
+  Our root query field type. Allows us to run any query from our mutation payload.
+  """
+  query: Query
+
+  """An edge for our \`LeftArm\`. May be used by Relay 1."""
+  leftArmEdge(
+    """The method to use when ordering \`LeftArm\`."""
+    orderBy: [LeftArmsOrderBy!]! = [PRIMARY_KEY_ASC]
+  ): LeftArmsEdge
+
+  """Reads a single \`Person\` that is related to this \`LeftArm\`."""
+  personByPersonId: Person
+}
+
+"""All input for the \`deleteLeftArm\` mutation."""
+input DeleteLeftArmInput {
+  """
+  An arbitrary string value with no semantic meaning. Will be included in the
+  payload verbatim. May be used to track mutations by the client.
+  """
+  clientMutationId: String
+
+  """
+  The globally unique \`ID\` which will identify a single \`LeftArm\` to be deleted.
+  """
+  nodeId: ID!
+}
+
+"""All input for the \`deleteLeftArmById\` mutation."""
+input DeleteLeftArmByIdInput {
+  """
+  An arbitrary string value with no semantic meaning. Will be included in the
+  payload verbatim. May be used to track mutations by the client.
+  """
+  clientMutationId: String
+  id: Int!
+}
+
+"""All input for the \`deleteLeftArmByPersonId\` mutation."""
+input DeleteLeftArmByPersonIdInput {
+  """
+  An arbitrary string value with no semantic meaning. Will be included in the
+  payload verbatim. May be used to track mutations by the client.
+  """
+  clientMutationId: String
+  personId: Int!
+}
+
+"""The output of our delete \`Person\` mutation."""
+type DeletePersonPayload {
+  """
+  The exact same \`clientMutationId\` that was provided in the mutation input,
+  unchanged and unused. May be used by a client to track mutations.
+  """
+  clientMutationId: String
+
+  """The \`Person\` that was deleted by this mutation."""
   person: Person
+  deletedPersonId: ID
 
   """
   Our root query field type. Allows us to run any query from our mutation payload.
@@ -18479,8 +10593,8 @@ type UpdatePersonPayload {
   ): PeopleEdge
 }
 
-"""All input for the \`updatePerson\` mutation."""
-input UpdatePersonInput {
+"""All input for the \`deletePerson\` mutation."""
+input DeletePersonInput {
   """
   An arbitrary string value with no semantic meaning. Will be included in the
   payload verbatim. May be used to track mutations by the client.
@@ -18488,38 +10602,13 @@ input UpdatePersonInput {
   clientMutationId: String
 
   """
-  The globally unique \`ID\` which will identify a single \`Person\` to be updated.
+  The globally unique \`ID\` which will identify a single \`Person\` to be deleted.
   """
   nodeId: ID!
-
-  """
-  An object where the defined keys will be set on the \`Person\` being updated.
-  """
-  personPatch: PersonPatch!
 }
 
-"""
-Represents an update to a \`Person\`. Fields that are set will be updated.
-"""
-input PersonPatch {
-  """The primary unique identifier for the person"""
-  id: Int
-
-  """The person’s name"""
-  name: String
-  aliases: [String]
-  about: String
-  email: Email
-  site: WrappedUrlInput
-  config: KeyValueHash
-  lastLoginFromIp: InternetAddress
-  lastLoginFromSubnet: String
-  userMac: String
-  createdAt: Datetime
-}
-
-"""All input for the \`updatePersonById\` mutation."""
-input UpdatePersonByIdInput {
+"""All input for the \`deletePersonById\` mutation."""
+input DeletePersonByIdInput {
   """
   An arbitrary string value with no semantic meaning. Will be included in the
   payload verbatim. May be used to track mutations by the client.
@@ -18528,38 +10617,29 @@ input UpdatePersonByIdInput {
 
   """The primary unique identifier for the person"""
   id: Int!
-
-  """
-  An object where the defined keys will be set on the \`Person\` being updated.
-  """
-  personPatch: PersonPatch!
 }
 
-"""All input for the \`updatePersonByEmail\` mutation."""
-input UpdatePersonByEmailInput {
+"""All input for the \`deletePersonByEmail\` mutation."""
+input DeletePersonByEmailInput {
   """
   An arbitrary string value with no semantic meaning. Will be included in the
   payload verbatim. May be used to track mutations by the client.
   """
   clientMutationId: String
   email: Email!
-
-  """
-  An object where the defined keys will be set on the \`Person\` being updated.
-  """
-  personPatch: PersonPatch!
 }
 
-"""The output of our update \`PersonSecret\` mutation."""
-type UpdatePersonSecretPayload {
+"""The output of our delete \`PersonSecret\` mutation."""
+type DeletePersonSecretPayload {
   """
   The exact same \`clientMutationId\` that was provided in the mutation input,
   unchanged and unused. May be used by a client to track mutations.
   """
   clientMutationId: String
 
-  """The \`PersonSecret\` that was updated by this mutation."""
+  """The \`PersonSecret\` that was deleted by this mutation."""
   personSecret: PersonSecret
+  deletedPersonSecretId: ID
 
   """
   Our root query field type. Allows us to run any query from our mutation payload.
@@ -18576,8 +10656,8 @@ type UpdatePersonSecretPayload {
   personByPersonId: Person
 }
 
-"""All input for the \`updatePersonSecret\` mutation."""
-input UpdatePersonSecretInput {
+"""All input for the \`deletePersonSecret\` mutation."""
+input DeletePersonSecretInput {
   """
   An arbitrary string value with no semantic meaning. Will be included in the
   payload verbatim. May be used to track mutations by the client.
@@ -18585,39 +10665,19 @@ input UpdatePersonSecretInput {
   clientMutationId: String
 
   """
-  The globally unique \`ID\` which will identify a single \`PersonSecret\` to be updated.
+  The globally unique \`ID\` which will identify a single \`PersonSecret\` to be deleted.
   """
   nodeId: ID!
-
-  """
-  An object where the defined keys will be set on the \`PersonSecret\` being updated.
-  """
-  personSecretPatch: PersonSecretPatch!
 }
 
-"""
-Represents an update to a \`PersonSecret\`. Fields that are set will be updated.
-"""
-input PersonSecretPatch {
-  personId: Int
-
-  """A secret held by the associated Person"""
-  secret: String
-}
-
-"""All input for the \`updatePersonSecretByPersonId\` mutation."""
-input UpdatePersonSecretByPersonIdInput {
+"""All input for the \`deletePersonSecretByPersonId\` mutation."""
+input DeletePersonSecretByPersonIdInput {
   """
   An arbitrary string value with no semantic meaning. Will be included in the
   payload verbatim. May be used to track mutations by the client.
   """
   clientMutationId: String
   personId: Int!
-
-  """
-  An object where the defined keys will be set on the \`PersonSecret\` being updated.
-  """
-  personSecretPatch: PersonSecretPatch!
 }
 
 """The output of our delete \`DefaultValue\` mutation."""
@@ -18783,57 +10843,6 @@ input DeletePatchInput {
 
 """All input for the \`deletePatchById\` mutation."""
 input DeletePatchByIdInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  id: Int!
-}
-
-"""The output of our delete \`Post\` mutation."""
-type DeletePostPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-
-  """The \`Post\` that was deleted by this mutation."""
-  post: Post
-  deletedPostId: ID
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-
-  """An edge for our \`Post\`. May be used by Relay 1."""
-  postEdge(
-    """The method to use when ordering \`Post\`."""
-    orderBy: [PostsOrderBy!]! = [PRIMARY_KEY_ASC]
-  ): PostsEdge
-
-  """Reads a single \`Person\` that is related to this \`Post\`."""
-  personByAuthorId: Person
-}
-
-"""All input for the \`deletePost\` mutation."""
-input DeletePostInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-
-  """
-  The globally unique \`ID\` which will identify a single \`Post\` to be deleted.
-  """
-  nodeId: ID!
-}
-
-"""All input for the \`deletePostById\` mutation."""
-input DeletePostByIdInput {
   """
   An arbitrary string value with no semantic meaning. Will be included in the
   payload verbatim. May be used to track mutations by the client.
@@ -19335,67 +11344,6 @@ input DeleteIssue756ByIdInput {
   id: Int!
 }
 
-"""The output of our delete \`LeftArm\` mutation."""
-type DeleteLeftArmPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-
-  """The \`LeftArm\` that was deleted by this mutation."""
-  leftArm: LeftArm
-  deletedLeftArmId: ID
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-
-  """An edge for our \`LeftArm\`. May be used by Relay 1."""
-  leftArmEdge(
-    """The method to use when ordering \`LeftArm\`."""
-    orderBy: [LeftArmsOrderBy!]! = [PRIMARY_KEY_ASC]
-  ): LeftArmsEdge
-
-  """Reads a single \`Person\` that is related to this \`LeftArm\`."""
-  personByPersonId: Person
-}
-
-"""All input for the \`deleteLeftArm\` mutation."""
-input DeleteLeftArmInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-
-  """
-  The globally unique \`ID\` which will identify a single \`LeftArm\` to be deleted.
-  """
-  nodeId: ID!
-}
-
-"""All input for the \`deleteLeftArmById\` mutation."""
-input DeleteLeftArmByIdInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  id: Int!
-}
-
-"""All input for the \`deleteLeftArmByPersonId\` mutation."""
-input DeleteLeftArmByPersonIdInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  personId: Int!
-}
-
 """The output of our delete \`MyTable\` mutation."""
 type DeleteMyTablePayload {
   """
@@ -19490,117 +11438,6 @@ input DeleteNullTestRecordByIdInput {
   """
   clientMutationId: String
   id: Int!
-}
-
-"""The output of our delete \`Person\` mutation."""
-type DeletePersonPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-
-  """The \`Person\` that was deleted by this mutation."""
-  person: Person
-  deletedPersonId: ID
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-
-  """An edge for our \`Person\`. May be used by Relay 1."""
-  personEdge(
-    """The method to use when ordering \`Person\`."""
-    orderBy: [PeopleOrderBy!]! = [PRIMARY_KEY_ASC]
-  ): PeopleEdge
-}
-
-"""All input for the \`deletePerson\` mutation."""
-input DeletePersonInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-
-  """
-  The globally unique \`ID\` which will identify a single \`Person\` to be deleted.
-  """
-  nodeId: ID!
-}
-
-"""All input for the \`deletePersonById\` mutation."""
-input DeletePersonByIdInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-
-  """The primary unique identifier for the person"""
-  id: Int!
-}
-
-"""All input for the \`deletePersonByEmail\` mutation."""
-input DeletePersonByEmailInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  email: Email!
-}
-
-"""The output of our delete \`PersonSecret\` mutation."""
-type DeletePersonSecretPayload {
-  """
-  The exact same \`clientMutationId\` that was provided in the mutation input,
-  unchanged and unused. May be used by a client to track mutations.
-  """
-  clientMutationId: String
-
-  """The \`PersonSecret\` that was deleted by this mutation."""
-  personSecret: PersonSecret
-  deletedPersonSecretId: ID
-
-  """
-  Our root query field type. Allows us to run any query from our mutation payload.
-  """
-  query: Query
-
-  """An edge for our \`PersonSecret\`. May be used by Relay 1."""
-  personSecretEdge(
-    """The method to use when ordering \`PersonSecret\`."""
-    orderBy: [PersonSecretsOrderBy!]! = [PRIMARY_KEY_ASC]
-  ): PersonSecretsEdge @deprecated(reason: "This is deprecated (comment on table c.person_secret).")
-
-  """The \`Person\` this \`PersonSecret\` belongs to."""
-  personByPersonId: Person
-}
-
-"""All input for the \`deletePersonSecret\` mutation."""
-input DeletePersonSecretInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-
-  """
-  The globally unique \`ID\` which will identify a single \`PersonSecret\` to be deleted.
-  """
-  nodeId: ID!
-}
-
-"""All input for the \`deletePersonSecretByPersonId\` mutation."""
-input DeletePersonSecretByPersonIdInput {
-  """
-  An arbitrary string value with no semantic meaning. Will be included in the
-  payload verbatim. May be used to track mutations by the client.
-  """
-  clientMutationId: String
-  personId: Int!
 }`;
 export const objects = {
   Query: {
@@ -19608,22 +11445,6 @@ export const objects = {
       return true;
     },
     plans: {
-      add1Query($root, args, _info) {
-        const selectArgs = makeArgs_add_1_query(args);
-        return resource_add_1_queryPgResource.execute(selectArgs);
-      },
-      add2Query($root, args, _info) {
-        const selectArgs = makeArgs_add_2_query(args);
-        return resource_add_2_queryPgResource.execute(selectArgs);
-      },
-      add3Query($root, args, _info) {
-        const selectArgs = makeArgs_add_3_query(args);
-        return resource_add_3_queryPgResource.execute(selectArgs);
-      },
-      add4Query($root, args, _info) {
-        const selectArgs = makeArgs_add_4_query(args);
-        return resource_add_4_queryPgResource.execute(selectArgs);
-      },
       allCompoundKeys: {
         plan() {
           return connection(resource_compound_keyPgResource.find());
@@ -19974,19 +11795,6 @@ export const objects = {
           orderBy: applyOrderByArgToConnection
         }
       },
-      badlyBehavedFunction: {
-        plan($parent, args, info) {
-          const $select = badly_behaved_function_getSelectPlanFromParentAndArgs($parent, args, info);
-          return connection($select);
-        },
-        args: {
-          first: applyFirstArg,
-          last: applyLastArg,
-          offset: applyOffsetArg,
-          before: applyBeforeArg,
-          after: applyAfterArg
-        }
-      },
       compoundKey(_$parent, args) {
         const $nodeId = args.getRaw("nodeId");
         return nodeFetcher_CompoundKey($nodeId);
@@ -20000,29 +11808,8 @@ export const objects = {
           person_id_2: $personId2
         });
       },
-      compoundTypeArrayQuery($root, args, _info) {
-        const selectArgs = makeArgs_compound_type_array_query(args);
-        return resource_compound_type_array_queryPgResource.execute(selectArgs);
-      },
-      compoundTypeQuery($root, args, _info) {
-        const selectArgs = makeArgs_compound_type_query(args);
-        return resource_compound_type_queryPgResource.execute(selectArgs);
-      },
-      compoundTypeSetQuery: {
-        plan($parent, args, info) {
-          const $select = compound_type_set_query_getSelectPlanFromParentAndArgs($parent, args, info);
-          return connection($select);
-        },
-        args: {
-          first: applyFirstArg,
-          last: applyLastArg,
-          offset: applyOffsetArg,
-          before: applyBeforeArg,
-          after: applyAfterArg
-        }
-      },
       currentUserId($root, args, _info) {
-        const selectArgs = makeArgs_compound_type_computed_field(args);
+        const selectArgs = makeArgs_current_user_id(args);
         return resource_current_user_idPgResource.execute(selectArgs);
       },
       defaultValue(_$parent, args) {
@@ -20036,124 +11823,6 @@ export const objects = {
           id: $id
         });
       },
-      funcInInout($root, args, _info) {
-        const selectArgs = makeArgs_func_in_inout(args);
-        return resource_func_in_inoutPgResource.execute(selectArgs);
-      },
-      funcInOut($root, args, _info) {
-        const selectArgs = makeArgs_func_in_out(args);
-        return resource_func_in_outPgResource.execute(selectArgs);
-      },
-      funcOut($root, args, _info) {
-        const selectArgs = makeArgs_compound_type_computed_field(args);
-        return resource_func_outPgResource.execute(selectArgs);
-      },
-      funcOutComplex($root, args, _info) {
-        const selectArgs = makeArgs_func_out_complex(args);
-        return resource_func_out_complexPgResource.execute(selectArgs);
-      },
-      funcOutComplexSetof: {
-        plan($parent, args, info) {
-          const $select = func_out_complex_setof_getSelectPlanFromParentAndArgs($parent, args, info);
-          return connection($select);
-        },
-        args: {
-          first: applyFirstArg,
-          last: applyLastArg,
-          offset: applyOffsetArg,
-          before: applyBeforeArg,
-          after: applyAfterArg
-        }
-      },
-      funcOutOut($root, args, _info) {
-        const selectArgs = makeArgs_compound_type_computed_field(args);
-        return resource_func_out_outPgResource.execute(selectArgs);
-      },
-      funcOutOutCompoundType($root, args, _info) {
-        const selectArgs = makeArgs_func_out_out_compound_type(args);
-        return resource_func_out_out_compound_typePgResource.execute(selectArgs);
-      },
-      funcOutOutSetof: {
-        plan($parent, args, info) {
-          const $select = func_out_out_setof_getSelectPlanFromParentAndArgs($parent, args, info);
-          return connection($select);
-        },
-        args: {
-          first: applyFirstArg,
-          last: applyLastArg,
-          offset: applyOffsetArg,
-          before: applyBeforeArg,
-          after: applyAfterArg
-        }
-      },
-      funcOutOutUnnamed($root, args, _info) {
-        const selectArgs = makeArgs_compound_type_computed_field(args);
-        return resource_func_out_out_unnamedPgResource.execute(selectArgs);
-      },
-      funcOutSetof: {
-        plan($parent, args, info) {
-          const $select = func_out_setof_getSelectPlanFromParentAndArgs($parent, args, info);
-          return connection($select);
-        },
-        args: {
-          first: applyFirstArg,
-          last: applyLastArg,
-          offset: applyOffsetArg,
-          before: applyBeforeArg,
-          after: applyAfterArg
-        }
-      },
-      funcOutTable($root, args, _info) {
-        const selectArgs = makeArgs_compound_type_computed_field(args);
-        return resource_func_out_tablePgResource.execute(selectArgs);
-      },
-      funcOutTableSetof: {
-        plan($parent, args, info) {
-          const $select = func_out_table_setof_getSelectPlanFromParentAndArgs($parent, args, info);
-          return connection($select);
-        },
-        args: {
-          first: applyFirstArg,
-          last: applyLastArg,
-          offset: applyOffsetArg,
-          before: applyBeforeArg,
-          after: applyAfterArg
-        }
-      },
-      funcOutUnnamed($root, args, _info) {
-        const selectArgs = makeArgs_compound_type_computed_field(args);
-        return resource_func_out_unnamedPgResource.execute(selectArgs);
-      },
-      funcOutUnnamedOutOutUnnamed($root, args, _info) {
-        const selectArgs = makeArgs_compound_type_computed_field(args);
-        return resource_func_out_unnamed_out_out_unnamedPgResource.execute(selectArgs);
-      },
-      funcReturnsTableMultiCol: {
-        plan($parent, args, info) {
-          const $select = func_returns_table_multi_col_getSelectPlanFromParentAndArgs($parent, args, info);
-          return connection($select);
-        },
-        args: {
-          first: applyFirstArg,
-          last: applyLastArg,
-          offset: applyOffsetArg,
-          before: applyBeforeArg,
-          after: applyAfterArg
-        }
-      },
-      funcReturnsTableOneCol: {
-        plan($parent, args, info) {
-          const $select = func_returns_table_one_col_getSelectPlanFromParentAndArgs($parent, args, info);
-          return connection($select);
-        },
-        args: {
-          first: applyFirstArg,
-          last: applyLastArg,
-          offset: applyOffsetArg,
-          before: applyBeforeArg,
-          after: applyAfterArg
-        }
-      },
       input(_$parent, args) {
         const $nodeId = args.getRaw("nodeId");
         return nodeFetcher_Input($nodeId);
@@ -20165,19 +11834,6 @@ export const objects = {
           id: $id
         });
       },
-      intSetQuery: {
-        plan($parent, args, info) {
-          const $select = int_set_query_getSelectPlanFromParentAndArgs($parent, args, info);
-          return connection($select);
-        },
-        args: {
-          first: applyFirstArg,
-          last: applyLastArg,
-          offset: applyOffsetArg,
-          before: applyBeforeArg,
-          after: applyAfterArg
-        }
-      },
       issue756(_$parent, args) {
         const $nodeId = args.getRaw("nodeId");
         return nodeFetcher_Issue756($nodeId);
@@ -20188,14 +11844,6 @@ export const objects = {
         return resource_issue756PgResource.get({
           id: $id
         });
-      },
-      jsonbIdentity($root, args, _info) {
-        const selectArgs = makeArgs_jsonb_identity(args);
-        return resource_jsonb_identityPgResource.execute(selectArgs);
-      },
-      jsonIdentity($root, args, _info) {
-        const selectArgs = makeArgs_json_identity(args);
-        return resource_json_identityPgResource.execute(selectArgs);
       },
       leftArm(_$parent, args) {
         const $nodeId = args.getRaw("nodeId");
@@ -20237,10 +11885,6 @@ export const objects = {
           id: $id
         });
       },
-      noArgsQuery($root, args, _info) {
-        const selectArgs = makeArgs_compound_type_computed_field(args);
-        return resource_no_args_queryPgResource.execute(selectArgs);
-      },
       node(_$root, fieldArgs) {
         return fieldArgs.getRaw("nodeId");
       },
@@ -20265,26 +11909,6 @@ export const objects = {
         return resource_null_test_recordPgResource.get({
           id: $id
         });
-      },
-      optionalMissingMiddle1($root, args, _info) {
-        const selectArgs = makeArgs_optional_missing_middle_1(args);
-        return resource_optional_missing_middle_1PgResource.execute(selectArgs);
-      },
-      optionalMissingMiddle2($root, args, _info) {
-        const selectArgs = makeArgs_optional_missing_middle_2(args);
-        return resource_optional_missing_middle_2PgResource.execute(selectArgs);
-      },
-      optionalMissingMiddle3($root, args, _info) {
-        const selectArgs = makeArgs_optional_missing_middle_3(args);
-        return resource_optional_missing_middle_3PgResource.execute(selectArgs);
-      },
-      optionalMissingMiddle4($root, args, _info) {
-        const selectArgs = makeArgs_optional_missing_middle_4(args);
-        return resource_optional_missing_middle_4PgResource.execute(selectArgs);
-      },
-      optionalMissingMiddle5($root, args, _info) {
-        const selectArgs = makeArgs_optional_missing_middle_5(args);
-        return resource_optional_missing_middle_5PgResource.execute(selectArgs);
       },
       patch(_$parent, args) {
         const $nodeId = args.getRaw("nodeId");
@@ -20340,37 +11964,8 @@ export const objects = {
       query() {
         return constant(EMPTY_OBJECT);
       },
-      queryCompoundTypeArray($root, args, _info) {
-        const selectArgs = makeArgs_query_compound_type_array(args);
-        return resource_query_compound_type_arrayPgResource.execute(selectArgs);
-      },
-      queryIntervalArray($root, args, _info) {
-        const selectArgs = makeArgs_compound_type_computed_field(args);
-        return resource_query_interval_arrayPgResource.execute(selectArgs);
-      },
-      queryIntervalSet: {
-        plan($parent, args, info) {
-          const $select = query_interval_set_getSelectPlanFromParentAndArgs($parent, args, info);
-          return connection($select);
-        },
-        args: {
-          first: applyFirstArg,
-          last: applyLastArg,
-          offset: applyOffsetArg,
-          before: applyBeforeArg,
-          after: applyAfterArg
-        }
-      },
-      queryOutputTwoRows($root, args, _info) {
-        const selectArgs = makeArgs_query_output_two_rows(args);
-        return resource_query_output_two_rowsPgResource.execute(selectArgs);
-      },
-      queryTextArray($root, args, _info) {
-        const selectArgs = makeArgs_compound_type_computed_field(args);
-        return resource_query_text_arrayPgResource.execute(selectArgs);
-      },
       readPgSettings($root, args, _info) {
-        const selectArgs = makeArgs_compound_type_computed_field(args);
+        const selectArgs = makeArgs_current_user_id(args);
         return resource_read_pg_settingsPgResource.execute(selectArgs);
       },
       reserved(_$parent, args) {
@@ -20407,18 +12002,8 @@ export const objects = {
         });
       },
       returnTableWithoutGrants($root, args, _info) {
-        const selectArgs = makeArgs_compound_type_computed_field(args);
+        const selectArgs = makeArgs_current_user_id(args);
         return resource_return_table_without_grantsPgResource.execute(selectArgs);
-      },
-      searchTestSummariesList: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_compound_type_computed_field(args);
-          return resource_search_test_summariesPgResource.execute(selectArgs);
-        },
-        args: {
-          first: applyFirstArg,
-          offset: applyOffsetArg
-        }
       },
       similarTable1(_$parent, args) {
         const $nodeId = args.getRaw("nodeId");
@@ -20442,75 +12027,6 @@ export const objects = {
           id: $id
         });
       },
-      staticBigInteger: {
-        plan($parent, args, info) {
-          const $select = static_big_integer_getSelectPlanFromParentAndArgs($parent, args, info);
-          return connection($select);
-        },
-        args: {
-          first: applyFirstArg,
-          last: applyLastArg,
-          offset: applyOffsetArg,
-          before: applyBeforeArg,
-          after: applyAfterArg
-        }
-      },
-      tableQuery($root, args, _info) {
-        const selectArgs = makeArgs_table_query(args);
-        return resource_table_queryPgResource.execute(selectArgs);
-      },
-      tableSetQuery: {
-        plan($parent, args, info) {
-          const $select = table_set_query_getSelectPlanFromParentAndArgs($parent, args, info);
-          return connection($select);
-        },
-        args: {
-          first: applyFirstArg,
-          last: applyLastArg,
-          offset: applyOffsetArg,
-          before: applyBeforeArg,
-          after: applyAfterArg,
-          condition: applyConditionArgToConnection,
-          orderBy: applyOrderByArgToConnection
-        }
-      },
-      tableSetQueryPlpgsql: {
-        plan($parent, args, info) {
-          const $select = table_set_query_plpgsql_getSelectPlanFromParentAndArgs($parent, args, info);
-          return connection($select);
-        },
-        args: {
-          first: applyFirstArg,
-          last: applyLastArg,
-          offset: applyOffsetArg,
-          before: applyBeforeArg,
-          after: applyAfterArg
-        }
-      },
-      tableSetQueryVolatile: {
-        plan($parent, args, info) {
-          const $select = table_set_query_volatile_getSelectPlanFromParentAndArgs($parent, args, info);
-          return connection($select);
-        },
-        args: {
-          first: applyFirstArg,
-          last: applyLastArg,
-          offset: applyOffsetArg,
-          before: applyBeforeArg,
-          after: applyAfterArg,
-          condition: applyConditionArgToConnection
-        }
-      },
-      tableSetQueryVolatileList: {
-        plan: table_set_query_volatile_getSelectPlanFromParentAndArgs,
-        args: {
-          first: applyFirstArg,
-          offset: applyOffsetArg,
-          condition(_condition, $select, arg) {
-            arg.apply($select, qbWhereBuilder);
-          }
-        }
-      },
       type(_$parent, args) {
         const $nodeId = args.getRaw("nodeId");
         return nodeFetcher_Type($nodeId);
@@ -20521,31 +12037,6 @@ export const objects = {
         return resource_typesPgResource.get({
           id: $id
         });
-      },
-      typeFunction($root, args, _info) {
-        const selectArgs = makeArgs_type_function(args);
-        return resource_type_functionPgResource.execute(selectArgs);
-      },
-      typeFunctionConnection: {
-        plan($parent, args, info) {
-          const $select = type_function_connection_getSelectPlanFromParentAndArgs($parent, args, info);
-          return connection($select);
-        },
-        args: {
-          first: applyFirstArg,
-          last: applyLastArg,
-          offset: applyOffsetArg,
-          before: applyBeforeArg,
-          after: applyAfterArg
-        }
-      },
-      typeFunctionList($root, args, _info) {
-        const selectArgs = makeArgs_compound_type_computed_field(args);
-        return resource_type_function_listPgResource.execute(selectArgs);
-      },
-      typesQuery($root, args, _info) {
-        const selectArgs = makeArgs_types_query(args);
-        return resource_types_queryPgResource.execute(selectArgs);
       },
       uniqueForeignKeyByCompoundKey1AndCompoundKey2(_$root, {
         $compoundKey1,
@@ -20572,150 +12063,6 @@ export const objects = {
   Mutation: {
     assertStep: __ValueStep,
     plans: {
-      add1Mutation: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_add_1_mutation(args, ["input"]);
-          const $result = resource_add_1_mutationPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      add2Mutation: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_add_2_mutation(args, ["input"]);
-          const $result = resource_add_2_mutationPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      add3Mutation: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_add_3_mutation(args, ["input"]);
-          const $result = resource_add_3_mutationPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      add4Mutation: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_add_4_mutation(args, ["input"]);
-          const $result = resource_add_4_mutationPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      add4MutationError: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_add_4_mutation_error(args, ["input"]);
-          const $result = resource_add_4_mutation_errorPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      authenticate: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_authenticate(args, ["input"]);
-          const $result = resource_authenticatePgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      authenticateFail: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_compound_type_computed_field(args, ["input"]);
-          const $result = resource_authenticate_failPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      authenticateMany: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_authenticate_many(args, ["input"]);
-          const $result = resource_authenticate_manyPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      authenticatePayload: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_authenticate_payload(args, ["input"]);
-          const $result = resource_authenticate_payloadPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      compoundTypeArrayMutation: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_compound_type_array_mutation(args, ["input"]);
-          const $result = resource_compound_type_array_mutationPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      compoundTypeMutation: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_compound_type_mutation(args, ["input"]);
-          const $result = resource_compound_type_mutationPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      compoundTypeSetMutation: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_compound_type_set_mutation(args, ["input"]);
-          const $result = resource_compound_type_set_mutationPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
       createCompoundKey: {
         plan(_, args) {
           const $insert = pgInsertSingle(resource_compound_keyPgResource);
@@ -21541,102 +12888,6 @@ export const objects = {
           input: applyInputToUpdateOrDelete
         }
       },
-      guidFn: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_guid_fn(args, ["input"]);
-          const $result = resource_guid_fnPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      intSetMutation: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_int_set_mutation(args, ["input"]);
-          const $result = resource_int_set_mutationPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      issue756Mutation: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_compound_type_computed_field(args, ["input"]);
-          const $result = resource_issue756_mutationPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      issue756SetMutation: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_compound_type_computed_field(args, ["input"]);
-          const $result = resource_issue756_set_mutationPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      jsonbIdentityMutation: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_jsonb_identity_mutation(args, ["input"]);
-          const $result = resource_jsonb_identity_mutationPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      jsonbIdentityMutationPlpgsql: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_jsonb_identity_mutation_plpgsql(args, ["input"]);
-          const $result = resource_jsonb_identity_mutation_plpgsqlPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      jsonbIdentityMutationPlpgsqlWithDefault: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_jsonb_identity_mutation_plpgsql_with_default(args, ["input"]);
-          const $result = resource_jsonb_identity_mutation_plpgsql_with_defaultPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      jsonIdentityMutation: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_json_identity_mutation(args, ["input"]);
-          const $result = resource_json_identity_mutationPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
       leftArmIdentity: {
         plan($root, args, _info) {
           const selectArgs = makeArgs_left_arm_identity(args, ["input"]);
@@ -21649,430 +12900,10 @@ export const objects = {
           input: applyInputArgViaPgSelect
         }
       },
-      listBdeMutation: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_list_bde_mutation(args, ["input"]);
-          const $result = resource_list_bde_mutationPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      listOfCompoundTypesMutation: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_list_of_compound_types_mutation(args, ["input"]);
-          const $result = resource_list_of_compound_types_mutationPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      mult1: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_mult_1(args, ["input"]);
-          const $result = resource_mult_1PgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      mult2: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_mult_2(args, ["input"]);
-          const $result = resource_mult_2PgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      mult3: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_mult_3(args, ["input"]);
-          const $result = resource_mult_3PgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      mult4: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_mult_4(args, ["input"]);
-          const $result = resource_mult_4PgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      mutationCompoundTypeArray: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_mutation_compound_type_array(args, ["input"]);
-          const $result = resource_mutation_compound_type_arrayPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      mutationInInout: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_mutation_in_inout(args, ["input"]);
-          const $result = resource_mutation_in_inoutPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      mutationInOut: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_mutation_in_out(args, ["input"]);
-          const $result = resource_mutation_in_outPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      mutationIntervalArray: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_compound_type_computed_field(args, ["input"]);
-          const $result = resource_mutation_interval_arrayPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      mutationIntervalSet: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_compound_type_computed_field(args, ["input"]);
-          const $result = resource_mutation_interval_setPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      mutationOut: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_compound_type_computed_field(args, ["input"]);
-          const $result = resource_mutation_outPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      mutationOutComplex: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_mutation_out_complex(args, ["input"]);
-          const $result = resource_mutation_out_complexPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      mutationOutComplexSetof: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_mutation_out_complex_setof(args, ["input"]);
-          const $result = resource_mutation_out_complex_setofPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      mutationOutOut: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_compound_type_computed_field(args, ["input"]);
-          const $result = resource_mutation_out_outPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      mutationOutOutCompoundType: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_mutation_out_out_compound_type(args, ["input"]);
-          const $result = resource_mutation_out_out_compound_typePgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      mutationOutOutSetof: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_compound_type_computed_field(args, ["input"]);
-          const $result = resource_mutation_out_out_setofPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      mutationOutOutUnnamed: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_compound_type_computed_field(args, ["input"]);
-          const $result = resource_mutation_out_out_unnamedPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      mutationOutSetof: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_compound_type_computed_field(args, ["input"]);
-          const $result = resource_mutation_out_setofPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      mutationOutTable: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_compound_type_computed_field(args, ["input"]);
-          const $result = resource_mutation_out_tablePgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      mutationOutTableSetof: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_compound_type_computed_field(args, ["input"]);
-          const $result = resource_mutation_out_table_setofPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      mutationOutUnnamed: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_compound_type_computed_field(args, ["input"]);
-          const $result = resource_mutation_out_unnamedPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      mutationOutUnnamedOutOutUnnamed: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_compound_type_computed_field(args, ["input"]);
-          const $result = resource_mutation_out_unnamed_out_out_unnamedPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      mutationReturnsTableMultiCol: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_mutation_returns_table_multi_col(args, ["input"]);
-          const $result = resource_mutation_returns_table_multi_colPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      mutationReturnsTableOneCol: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_mutation_returns_table_one_col(args, ["input"]);
-          const $result = resource_mutation_returns_table_one_colPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      mutationTextArray: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_compound_type_computed_field(args, ["input"]);
-          const $result = resource_mutation_text_arrayPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      noArgsMutation: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_compound_type_computed_field(args, ["input"]);
-          const $result = resource_no_args_mutationPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      postMany: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_post_many(args, ["input"]);
-          const $result = resource_post_manyPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
       postWithSuffix: {
         plan($root, args, _info) {
           const selectArgs = makeArgs_post_with_suffix(args, ["input"]);
           const $result = resource_post_with_suffixPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      returnVoidMutation: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_compound_type_computed_field(args, ["input"]);
-          const $result = resource_return_void_mutationPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      tableMutation: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_table_mutation(args, ["input"]);
-          const $result = resource_table_mutationPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      tableSetMutation: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_compound_type_computed_field(args, ["input"]);
-          const $result = resource_table_set_mutationPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      typeFunctionConnectionMutation: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_compound_type_computed_field(args, ["input"]);
-          const $result = resource_type_function_connection_mutationPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      typeFunctionListMutation: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_compound_type_computed_field(args, ["input"]);
-          const $result = resource_type_function_list_mutationPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      typeFunctionMutation: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_type_function_mutation(args, ["input"]);
-          const $result = resource_type_function_mutationPgResource.execute(selectArgs, "mutation");
-          return object({
-            result: $result
-          });
-        },
-        args: {
-          input: applyInputArgViaPgSelect
-        }
-      },
-      typesMutation: {
-        plan($root, args, _info) {
-          const selectArgs = makeArgs_types_mutation(args, ["input"]);
-          const $result = resource_types_mutationPgResource.execute(selectArgs, "mutation");
           return object({
             result: $result
           });
@@ -22620,99 +13451,6 @@ export const objects = {
       }
     }
   },
-  Add1MutationPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      integer: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
-  Add2MutationPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      integer: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
-  Add3MutationPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      integer: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
-  Add4MutationErrorPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      integer: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
-  Add4MutationPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      integer: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
-  AuthenticateFailPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      jwtToken: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
-  AuthenticateManyPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      jwtTokens: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
-  AuthenticatePayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      jwtToken: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
-  AuthenticatePayloadPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      authPayload: planCustomMutationPayloadResult,
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      personById($record) {
-        return resource_personPgResource.get({
-          id: $record.get("result").get("id")
-        });
-      },
-      query: queryPlan
-    }
-  },
-  AuthPayload: {
-    assertStep: assertPgClassSingleStep,
-    plans: {
-      jwt($record) {
-        const $plan = $record.get("jwt");
-        const $select = pgSelectSingleFromRecord(resource_frmcdc_jwtTokenPgResource, $plan);
-        $select.getClassStep().setTrusted();
-        return $select;
-      },
-      personById($record) {
-        return resource_personPgResource.get({
-          id: $record.get("id")
-        });
-      }
-    }
-  },
   CompoundKey: {
     assertStep: assertPgClassSingleStep,
     plans: {
@@ -22778,42 +13516,9 @@ export const objects = {
   CompoundType: {
     assertStep: assertPgClassSingleStep,
     plans: {
-      computedField($in, args, _info) {
-        return scalarComputed(resource_compound_type_computed_fieldPgResource, $in, makeArgs_compound_type_computed_field(args));
-      },
       fooBar($record) {
         return $record.get("foo_bar");
       }
-    }
-  },
-  CompoundTypeArrayMutationPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      compoundTypes: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
-  CompoundTypeMutationPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      compoundType: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
-  CompoundTypesConnection: {
-    assertStep: ConnectionStep,
-    plans: {
-      totalCount: totalCountConnectionPlan
-    }
-  },
-  CompoundTypeSetMutationPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      compoundTypes: planCustomMutationPayloadResult,
-      query: queryPlan
     }
   },
   Comptype: {
@@ -22881,7 +13586,7 @@ export const objects = {
     plans: {
       clientMutationId: getClientMutationIdForCreatePlan,
       issue756: planCreatePayloadResult,
-      issue756Edge: Issue756MutationPayload_issue756EdgePlan,
+      issue756Edge: CreateIssue756Payload_issue756EdgePlan,
       query: queryPlan
     }
   },
@@ -22944,7 +13649,7 @@ export const objects = {
     plans: {
       clientMutationId: getClientMutationIdForCreatePlan,
       person: planCreatePayloadResult,
-      personEdge: MutationOutTablePayload_personEdgePlan,
+      personEdge: CreatePersonPayload_personEdgePlan,
       query: queryPlan
     }
   },
@@ -23025,11 +13730,11 @@ export const objects = {
     assertStep: assertStep,
     plans: {
       clientMutationId: getClientMutationIdForCreatePlan,
-      postById: TypeFunctionMutationPayload_postByIdPlan,
-      postBySmallint: TypeFunctionMutationPayload_postBySmallintPlan,
+      postById: CreateTypePayload_postByIdPlan,
+      postBySmallint: CreateTypePayload_postBySmallintPlan,
       query: queryPlan,
       type: planCreatePayloadResult,
-      typeEdge: TypeFunctionMutationPayload_typeEdgePlan
+      typeEdge: CreateTypePayload_typeEdgePlan
     }
   },
   CreateUpdatableViewPayload: {
@@ -23128,7 +13833,7 @@ export const objects = {
         return lambda(specifier, base64JSONNodeIdCodec.encode);
       },
       issue756: planCreatePayloadResult,
-      issue756Edge: Issue756MutationPayload_issue756EdgePlan,
+      issue756Edge: CreateIssue756Payload_issue756EdgePlan,
       query: queryPlan
     }
   },
@@ -23221,7 +13926,7 @@ export const objects = {
         return lambda(specifier, base64JSONNodeIdCodec.encode);
       },
       person: planCreatePayloadResult,
-      personEdge: MutationOutTablePayload_personEdgePlan,
+      personEdge: CreatePersonPayload_personEdgePlan,
       query: queryPlan
     }
   },
@@ -23334,11 +14039,11 @@ export const objects = {
         const specifier = nodeIdHandler_Type.plan($record);
         return lambda(specifier, base64JSONNodeIdCodec.encode);
       },
-      postById: TypeFunctionMutationPayload_postByIdPlan,
-      postBySmallint: TypeFunctionMutationPayload_postBySmallintPlan,
+      postById: CreateTypePayload_postByIdPlan,
+      postBySmallint: CreateTypePayload_postBySmallintPlan,
       query: queryPlan,
       type: planCreatePayloadResult,
-      typeEdge: TypeFunctionMutationPayload_typeEdgePlan
+      typeEdge: CreateTypePayload_typeEdgePlan
     }
   },
   DeleteViewTablePayload: {
@@ -23358,9 +14063,6 @@ export const objects = {
   EdgeCase: {
     assertStep: assertPgClassSingleStep,
     plans: {
-      computed($in, args, _info) {
-        return scalarComputed(resource_edge_case_computedPgResource, $in, makeArgs_compound_type_computed_field(args));
-      },
       notNullHasDefault($record) {
         return $record.get("not_null_has_default");
       },
@@ -23384,99 +14086,14 @@ export const objects = {
       compoundKey1: ForeignKey_compoundKey1Plan,
       compoundKey2: ForeignKey_compoundKey2Plan,
       compoundKeyByCompoundKey1AndCompoundKey2: ForeignKey_compoundKeyByCompoundKey1AndCompoundKey2Plan,
-      personByPersonId: ForeignKey_personByPersonIdPlan,
-      personId: ForeignKey_personIdPlan
+      personByPersonId: PersonSecret_personByPersonIdPlan,
+      personId: PersonSecret_personIdPlan
     }
   },
   ForeignKeysConnection: {
     assertStep: ConnectionStep,
     plans: {
       totalCount: totalCountConnectionPlan
-    }
-  },
-  FuncOutComplexRecord: {
-    assertStep: assertPgClassSingleStep,
-    plans: {
-      y: PersonComputedComplexRecord_yPlan,
-      z: PersonComputedComplexRecord_zPlan
-    }
-  },
-  FuncOutComplexSetofConnection: {
-    assertStep: ConnectionStep,
-    plans: {
-      totalCount: totalCountConnectionPlan
-    }
-  },
-  FuncOutComplexSetofRecord: {
-    assertStep: assertPgClassSingleStep,
-    plans: {
-      y: PersonComputedComplexRecord_yPlan,
-      z: PersonComputedComplexRecord_zPlan
-    }
-  },
-  FuncOutOutCompoundTypeRecord: {
-    assertStep: assertPgClassSingleStep,
-    plans: {
-      o2: FuncOutOutCompoundTypeRecord_o2Plan
-    }
-  },
-  FuncOutOutRecord: {
-    assertStep: assertPgClassSingleStep,
-    plans: {
-      firstOut: FuncOutOutRecord_firstOutPlan,
-      secondOut: FuncOutOutRecord_secondOutPlan
-    }
-  },
-  FuncOutOutSetofConnection: {
-    assertStep: ConnectionStep,
-    plans: {
-      totalCount: totalCountConnectionPlan
-    }
-  },
-  FuncOutOutSetofRecord: {
-    assertStep: assertPgClassSingleStep
-  },
-  FuncOutOutUnnamedRecord: {
-    assertStep: assertPgClassSingleStep,
-    plans: {
-      arg1: FuncOutOutUnnamedRecord_arg1Plan,
-      arg2: FuncOutOutUnnamedRecord_arg2Plan
-    }
-  },
-  FuncOutSetofConnection: {
-    assertStep: ConnectionStep,
-    plans: {
-      totalCount: totalCountConnectionPlan
-    }
-  },
-  FuncOutUnnamedOutOutUnnamedRecord: {
-    assertStep: assertPgClassSingleStep,
-    plans: {
-      arg1: FuncOutOutUnnamedRecord_arg1Plan,
-      arg3: FuncOutUnnamedOutOutUnnamedRecord_arg3Plan
-    }
-  },
-  FuncReturnsTableMultiColConnection: {
-    assertStep: ConnectionStep,
-    plans: {
-      totalCount: totalCountConnectionPlan
-    }
-  },
-  FuncReturnsTableMultiColRecord: {
-    assertStep: assertPgClassSingleStep
-  },
-  FuncReturnsTableOneColConnection: {
-    assertStep: ConnectionStep,
-    plans: {
-      totalCount: totalCountConnectionPlan
-    }
-  },
-  GuidFnPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      guid: planCustomMutationPayloadResult,
-      query: queryPlan
     }
   },
   Input: {
@@ -23504,20 +14121,6 @@ export const objects = {
   Interval: {
     assertStep: assertStep
   },
-  IntSetMutationPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      integers: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
-  IntSetQueryConnection: {
-    assertStep: ConnectionStep,
-    plans: {
-      totalCount: totalCountConnectionPlan
-    }
-  },
   Issue756: {
     assertStep: assertPgClassSingleStep,
     plans: {
@@ -23534,63 +14137,11 @@ export const objects = {
       return resource_issue756PgResource.get(spec);
     }
   },
-  Issue756MutationPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      issue756: planCustomMutationPayloadResult,
-      issue756Edge: Issue756MutationPayload_issue756EdgePlan,
-      query: queryPlan
-    }
-  },
   Issue756SConnection: {
     assertStep: ConnectionStep,
     plans: {
       totalCount: totalCountConnectionPlan
     }
-  },
-  Issue756SetMutationPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      issue756S: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
-  JsonbIdentityMutationPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      json: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
-  JsonbIdentityMutationPlpgsqlPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      json: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
-  JsonbIdentityMutationPlpgsqlWithDefaultPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      json: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
-  JsonIdentityMutationPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      json: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
-  JwtToken: {
-    assertStep: assertPgClassSingleStep
   },
   LeftArm: {
     assertStep: assertPgClassSingleStep,
@@ -23602,8 +14153,8 @@ export const objects = {
         const specifier = nodeIdHandler_LeftArm.plan($parent);
         return lambda(specifier, nodeIdCodecs[nodeIdHandler_LeftArm.codec.name].encode);
       },
-      personByPersonId: ForeignKey_personByPersonIdPlan,
-      personId: ForeignKey_personIdPlan
+      personByPersonId: PersonSecret_personByPersonIdPlan,
+      personId: PersonSecret_personIdPlan
     },
     planType($specifier) {
       const spec = Object.create(null);
@@ -23683,266 +14234,10 @@ export const objects = {
       return resource_listsPgResource.get(spec);
     }
   },
-  ListBdeMutationPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      query: queryPlan,
-      uuids: planCustomMutationPayloadResult
-    }
-  },
-  ListOfCompoundTypesMutationPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      compoundTypes: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
   ListsConnection: {
     assertStep: ConnectionStep,
     plans: {
       totalCount: totalCountConnectionPlan
-    }
-  },
-  Mult1Payload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      integer: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
-  Mult2Payload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      integer: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
-  Mult3Payload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      integer: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
-  Mult4Payload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      integer: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
-  MutationCompoundTypeArrayPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      compoundTypes: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
-  MutationInInoutPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      ino: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
-  MutationInOutPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      o: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
-  MutationIntervalArrayPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      intervals: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
-  MutationIntervalSetPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      intervals: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
-  MutationOutComplexPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      query: queryPlan,
-      result: planCustomMutationPayloadResult
-    }
-  },
-  MutationOutComplexRecord: {
-    assertStep: assertPgClassSingleStep,
-    plans: {
-      y: PersonComputedComplexRecord_yPlan,
-      z: PersonComputedComplexRecord_zPlan
-    }
-  },
-  MutationOutComplexSetofPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      query: queryPlan,
-      results: planCustomMutationPayloadResult
-    }
-  },
-  MutationOutComplexSetofRecord: {
-    assertStep: assertPgClassSingleStep,
-    plans: {
-      y: PersonComputedComplexRecord_yPlan,
-      z: PersonComputedComplexRecord_zPlan
-    }
-  },
-  MutationOutOutCompoundTypePayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      query: queryPlan,
-      result: planCustomMutationPayloadResult
-    }
-  },
-  MutationOutOutCompoundTypeRecord: {
-    assertStep: assertPgClassSingleStep,
-    plans: {
-      o2: FuncOutOutCompoundTypeRecord_o2Plan
-    }
-  },
-  MutationOutOutPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      query: queryPlan,
-      result: planCustomMutationPayloadResult
-    }
-  },
-  MutationOutOutRecord: {
-    assertStep: assertPgClassSingleStep,
-    plans: {
-      firstOut: FuncOutOutRecord_firstOutPlan,
-      secondOut: FuncOutOutRecord_secondOutPlan
-    }
-  },
-  MutationOutOutSetofPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      query: queryPlan,
-      results: planCustomMutationPayloadResult
-    }
-  },
-  MutationOutOutSetofRecord: {
-    assertStep: assertPgClassSingleStep
-  },
-  MutationOutOutUnnamedPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      query: queryPlan,
-      result: planCustomMutationPayloadResult
-    }
-  },
-  MutationOutOutUnnamedRecord: {
-    assertStep: assertPgClassSingleStep,
-    plans: {
-      arg1: FuncOutOutUnnamedRecord_arg1Plan,
-      arg2: FuncOutOutUnnamedRecord_arg2Plan
-    }
-  },
-  MutationOutPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      o: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
-  MutationOutSetofPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      os: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
-  MutationOutTablePayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      person: planCustomMutationPayloadResult,
-      personEdge: MutationOutTablePayload_personEdgePlan,
-      query: queryPlan
-    }
-  },
-  MutationOutTableSetofPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      people: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
-  MutationOutUnnamedOutOutUnnamedPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      query: queryPlan,
-      result: planCustomMutationPayloadResult
-    }
-  },
-  MutationOutUnnamedOutOutUnnamedRecord: {
-    assertStep: assertPgClassSingleStep,
-    plans: {
-      arg1: FuncOutOutUnnamedRecord_arg1Plan,
-      arg3: FuncOutUnnamedOutOutUnnamedRecord_arg3Plan
-    }
-  },
-  MutationOutUnnamedPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      integer: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
-  MutationReturnsTableMultiColPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      query: queryPlan,
-      results: planCustomMutationPayloadResult
-    }
-  },
-  MutationReturnsTableMultiColRecord: {
-    assertStep: assertPgClassSingleStep
-  },
-  MutationReturnsTableOneColPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      col1S: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
-  MutationTextArrayPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      query: queryPlan,
-      strings: planCustomMutationPayloadResult
     }
   },
   MyTable: {
@@ -23988,14 +14283,6 @@ export const objects = {
       bazBuz($record) {
         return $record.get("baz_buz");
       }
-    }
-  },
-  NoArgsMutationPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      integer: planCustomMutationPayloadResult,
-      query: queryPlan
     }
   },
   NonUpdatableView: {
@@ -24124,44 +14411,8 @@ export const objects = {
           orderBy: applyOrderByArgToConnection
         }
       },
-      computedComplex($in, args, _info) {
-        const details = pgFunctionArgumentsFromArgs($in, makeArgs_person_computed_complex(args));
-        return resource_person_computed_complexPgResource.execute(details.selectArgs);
-      },
-      computedFirstArgInout($in, args, _info) {
-        const details = pgFunctionArgumentsFromArgs($in, makeArgs_compound_type_computed_field(args));
-        return resource_person_computed_first_arg_inoutPgResource.execute(details.selectArgs);
-      },
-      computedFirstArgInoutOut($in, args, _info) {
-        const details = pgFunctionArgumentsFromArgs($in, makeArgs_compound_type_computed_field(args));
-        return resource_person_computed_first_arg_inout_outPgResource.execute(details.selectArgs);
-      },
-      computedInout($in, args, _info) {
-        return scalarComputed(resource_person_computed_inoutPgResource, $in, makeArgs_person_computed_inout(args));
-      },
-      computedInoutOut($in, args, _info) {
-        const details = pgFunctionArgumentsFromArgs($in, makeArgs_person_computed_inout_out(args));
-        return resource_person_computed_inout_outPgResource.execute(details.selectArgs);
-      },
-      computedOut($in, args, _info) {
-        return scalarComputed(resource_person_computed_outPgResource, $in, makeArgs_compound_type_computed_field(args));
-      },
-      computedOutOut($in, args, _info) {
-        const details = pgFunctionArgumentsFromArgs($in, makeArgs_compound_type_computed_field(args));
-        return resource_person_computed_out_outPgResource.execute(details.selectArgs);
-      },
       createdAt($record) {
         return $record.get("created_at");
-      },
-      exists($in, args, _info) {
-        return scalarComputed(resource_person_existsPgResource, $in, makeArgs_person_exists(args));
-      },
-      firstName($in, args, _info) {
-        return scalarComputed(resource_person_first_namePgResource, $in, makeArgs_compound_type_computed_field(args));
-      },
-      firstPost($in, args, _info) {
-        const details = pgFunctionArgumentsFromArgs($in, makeArgs_compound_type_computed_field(args));
-        return resource_person_first_postPgResource.execute(details.selectArgs);
       },
       foreignKeysByPersonId: {
         plan($record) {
@@ -24177,20 +14428,6 @@ export const objects = {
           before: applyBeforeArg,
           after: applyAfterArg,
           condition: applyConditionArgToConnection,
-          orderBy: applyOrderByArgToConnection
-        }
-      },
-      friends: {
-        plan($parent, args, info) {
-          const $select = person_friends_getSelectPlanFromParentAndArgs($parent, args, info);
-          return connection($select);
-        },
-        args: {
-          first: applyFirstArg,
-          last: applyLastArg,
-          offset: applyOffsetArg,
-          before: applyBeforeArg,
-          after: applyAfterArg,
           orderBy: applyOrderByArgToConnection
         }
       },
@@ -24211,21 +14448,6 @@ export const objects = {
       nodeId($parent) {
         const specifier = nodeIdHandler_Person.plan($parent);
         return lambda(specifier, nodeIdCodecs[nodeIdHandler_Person.codec.name].encode);
-      },
-      optionalMissingMiddle1($in, args, _info) {
-        return scalarComputed(resource_person_optional_missing_middle_1PgResource, $in, makeArgs_person_optional_missing_middle_1(args));
-      },
-      optionalMissingMiddle2($in, args, _info) {
-        return scalarComputed(resource_person_optional_missing_middle_2PgResource, $in, makeArgs_person_optional_missing_middle_2(args));
-      },
-      optionalMissingMiddle3($in, args, _info) {
-        return scalarComputed(resource_person_optional_missing_middle_3PgResource, $in, makeArgs_person_optional_missing_middle_3(args));
-      },
-      optionalMissingMiddle4($in, args, _info) {
-        return scalarComputed(resource_person_optional_missing_middle_4PgResource, $in, makeArgs_person_optional_missing_middle_4(args));
-      },
-      optionalMissingMiddle5($in, args, _info) {
-        return scalarComputed(resource_person_optional_missing_middle_5PgResource, $in, makeArgs_person_optional_missing_middle_5(args));
       },
       personSecretByPersonId($record) {
         return resource_person_secretPgResource.get({
@@ -24255,27 +14477,6 @@ export const objects = {
         $select.getClassStep().setTrusted();
         return $select;
       },
-      typeFunction($in, args, _info) {
-        const details = pgFunctionArgumentsFromArgs($in, makeArgs_person_type_function(args));
-        return resource_person_type_functionPgResource.execute(details.selectArgs);
-      },
-      typeFunctionConnection: {
-        plan($parent, args, info) {
-          const $select = person_type_function_connection_getSelectPlanFromParentAndArgs($parent, args, info);
-          return connection($select);
-        },
-        args: {
-          first: applyFirstArg,
-          last: applyLastArg,
-          offset: applyOffsetArg,
-          before: applyBeforeArg,
-          after: applyAfterArg
-        }
-      },
-      typeFunctionList($in, args, _info) {
-        const details = pgFunctionArgumentsFromArgs($in, makeArgs_compound_type_computed_field(args));
-        return resource_person_type_function_listPgResource.execute(details.selectArgs);
-      },
       userMac($record) {
         return $record.get("user_mac");
       }
@@ -24288,30 +14489,6 @@ export const objects = {
       return resource_personPgResource.get(spec);
     }
   },
-  PersonComputedComplexRecord: {
-    assertStep: assertPgClassSingleStep,
-    plans: {
-      y: PersonComputedComplexRecord_yPlan,
-      z: PersonComputedComplexRecord_zPlan
-    }
-  },
-  PersonComputedFirstArgInoutOutRecord: {
-    assertStep: assertPgClassSingleStep,
-    plans: {
-      person($record) {
-        const $plan = $record.get("person");
-        const $select = pgSelectSingleFromRecord(resource_personPgResource, $plan);
-        $select.getClassStep().setTrusted();
-        return $select;
-      }
-    }
-  },
-  PersonComputedInoutOutRecord: {
-    assertStep: assertPgClassSingleStep
-  },
-  PersonComputedOutOutRecord: {
-    assertStep: assertPgClassSingleStep
-  },
   PersonSecret: {
     assertStep: assertPgClassSingleStep,
     plans: {
@@ -24319,8 +14496,8 @@ export const objects = {
         const specifier = nodeIdHandler_PersonSecret.plan($parent);
         return lambda(specifier, nodeIdCodecs[nodeIdHandler_PersonSecret.codec.name].encode);
       },
-      personByPersonId: ForeignKey_personByPersonIdPlan,
-      personId: ForeignKey_personIdPlan,
+      personByPersonId: PersonSecret_personByPersonIdPlan,
+      personId: PersonSecret_personIdPlan,
       secret($record) {
         return $record.get("sekrit");
       }
@@ -24350,44 +14527,6 @@ export const objects = {
         const $select = pgSelectFromRecords(resource_frmcdc_comptypePgResource, $val);
         $select.setTrusted();
         return $select;
-      },
-      computedCompoundTypeArray($in, args, _info) {
-        const details = pgFunctionArgumentsFromArgs($in, makeArgs_post_computed_compound_type_array(args));
-        return resource_post_computed_compound_type_arrayPgResource.execute(details.selectArgs);
-      },
-      computedIntervalArray($in, args, _info) {
-        return scalarComputed(resource_post_computed_interval_arrayPgResource, $in, makeArgs_compound_type_computed_field(args));
-      },
-      computedIntervalSet: {
-        plan($parent, args, info) {
-          const $select = post_computed_interval_set_getSelectPlanFromParentAndArgs($parent, args, info);
-          return connection($select);
-        },
-        args: {
-          first: applyFirstArg,
-          last: applyLastArg,
-          offset: applyOffsetArg,
-          before: applyBeforeArg,
-          after: applyAfterArg
-        }
-      },
-      computedTextArray($in, args, _info) {
-        return scalarComputed(resource_post_computed_text_arrayPgResource, $in, makeArgs_compound_type_computed_field(args));
-      },
-      computedWithOptionalArg($in, args, _info) {
-        return scalarComputed(resource_post_computed_with_optional_argPgResource, $in, makeArgs_post_computed_with_optional_arg(args));
-      },
-      computedWithRequiredArg($in, args, _info) {
-        return scalarComputed(resource_post_computed_with_required_argPgResource, $in, makeArgs_post_computed_with_required_arg(args));
-      },
-      headlineTrimmed($in, args, _info) {
-        return scalarComputed(resource_post_headline_trimmedPgResource, $in, makeArgs_post_headline_trimmed(args));
-      },
-      headlineTrimmedNoDefaults($in, args, _info) {
-        return scalarComputed(resource_post_headline_trimmed_no_defaultsPgResource, $in, makeArgs_post_headline_trimmed_no_defaults(args));
-      },
-      headlineTrimmedStrict($in, args, _info) {
-        return scalarComputed(resource_post_headline_trimmed_strictPgResource, $in, makeArgs_post_headline_trimmed_strict(args));
       },
       nodeId($parent) {
         const specifier = nodeIdHandler_Post.plan($parent);
@@ -24429,20 +14568,6 @@ export const objects = {
       return resource_postPgResource.get(spec);
     }
   },
-  PostComputedIntervalSetConnection: {
-    assertStep: ConnectionStep,
-    plans: {
-      totalCount: totalCountConnectionPlan
-    }
-  },
-  PostManyPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      posts: planCustomMutationPayloadResult,
-      query: queryPlan
-    }
-  },
   PostsConnection: {
     assertStep: ConnectionStep,
     plans: {
@@ -24457,29 +14582,6 @@ export const objects = {
       post: planCustomMutationPayloadResult,
       postEdge: PostWithSuffixPayload_postEdgePlan,
       query: queryPlan
-    }
-  },
-  QueryIntervalSetConnection: {
-    assertStep: ConnectionStep,
-    plans: {
-      totalCount: totalCountConnectionPlan
-    }
-  },
-  QueryOutputTwoRowsRecord: {
-    assertStep: assertPgClassSingleStep,
-    plans: {
-      leftArm($record) {
-        const $plan = $record.get("left_arm");
-        const $select = pgSelectSingleFromRecord(resource_left_armPgResource, $plan);
-        $select.getClassStep().setTrusted();
-        return $select;
-      },
-      post($record) {
-        const $plan = $record.get("post");
-        const $select = pgSelectSingleFromRecord(resource_postPgResource, $plan);
-        $select.getClassStep().setTrusted();
-        return $select;
-      }
     }
   },
   Reserved: {
@@ -24548,21 +14650,6 @@ export const objects = {
       totalCount: totalCountConnectionPlan
     }
   },
-  ReturnVoidMutationPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      query: queryPlan
-    }
-  },
-  SearchTestSummariesRecord: {
-    assertStep: assertPgClassSingleStep,
-    plans: {
-      totalDuration($record) {
-        return $record.get("total_duration");
-      }
-    }
-  },
   SimilarTable1: {
     assertStep: assertPgClassSingleStep,
     plans: {
@@ -24605,30 +14692,6 @@ export const objects = {
     assertStep: ConnectionStep,
     plans: {
       totalCount: totalCountConnectionPlan
-    }
-  },
-  StaticBigIntegerConnection: {
-    assertStep: ConnectionStep,
-    plans: {
-      totalCount: totalCountConnectionPlan
-    }
-  },
-  TableMutationPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      personByAuthorId: PostWithSuffixPayload_personByAuthorIdPlan,
-      post: planCustomMutationPayloadResult,
-      postEdge: PostWithSuffixPayload_postEdgePlan,
-      query: queryPlan
-    }
-  },
-  TableSetMutationPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      people: planCustomMutationPayloadResult,
-      query: queryPlan
     }
   },
   Testview: {
@@ -24715,45 +14778,10 @@ export const objects = {
       return resource_typesPgResource.get(spec);
     }
   },
-  TypeFunctionConnectionMutationPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      query: queryPlan,
-      types: planCustomMutationPayloadResult
-    }
-  },
-  TypeFunctionListMutationPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      query: queryPlan,
-      types: planCustomMutationPayloadResult
-    }
-  },
-  TypeFunctionMutationPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      postById: TypeFunctionMutationPayload_postByIdPlan,
-      postBySmallint: TypeFunctionMutationPayload_postBySmallintPlan,
-      query: queryPlan,
-      type: planCustomMutationPayloadResult,
-      typeEdge: TypeFunctionMutationPayload_typeEdgePlan
-    }
-  },
   TypesConnection: {
     assertStep: ConnectionStep,
     plans: {
       totalCount: totalCountConnectionPlan
-    }
-  },
-  TypesMutationPayload: {
-    assertStep: ObjectStep,
-    plans: {
-      boolean: planCustomMutationPayloadResult,
-      clientMutationId: getClientMutationIdForCustomMutationPlan,
-      query: queryPlan
     }
   },
   UniqueForeignKey: {
@@ -24821,7 +14849,7 @@ export const objects = {
     plans: {
       clientMutationId: getClientMutationIdForUpdateOrDeletePlan,
       issue756: planCreatePayloadResult,
-      issue756Edge: Issue756MutationPayload_issue756EdgePlan,
+      issue756Edge: CreateIssue756Payload_issue756EdgePlan,
       query: queryPlan
     }
   },
@@ -24884,7 +14912,7 @@ export const objects = {
     plans: {
       clientMutationId: getClientMutationIdForUpdateOrDeletePlan,
       person: planCreatePayloadResult,
-      personEdge: MutationOutTablePayload_personEdgePlan,
+      personEdge: CreatePersonPayload_personEdgePlan,
       query: queryPlan
     }
   },
@@ -24957,11 +14985,11 @@ export const objects = {
     assertStep: ObjectStep,
     plans: {
       clientMutationId: getClientMutationIdForUpdateOrDeletePlan,
-      postById: TypeFunctionMutationPayload_postByIdPlan,
-      postBySmallint: TypeFunctionMutationPayload_postBySmallintPlan,
+      postById: CreateTypePayload_postByIdPlan,
+      postBySmallint: CreateTypePayload_postBySmallintPlan,
       query: queryPlan,
       type: planCreatePayloadResult,
-      typeEdge: TypeFunctionMutationPayload_typeEdgePlan
+      typeEdge: CreateTypePayload_typeEdgePlan
     }
   },
   UpdateViewTablePayload: {
@@ -25019,51 +15047,6 @@ export const interfaces = {
   }
 };
 export const inputObjects = {
-  Add1MutationInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  Add2MutationInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  Add3MutationInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  Add4MutationErrorInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  Add4MutationInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  AuthenticateFailInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  AuthenticateInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  AuthenticateManyInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  AuthenticatePayloadInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
   CompoundKeyCondition: {
     plans: {
       extra($condition, val) {
@@ -25093,11 +15076,6 @@ export const inputObjects = {
       personId2: CompoundKeyInput_personId2Apply
     }
   },
-  CompoundTypeArrayMutationInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
   CompoundTypeInput: {
     baked: createObjectAndApplyChildren,
     plans: {
@@ -25121,16 +15099,6 @@ export const inputObjects = {
       g(obj, val, info) {
         obj.set("g", bakedInputRuntime(info.schema, info.field.type, val));
       }
-    }
-  },
-  CompoundTypeMutationInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  CompoundTypeSetMutationInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
     }
   },
   ComptypeInput: {
@@ -25565,11 +15533,6 @@ export const inputObjects = {
       personId: LeftArmBaseInput_personIdApply
     }
   },
-  GuidFnInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
   InputCondition: {
     plans: {
       id: PostCondition_idApply
@@ -25587,11 +15550,6 @@ export const inputObjects = {
       id: PostInput_idApply
     }
   },
-  IntSetMutationInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
   Issue756Condition: {
     plans: {
       id: PostCondition_idApply,
@@ -25607,41 +15565,11 @@ export const inputObjects = {
       ts: Issue756Input_tsApply
     }
   },
-  Issue756MutationInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
   Issue756Patch: {
     baked: createObjectAndApplyChildren,
     plans: {
       id: PostInput_idApply,
       ts: Issue756Input_tsApply
-    }
-  },
-  Issue756SetMutationInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  JsonbIdentityMutationInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  JsonbIdentityMutationPlpgsqlInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  JsonbIdentityMutationPlpgsqlWithDefaultInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  JsonIdentityMutationInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
     }
   },
   LeftArmBaseInput: {
@@ -25686,11 +15614,6 @@ export const inputObjects = {
       lengthInMetres: LeftArmBaseInput_lengthInMetresApply,
       mood: LeftArmBaseInput_moodApply,
       personId: LeftArmBaseInput_personIdApply
-    }
-  },
-  ListBdeMutationInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
     }
   },
   ListCondition: {
@@ -25744,11 +15667,6 @@ export const inputObjects = {
       timestamptzArrayNn: ListInput_timestamptzArrayNnApply
     }
   },
-  ListOfCompoundTypesMutationInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
   ListPatch: {
     baked: createObjectAndApplyChildren,
     plans: {
@@ -25765,126 +15683,6 @@ export const inputObjects = {
       intArrayNn: ListInput_intArrayNnApply,
       timestamptzArray: ListInput_timestamptzArrayApply,
       timestamptzArrayNn: ListInput_timestamptzArrayNnApply
-    }
-  },
-  Mult1Input: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  Mult2Input: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  Mult3Input: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  Mult4Input: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  MutationCompoundTypeArrayInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  MutationInInoutInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  MutationInOutInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  MutationIntervalArrayInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  MutationIntervalSetInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  MutationOutComplexInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  MutationOutComplexSetofInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  MutationOutInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  MutationOutOutCompoundTypeInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  MutationOutOutInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  MutationOutOutSetofInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  MutationOutOutUnnamedInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  MutationOutSetofInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  MutationOutTableInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  MutationOutTableSetofInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  MutationOutUnnamedInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  MutationOutUnnamedOutOutUnnamedInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  MutationReturnsTableMultiColInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  MutationReturnsTableOneColInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  MutationTextArrayInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
     }
   },
   MyTableCondition: {
@@ -25917,11 +15715,6 @@ export const inputObjects = {
       bazBuz(obj, val, info) {
         obj.set("baz_buz", bakedInputRuntime(info.schema, info.field.type, val));
       }
-    }
-  },
-  NoArgsMutationInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
     }
   },
   NonUpdatableViewCondition: {
@@ -26009,16 +15802,6 @@ export const inputObjects = {
       },
       aliases($condition, val) {
         return applyAttributeCondition("aliases", LIST_TYPES.text, $condition, val);
-      },
-      computedOut($condition, val) {
-        if (val === undefined) return;
-        if (typeof resource_person_computed_outPgResource.from !== "function") {
-          throw new Error("Invalid computed attribute 'from'");
-        }
-        const expression = sql`${resource_person_computed_outPgResource.from({
-          placeholder: $condition.alias
-        })}`;
-        $condition.where(val === null ? sql`${expression} is null` : sql`${expression} = ${sqlValueWithCodec(val, resource_person_computed_outPgResource.codec)}`);
       },
       config($condition, val) {
         return applyAttributeCondition("config", TYPES.hstore, $condition, val);
@@ -26112,16 +15895,6 @@ export const inputObjects = {
       comptypes($condition, val) {
         return applyAttributeCondition("comptypes", comptypeArrayCodec, $condition, val);
       },
-      computedWithOptionalArg($condition, val) {
-        if (val === undefined) return;
-        if (typeof resource_post_computed_with_optional_argPgResource.from !== "function") {
-          throw new Error("Invalid computed attribute 'from'");
-        }
-        const expression = sql`${resource_post_computed_with_optional_argPgResource.from({
-          placeholder: $condition.alias
-        })}`;
-        $condition.where(val === null ? sql`${expression} is null` : sql`${expression} = ${sqlValueWithCodec(val, resource_post_computed_with_optional_argPgResource.codec)}`);
-      },
       enums($condition, val) {
         return applyAttributeCondition("enums", anEnumArrayCodec, $condition, val);
       },
@@ -26140,11 +15913,6 @@ export const inputObjects = {
       enums: PostInput_enumsApply,
       headline: PostInput_headlineApply,
       id: PostInput_idApply
-    }
-  },
-  PostManyInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
     }
   },
   PostPatch: {
@@ -26214,11 +15982,6 @@ export const inputObjects = {
       id: PostInput_idApply
     }
   },
-  ReturnVoidMutationInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
   SimilarTable1Condition: {
     plans: {
       col1: SimilarTable1Condition_col1Apply,
@@ -26273,16 +16036,6 @@ export const inputObjects = {
       col4: SimilarTable2Input_col4Apply,
       col5: SimilarTable2Input_col5Apply,
       id: PostInput_idApply
-    }
-  },
-  TableMutationInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  TableSetMutationInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
     }
   },
   TestviewCondition: {
@@ -26363,10 +16116,10 @@ export const inputObjects = {
         return applyAttributeCondition("jsonpath", TYPES.jsonpath, $condition, val);
       },
       ltree($condition, val) {
-        return applyAttributeCondition("ltree", spec_types_attributes_ltree_codec_ltree, $condition, val);
+        return applyAttributeCondition("ltree", registryConfig_pgCodecs_ltree_ltree, $condition, val);
       },
       ltreeArray($condition, val) {
-        return applyAttributeCondition("ltree_array", spec_types_attributes_ltree_array_codec_ltree_, $condition, val);
+        return applyAttributeCondition("ltree_array", registryConfig_pgCodecs_ltree_ltree_, $condition, val);
       },
       macaddr($condition, val) {
         return applyAttributeCondition("macaddr", TYPES.macaddr, $condition, val);
@@ -26449,21 +16202,6 @@ export const inputObjects = {
       varchar($condition, val) {
         return applyAttributeCondition("varchar", TYPES.varchar, $condition, val);
       }
-    }
-  },
-  TypeFunctionConnectionMutationInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  TypeFunctionListMutationInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
-    }
-  },
-  TypeFunctionMutationInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
     }
   },
   TypeInput: {
@@ -26576,11 +16314,6 @@ export const inputObjects = {
       timestamptz: TypeInput_timestamptzApply,
       timetz: TypeInput_timetzApply,
       varchar: TypeInput_varcharApply
-    }
-  },
-  TypesMutationInput: {
-    plans: {
-      clientMutationId: applyClientMutationIdForCustomMutation
     }
   },
   UpdatableViewCondition: {
@@ -26976,11 +16709,6 @@ export const scalars = {
     parseValue: GraphQLString.parseValue,
     parseLiteral: GraphQLString.parseLiteral
   },
-  Guid: {
-    serialize: GraphQLString.serialize,
-    parseValue: GraphQLString.parseValue,
-    parseLiteral: GraphQLString.parseLiteral
-  },
   InternetAddress: {
     serialize: toString,
     parseValue: toString,
@@ -27323,8 +17051,8 @@ export const enums = {
   },
   DefaultValuesOrderBy: {
     values: {
-      ID_ASC: PeopleOrderBy_ID_ASCApply,
-      ID_DESC: PeopleOrderBy_ID_DESCApply,
+      ID_ASC: PostsOrderBy_ID_ASCApply,
+      ID_DESC: PostsOrderBy_ID_DESCApply,
       NULL_VALUE_ASC(queryBuilder) {
         queryBuilder.orderBy({
           attribute: "null_value",
@@ -27359,12 +17087,6 @@ export const enums = {
   },
   EdgeCasesOrderBy: {
     values: {
-      COMPUTED_ASC(queryBuilder) {
-        applyOrderByCustomField(resource_edge_case_computedPgResource, "asc", queryBuilder);
-      },
-      COMPUTED_DESC(queryBuilder) {
-        applyOrderByCustomField(resource_edge_case_computedPgResource, "desc", queryBuilder);
-      },
       NOT_NULL_HAS_DEFAULT_ASC(queryBuilder) {
         queryBuilder.orderBy({
           attribute: "not_null_has_default",
@@ -27465,8 +17187,8 @@ export const enums = {
   },
   InputsOrderBy: {
     values: {
-      ID_ASC: PeopleOrderBy_ID_ASCApply,
-      ID_DESC: PeopleOrderBy_ID_DESCApply,
+      ID_ASC: PostsOrderBy_ID_ASCApply,
+      ID_DESC: PostsOrderBy_ID_DESCApply,
       PRIMARY_KEY_ASC(queryBuilder) {
         inputsUniques[0].attributes.forEach(attributeName => {
           queryBuilder.orderBy({
@@ -27489,8 +17211,8 @@ export const enums = {
   },
   Issue756SOrderBy: {
     values: {
-      ID_ASC: PeopleOrderBy_ID_ASCApply,
-      ID_DESC: PeopleOrderBy_ID_DESCApply,
+      ID_ASC: PostsOrderBy_ID_ASCApply,
+      ID_DESC: PostsOrderBy_ID_DESCApply,
       PRIMARY_KEY_ASC(queryBuilder) {
         issue756Uniques[0].attributes.forEach(attributeName => {
           queryBuilder.orderBy({
@@ -27525,8 +17247,8 @@ export const enums = {
   },
   LeftArmsOrderBy: {
     values: {
-      ID_ASC: PeopleOrderBy_ID_ASCApply,
-      ID_DESC: PeopleOrderBy_ID_DESCApply,
+      ID_ASC: PostsOrderBy_ID_ASCApply,
+      ID_DESC: PostsOrderBy_ID_DESCApply,
       LENGTH_IN_METRES_ASC(queryBuilder) {
         queryBuilder.orderBy({
           attribute: "length_in_metres",
@@ -27575,8 +17297,8 @@ export const enums = {
   },
   ListsOrderBy: {
     values: {
-      ID_ASC: PeopleOrderBy_ID_ASCApply,
-      ID_DESC: PeopleOrderBy_ID_DESCApply,
+      ID_ASC: PostsOrderBy_ID_ASCApply,
+      ID_DESC: PostsOrderBy_ID_DESCApply,
       PRIMARY_KEY_ASC(queryBuilder) {
         listsUniques[0].attributes.forEach(attributeName => {
           queryBuilder.orderBy({
@@ -27599,8 +17321,8 @@ export const enums = {
   },
   MyTablesOrderBy: {
     values: {
-      ID_ASC: PeopleOrderBy_ID_ASCApply,
-      ID_DESC: PeopleOrderBy_ID_DESCApply,
+      ID_ASC: PostsOrderBy_ID_ASCApply,
+      ID_DESC: PostsOrderBy_ID_DESCApply,
       JSON_DATA_ASC(queryBuilder) {
         queryBuilder.orderBy({
           attribute: "json_data",
@@ -27651,8 +17373,8 @@ export const enums = {
   },
   NoPrimaryKeysOrderBy: {
     values: {
-      ID_ASC: PeopleOrderBy_ID_ASCApply,
-      ID_DESC: PeopleOrderBy_ID_DESCApply,
+      ID_ASC: PostsOrderBy_ID_ASCApply,
+      ID_DESC: PostsOrderBy_ID_DESCApply,
       STR_ASC(queryBuilder) {
         queryBuilder.orderBy({
           attribute: "str",
@@ -27669,8 +17391,8 @@ export const enums = {
   },
   NullTestRecordsOrderBy: {
     values: {
-      ID_ASC: PeopleOrderBy_ID_ASCApply,
-      ID_DESC: PeopleOrderBy_ID_DESCApply,
+      ID_ASC: PostsOrderBy_ID_ASCApply,
+      ID_DESC: PostsOrderBy_ID_DESCApply,
       NON_NULL_TEXT_ASC(queryBuilder) {
         queryBuilder.orderBy({
           attribute: "non_null_text",
@@ -27729,8 +17451,8 @@ export const enums = {
   },
   PatchesOrderBy: {
     values: {
-      ID_ASC: PeopleOrderBy_ID_ASCApply,
-      ID_DESC: PeopleOrderBy_ID_DESCApply,
+      ID_ASC: PostsOrderBy_ID_ASCApply,
+      ID_DESC: PostsOrderBy_ID_DESCApply,
       PRIMARY_KEY_ASC(queryBuilder) {
         patchsUniques[0].attributes.forEach(attributeName => {
           queryBuilder.orderBy({
@@ -27764,12 +17486,6 @@ export const enums = {
           attribute: "about",
           direction: "DESC"
         });
-      },
-      COMPUTED_OUT_ASC(queryBuilder) {
-        applyOrderByCustomField(resource_person_computed_outPgResource, "asc", queryBuilder);
-      },
-      COMPUTED_OUT_DESC(queryBuilder) {
-        applyOrderByCustomField(resource_person_computed_outPgResource, "desc", queryBuilder);
       },
       CONFIG_ASC(queryBuilder) {
         queryBuilder.orderBy({
@@ -27809,14 +17525,8 @@ export const enums = {
         });
         queryBuilder.setOrderIsUnique();
       },
-      FIRST_NAME_ASC(queryBuilder) {
-        applyOrderByCustomField(resource_person_first_namePgResource, "asc", queryBuilder);
-      },
-      FIRST_NAME_DESC(queryBuilder) {
-        applyOrderByCustomField(resource_person_first_namePgResource, "desc", queryBuilder);
-      },
-      ID_ASC: PeopleOrderBy_ID_ASCApply,
-      ID_DESC: PeopleOrderBy_ID_DESCApply,
+      ID_ASC: PostsOrderBy_ID_ASCApply,
+      ID_DESC: PostsOrderBy_ID_DESCApply,
       LAST_LOGIN_FROM_IP_ASC(queryBuilder) {
         queryBuilder.orderBy({
           attribute: "last_login_from_ip",
@@ -27959,12 +17669,6 @@ export const enums = {
           direction: "DESC"
         });
       },
-      COMPUTED_WITH_OPTIONAL_ARG_ASC(queryBuilder) {
-        applyOrderByCustomField(resource_post_computed_with_optional_argPgResource, "asc", queryBuilder);
-      },
-      COMPUTED_WITH_OPTIONAL_ARG_DESC(queryBuilder) {
-        applyOrderByCustomField(resource_post_computed_with_optional_argPgResource, "desc", queryBuilder);
-      },
       HEADLINE_ASC(queryBuilder) {
         queryBuilder.orderBy({
           attribute: "headline",
@@ -27977,8 +17681,8 @@ export const enums = {
           direction: "DESC"
         });
       },
-      ID_ASC: PeopleOrderBy_ID_ASCApply,
-      ID_DESC: PeopleOrderBy_ID_DESCApply,
+      ID_ASC: PostsOrderBy_ID_ASCApply,
+      ID_DESC: PostsOrderBy_ID_DESCApply,
       PRIMARY_KEY_ASC(queryBuilder) {
         postUniques[0].attributes.forEach(attributeName => {
           queryBuilder.orderBy({
@@ -28001,8 +17705,8 @@ export const enums = {
   },
   ReservedInputRecordsOrderBy: {
     values: {
-      ID_ASC: PeopleOrderBy_ID_ASCApply,
-      ID_DESC: PeopleOrderBy_ID_DESCApply,
+      ID_ASC: PostsOrderBy_ID_ASCApply,
+      ID_DESC: PostsOrderBy_ID_DESCApply,
       PRIMARY_KEY_ASC(queryBuilder) {
         reserved_inputUniques[0].attributes.forEach(attributeName => {
           queryBuilder.orderBy({
@@ -28025,8 +17729,8 @@ export const enums = {
   },
   ReservedPatchRecordsOrderBy: {
     values: {
-      ID_ASC: PeopleOrderBy_ID_ASCApply,
-      ID_DESC: PeopleOrderBy_ID_DESCApply,
+      ID_ASC: PostsOrderBy_ID_ASCApply,
+      ID_DESC: PostsOrderBy_ID_DESCApply,
       PRIMARY_KEY_ASC(queryBuilder) {
         reservedPatchsUniques[0].attributes.forEach(attributeName => {
           queryBuilder.orderBy({
@@ -28049,8 +17753,8 @@ export const enums = {
   },
   ReservedsOrderBy: {
     values: {
-      ID_ASC: PeopleOrderBy_ID_ASCApply,
-      ID_DESC: PeopleOrderBy_ID_DESCApply,
+      ID_ASC: PostsOrderBy_ID_ASCApply,
+      ID_DESC: PostsOrderBy_ID_DESCApply,
       PRIMARY_KEY_ASC(queryBuilder) {
         reservedUniques[0].attributes.forEach(attributeName => {
           queryBuilder.orderBy({
@@ -28079,8 +17783,8 @@ export const enums = {
       COL2_DESC: SimilarTable1SOrderBy_COL2_DESCApply,
       COL3_ASC: SimilarTable1SOrderBy_COL3_ASCApply,
       COL3_DESC: SimilarTable1SOrderBy_COL3_DESCApply,
-      ID_ASC: PeopleOrderBy_ID_ASCApply,
-      ID_DESC: PeopleOrderBy_ID_DESCApply,
+      ID_ASC: PostsOrderBy_ID_ASCApply,
+      ID_DESC: PostsOrderBy_ID_DESCApply,
       PRIMARY_KEY_ASC(queryBuilder) {
         similar_table_1Uniques[0].attributes.forEach(attributeName => {
           queryBuilder.orderBy({
@@ -28129,8 +17833,8 @@ export const enums = {
           direction: "DESC"
         });
       },
-      ID_ASC: PeopleOrderBy_ID_ASCApply,
-      ID_DESC: PeopleOrderBy_ID_DESCApply,
+      ID_ASC: PostsOrderBy_ID_ASCApply,
+      ID_DESC: PostsOrderBy_ID_DESCApply,
       PRIMARY_KEY_ASC(queryBuilder) {
         similar_table_2Uniques[0].attributes.forEach(attributeName => {
           queryBuilder.orderBy({
@@ -28281,8 +17985,8 @@ export const enums = {
           direction: "DESC"
         });
       },
-      ID_ASC: PeopleOrderBy_ID_ASCApply,
-      ID_DESC: PeopleOrderBy_ID_DESCApply,
+      ID_ASC: PostsOrderBy_ID_ASCApply,
+      ID_DESC: PostsOrderBy_ID_DESCApply,
       INET_ASC(queryBuilder) {
         queryBuilder.orderBy({
           attribute: "inet",
@@ -28711,8 +18415,8 @@ export const enums = {
       COL1_DESC: SimilarTable1SOrderBy_COL1_DESCApply,
       COL2_ASC: SimilarTable1SOrderBy_COL2_ASCApply,
       COL2_DESC: SimilarTable1SOrderBy_COL2_DESCApply,
-      ID_ASC: PeopleOrderBy_ID_ASCApply,
-      ID_DESC: PeopleOrderBy_ID_DESCApply,
+      ID_ASC: PostsOrderBy_ID_ASCApply,
+      ID_DESC: PostsOrderBy_ID_DESCApply,
       PRIMARY_KEY_ASC(queryBuilder) {
         view_tableUniques[0].attributes.forEach(attributeName => {
           queryBuilder.orderBy({
