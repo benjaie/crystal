@@ -81,6 +81,10 @@ PostGraphile uses multipass introspection by default to fetch the configured
 schemas and their relevant dependencies. Set `multipass` to `false` to use
 single-pass introspection.
 
+When `PgRBACPlugin` is disabled (including by the v4 `ignoreRBAC` option),
+multipass introspection includes resources regardless of the introspection
+role's privileges.
+
 Multipass introspection produces a filtered view of the database. For example,
 a table's introspected constraints do not necessarily include every constraint
 in PostgreSQL.

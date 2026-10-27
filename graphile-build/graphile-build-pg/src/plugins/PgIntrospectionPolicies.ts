@@ -98,7 +98,6 @@ const notExtension = (catalog: string, oid: string) =>
   `not exists (select 1 from pg_catalog.pg_depend d where d.classid = 'pg_catalog.${catalog}'::regclass and d.objid = ${oid} and d.refclassid = 'pg_catalog.pg_extension'::regclass and d.deptype = 'e')`;
 
 export const postgraphileMultipass: MultipassOptions = {
-  onlyAccessible: { includeNoInherit: true },
   policies,
   filters: {
     classes: notExtension("pg_class", "pg_class.oid"),

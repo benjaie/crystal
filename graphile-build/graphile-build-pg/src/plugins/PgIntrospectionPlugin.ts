@@ -174,6 +174,10 @@ declare global {
     }
 
     interface GatherHooks {
+      pgIntrospection_options(event: {
+        serviceName: string;
+        options: IntrospectOptions<DefaultEntities>;
+      }): PromiseOrDirect<void>;
       pgIntrospection_introspection(event: {
         introspection: Introspection;
         serviceName: string;
@@ -887,8 +891,12 @@ function introspectPgServices(
         multipass:
           info.resolvedPreset.gather?.pgIntrospection?.multipass === false
             ? false
-            : postgraphileMultipass,
+            : { ...postgraphileMultipass },
       };
+      await info.process("pgIntrospection_options", {
+        serviceName: name,
+        options,
+      });
 
       // Do the introspection
       const introspectionData = await withPgClientFromPgService(
