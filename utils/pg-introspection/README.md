@@ -65,6 +65,65 @@ async function main() {
 main();
 ```
 
+## Multipass introspection
+
+`introspect` and `introspectRaw` accept an optional `multipass` configuration.
+When enabled, `schemas` selects the initial schemas, and `onlyAccessible`
+restricts initial resources to those accessible to a role. The role defaults to
+the current database role. Set `includeNoInherit` to include roles reachable
+through memberships that do not inherit privileges.
+
+Consumers supply relationship `policies` to discover additional objects. A
+policy receives a raw source row and returns requests with a target collection
+and a `match` object containing catalog column values. A request with
+`follow: true` also applies policies to the target; otherwise it is terminal.
+For example:
+
+```ts
+import { defineIntrospectionPolicy, introspectRaw } from "pg-introspection";
+import { Pool } from "pg";
+
+const client = new Pool({
+  connectionString: "postgres://localhost/my_database",
+});
+
+const returnTypes = defineIntrospectionPolicy({
+  entity: "procs",
+  select(proc) {
+    return [
+      {
+        entity: "types",
+        match: { _id: proc.prorettype },
+        follow: true,
+      },
+    ];
+  },
+});
+
+const data = await introspectRaw(
+  {
+    schemas: ["app_public"],
+    multipass: { onlyAccessible: {}, policies: [returnTypes] },
+  },
+  async (text, values) => {
+    const { rows } = await client.query({ text, values });
+    return rows[0].introspection;
+  },
+);
+console.log(data.procs.length);
+await client.end();
+```
+
+There are no default relationship policies. `onlyEntities` limits both returned
+collections and the collections that policies can follow. Multipass results are
+a filtered representation of the database: for example, the constraints of a
+table contain only those fetched and retained, not necessarily every database
+constraint. Optional consumer-supplied filters and pruning can further restrict
+the result. Filters are trusted SQL predicates keyed by collection; do not
+construct them from untrusted input. A `prune` callback receives the raw result
+and removes unwanted objects. It is called until no further objects are removed,
+so it must not add objects.
+
 ## Accessors
 
 Into the introspection results we mix "accessor" functions to make following

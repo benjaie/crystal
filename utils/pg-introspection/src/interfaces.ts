@@ -30,12 +30,51 @@ import type {
 
 export type DefaultEntities = (typeof defaultEntities)[number];
 
+/** A parameterized equality selector for a catalog collection. */
+export interface IntrospectionRequest {
+  entity: EntityType;
+  match: Record<string, string | number>;
+  follow?: boolean;
+}
+
+/** Rules are applied to raw catalog rows during multipass discovery. */
+export interface IntrospectionPolicy {
+  entity: EntityType;
+  select: (
+    row: any,
+    data: Readonly<Partial<IntrospectionData>>,
+  ) => readonly IntrospectionRequest[] | undefined;
+}
+
+/** Infer a policy's row type from its source collection. */
+export function defineIntrospectionPolicy<T extends EntityType>(policy: {
+  entity: T;
+  select: (
+    row: IntrospectionData[T] extends readonly (infer R)[]
+      ? R
+      : IntrospectionData[T],
+    data: Readonly<Partial<IntrospectionData>>,
+  ) => readonly IntrospectionRequest[] | undefined;
+}): IntrospectionPolicy {
+  return policy as IntrospectionPolicy;
+}
+
+export interface MultipassOptions {
+  onlyAccessible?: { role?: string; includeNoInherit?: boolean };
+  policies?: readonly IntrospectionPolicy[];
+  /** Additional trusted SQL predicates, keyed by collection. */
+  filters?: Partial<Record<EntityType, string>>;
+  /** Mutate the discovered data to remove unwanted or incomplete objects. */
+  prune?: (data: Partial<IntrospectionData>) => void;
+}
+
 export interface IntrospectOptions<
   TEntities extends EntityType = DefaultEntities,
 > {
   onlyEntities?: TEntities[];
   schemas?: string[];
   includeExtensionResources?: boolean;
+  multipass?: false | MultipassOptions;
 }
 
 export type IntrospectionDataForEntities<

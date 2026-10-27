@@ -2,7 +2,10 @@ import type {
   DefaultEntities,
   Introspection,
   IntrospectionDataForEntities,
+  IntrospectionPolicy,
+  IntrospectionRequest,
   IntrospectOptions,
+  MultipassOptions,
   PgAttribute,
   PgAuthMembers,
   PgClass,
@@ -23,7 +26,8 @@ import type {
   PgRoles,
   PgType,
 } from "./interfaces.ts";
-export { introspect, introspectRaw } from "./incremental.ts";
+export { defineIntrospectionPolicy } from "./interfaces.ts";
+export { introspect, introspectRaw } from "./multipass.ts";
 import type { AclObject } from "./acl.ts";
 import {
   aclContainsRole,
@@ -60,7 +64,10 @@ export type {
   DefaultEntities,
   Introspection,
   IntrospectionDataForEntities,
+  IntrospectionPolicy,
+  IntrospectionRequest,
   IntrospectOptions,
+  MultipassOptions,
   PgAttribute,
   PgAuthMembers,
   PgClass,
