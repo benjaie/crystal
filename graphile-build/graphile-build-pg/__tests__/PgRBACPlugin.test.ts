@@ -1,7 +1,8 @@
+import type {} from "../dist/plugins/PgIntrospectionPlugin.js";
 import { PgRBACPlugin } from "../src/plugins/PgRBACPlugin.ts";
 
 const hook = PgRBACPlugin.gather?.hooks?.pgIntrospection_options;
-if (!hook) {
+if (typeof hook !== "function") {
   throw new Error("PgRBACPlugin introspection options hook is not defined");
 }
 

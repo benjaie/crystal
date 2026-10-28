@@ -66,10 +66,8 @@ function entrypointQuery<TEntities extends EntityType>(
   const overrides: Record<string, string> = {};
   const output = new Set<EntityType>(options.onlyEntities ?? defaultEntities);
   const ctes = new Set(output);
-  // Some generated predicates reference a CTE without listing it in requires.
+  // Permission-filtered constraints must belong to an accessible class.
   const implicitRequirements: Partial<Record<EntityType, EntityType[]>> = {
-    attribute_defaults: ["attributes"],
-    stat_user_tables: ["classes"],
     ...(multipass.onlyAccessible ? { constraints: ["classes"] } : {}),
   };
   const addRequirements = (entity: EntityType) => {
@@ -111,7 +109,7 @@ function entrypointQuery<TEntities extends EntityType>(
       ? `${column} in (select _id from namespaces)`
       : `${column} in (select _id from namespaces where nspname <> 'information_schema' and nspname not like 'pg\\_%')`;
   overrides.classes = namespace("relnamespace");
-  overrides.procs = `${namespace("pronamespace")} and prorettype operator(pg_catalog.<>) 2279`;
+  overrides.procs = namespace("pronamespace");
   overrides.types = namespace("typnamespace");
   if (ctes.has("classes")) {
     overrides.constraints = "conrelid in (select _id from classes)";
@@ -148,6 +146,7 @@ function entrypointQuery<TEntities extends EntityType>(
 function makeFetchQuery(
   requests: readonly IntrospectionRequest[],
   filters: Partial<Record<EntityType, string>> | undefined,
+  selected: ReadonlySet<EntityType>,
 ) {
   const groups = new Map<EntityType, IntrospectionRequest[]>();
   for (const request of requests) {
@@ -162,7 +161,6 @@ function makeFetchQuery(
   const invariantFilters: Partial<Record<EntityType, string>> = {
     database: "datname = current_database()",
     attributes: "attnum > 0",
-    procs: "prorettype operator(pg_catalog.<>) 2279",
   };
   const effectiveFilters = { ...filters };
   for (const entity of groups.keys()) {
@@ -220,6 +218,8 @@ function makeFetchQuery(
       "",
       false,
       false,
+      undefined,
+      selected.has("triggers"),
     ),
     values,
   };
@@ -361,7 +361,7 @@ export async function introspectRaw<
       const key = selectorKey(request);
       requested.add(key);
     }
-    const fetch = makeFetchQuery(requests, filters);
+    const fetch = makeFetchQuery(requests, filters, selected);
     const fetched: Record<string, Row[] | Row | null> = JSON.parse(
       await runQuery(fetch.text, fetch.values),
     );

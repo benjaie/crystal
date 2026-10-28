@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { it } from "node:test";
 
+import type { IntrospectionRequest } from "../dist/index.js";
 import { introspectRaw } from "../src/multipass.ts";
 
 const metadata = {
@@ -21,7 +22,7 @@ it("expands terminal objects reached later, deduplicates requests and terminates
         policies: [
           {
             entity: "types",
-            select(row) {
+            select(row): IntrospectionRequest[] {
               expanded.push(row._id);
               if (row._id === "1")
                 return [
@@ -82,7 +83,7 @@ it("promotes a previously terminal collection without fetching it again", async 
         policies: [
           {
             entity: "classes",
-            select(row) {
+            select(row): IntrospectionRequest[] {
               if (row._id === "1")
                 return [
                   { entity: "attributes", match: { attrelid: "2" } },

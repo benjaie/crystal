@@ -1,8 +1,9 @@
+import type {} from "../dist/plugins/PgIntrospectionPlugin.js";
 import { PgFakeConstraintsPlugin } from "../src/plugins/PgFakeConstraintsPlugin.ts";
 
 const hook =
   PgFakeConstraintsPlugin.gather?.hooks?.pgIntrospection_introspection;
-if (!hook) {
+if (typeof hook !== "function") {
   throw new Error("PgFakeConstraintsPlugin introspection hook is not defined");
 }
 

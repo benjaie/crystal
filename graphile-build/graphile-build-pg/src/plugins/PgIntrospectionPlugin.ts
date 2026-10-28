@@ -302,7 +302,7 @@ function makeGetEntity<
       "_id" in entity
         ? entity._id === id
         : "indexrelid" in entity
-          ? entity.indexrelid
+          ? entity.indexrelid === id
           : false,
     );
   };

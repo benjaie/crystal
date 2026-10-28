@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { it } from "node:test";
 
+import { introspectRaw } from "../dist/index.js";
 import { makeIntrospectionQuery } from "../dist/query.js";
 
 it("generates a metadata-only query for an empty entity selection", () => {
@@ -56,6 +57,19 @@ it("executes edge-case selections against PostgreSQL", async () => {
     await client.query(
       `create function ${schema}.trigger_fn() returns trigger language plpgsql as $$ begin return new; end $$`,
     );
+    await client.query(
+      `create function ${schema}.starter_fn() returns int language sql as $$ select 1 $$`,
+    );
+    const otherSchema = `${schema}_other`;
+    await client.query(`create schema ${otherSchema}`);
+    await client.query(
+      `create function ${otherSchema}.remote_trigger_fn() returns trigger language plpgsql as $$ begin return new; end $$`,
+    );
+    const {
+      rows: [{ id: remoteTriggerId }],
+    } = await client.query<{ id: string }>(
+      `select '${otherSchema}.remote_trigger_fn()'::regprocedure::oid::text as id`,
+    );
     async function run(
       onlyEntities: NonNullable<
         Parameters<typeof makeIntrospectionQuery>[0]
@@ -93,6 +107,68 @@ it("executes edge-case selections against PostgreSQL", async () => {
         (proc: { proname: string }) => proc.proname === "trigger_fn",
       ),
       true,
+    );
+    const multipassWithTriggers = await introspectRaw(
+      {
+        schemas: [schema],
+        onlyEntities: ["namespaces", "classes", "procs", "triggers"],
+        multipass: {
+          policies: [
+            {
+              entity: "procs",
+              select(proc) {
+                return proc.proname === "trigger_fn"
+                  ? [{ entity: "procs", match: { _id: remoteTriggerId } }]
+                  : [];
+              },
+            },
+          ],
+        },
+      },
+      async (text, values) =>
+        (await client.query(text, values)).rows[0].introspection,
+    );
+    assert.equal(
+      multipassWithTriggers.procs.some((proc) => proc.proname === "trigger_fn"),
+      true,
+    );
+    assert.equal(
+      multipassWithTriggers.procs.some(
+        (proc) => proc.proname === "remote_trigger_fn",
+      ),
+      true,
+    );
+    const multipassWithoutTriggers = await introspectRaw(
+      {
+        schemas: [schema],
+        onlyEntities: ["namespaces", "procs"],
+        multipass: {
+          policies: [
+            {
+              entity: "procs",
+              select(proc) {
+                return proc.proname === "starter_fn"
+                  ? [{ entity: "procs", match: { _id: remoteTriggerId } }]
+                  : [];
+              },
+            },
+          ],
+        },
+      },
+      async (text, values) =>
+        (await client.query(text, values)).rows[0].introspection,
+    );
+    assert.equal(
+      multipassWithoutTriggers.procs.some(
+        (proc) => proc.proname === "trigger_fn",
+      ),
+      false,
+    );
+    assert.equal(
+      multipassWithoutTriggers.procs.some(
+        (proc) => proc.proname === "remote_trigger_fn",
+      ),
+      false,
     );
     await run([
       "namespaces",

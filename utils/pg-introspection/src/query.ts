@@ -39,6 +39,7 @@ export function buildIntrospectionQuery(
   metadata = true,
   validateRequires = true,
   outputEntities?: ReadonlySet<string>,
+  includeTriggerFunctions?: boolean,
 ) {
   const onlyEntities = rawOptions.onlyEntities ?? [...defaultEntities];
   const options: Required<Options> = {
@@ -78,7 +79,10 @@ export function buildIntrospectionQuery(
         : entityType.where);
     if (baseWhere != null) wheres.push(baseWhere);
 
-    if (alias === "procs" && !onlyEntities.includes("triggers")) {
+    if (
+      alias === "procs" &&
+      !(includeTriggerFunctions ?? onlyEntities.includes("triggers"))
+    ) {
       // Exclude triggers
       wheres.push("prorettype operator(pg_catalog.<>) 2279");
     }

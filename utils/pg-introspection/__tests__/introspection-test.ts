@@ -3,6 +3,7 @@ import { it } from "node:test";
 
 import { expandRoles } from "../dist/acl.js";
 import { augmentIntrospectionData } from "../dist/augmentIntrospection.js";
+import type { DefaultEntities } from "../dist/index.js";
 import { parseIntrospectionResults } from "../dist/index.js";
 import { rawIntrospectionResults } from "./rawIntrospectionResults.mts";
 
@@ -138,7 +139,7 @@ it("rejects introspection data that has already been augmented", () => {
   const data = structuredClone(rawIntrospectionResults);
   const result = augmentIntrospectionData({}, data);
   assert.throws(
-    () => augmentIntrospectionData({}, result),
+    () => augmentIntrospectionData<DefaultEntities>({}, result),
     /should not be augmented twice/,
   );
   const namespace = result.getNamespace({ name: "public" });
@@ -155,9 +156,18 @@ it("throws when an index refers to a missing required attribute", () => {
       current_user: source.current_user,
       pg_version: source.pg_version,
       introspection_version: source.introspection_version,
-      classes: [{ _id: "1", relnamespace: "1", relname: "example" }],
+      classes: [
+        {
+          ...source.classes[0],
+          _id: "1",
+          relnamespace: "1",
+          relname: "example",
+        },
+      ],
       attributes: [],
-      indexes: [{ indexrelid: "2", indrelid: "1", indkey: [1] }],
+      indexes: [
+        { ...source.indexes[0], indexrelid: "2", indrelid: "1", indkey: [1] },
+      ],
     },
   );
   assert.throws(() => result.indexes[0].getKeys(), /Could not find attribute/);
