@@ -517,13 +517,11 @@ const personCodec = recordCodec({
     id: {
       codec: TYPES.int,
       notNull: true,
-      hasDefault: true,
-      description: "The primary unique identifier for the person"
+      hasDefault: true
     },
     person_full_name: {
       codec: TYPES.varchar,
-      notNull: true,
-      description: "The person\u2019s name"
+      notNull: true
     },
     aliases: {
       codec: LIST_TYPES.text,
@@ -985,8 +983,7 @@ const updatableViewCodec = recordCodec({
       codec: TYPES.text
     },
     constant: {
-      codec: TYPES.int,
-      description: "This is constantly 2"
+      codec: TYPES.int
     }
   },
   extensions: {},
@@ -1044,8 +1041,7 @@ const personSecretCodec = recordCodec({
       notNull: true
     },
     sekrit: {
-      codec: TYPES.text,
-      description: "A secret held by the associated Person"
+      codec: TYPES.text
     }
   },
   extensions: {},
@@ -4591,7 +4587,8 @@ const registry = makeRegistry({
       codec: registryConfig_pgCodecs_QueryOutputTwoRowsRecord_QueryOutputTwoRowsRecord,
       hasImplicitOrder: false,
       extensions: {},
-      isUnique: true
+      isUnique: true,
+      description: "Tests outputting two rows using in/out/inout parameters"
     },
     read_pg_settings: {
       executor: executor,
