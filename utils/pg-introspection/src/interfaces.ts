@@ -23,15 +23,6 @@ import type {
 
 export type DefaultEntities = (typeof defaultEntities)[number];
 
-declare global {
-  namespace PgIntrospection {
-    interface PurposeRegistry {
-      initial: true;
-    }
-    type Purpose = keyof PurposeRegistry;
-  }
-}
-
 export type PurposeList = readonly [
   PgIntrospection.Purpose,
   ...PgIntrospection.Purpose[],

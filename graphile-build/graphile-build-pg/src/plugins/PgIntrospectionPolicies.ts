@@ -25,7 +25,7 @@ declare global {
       smartTagsAndDescriptions: true;
       /** Exclude extension-owned resources and identify automatic dependencies. */
       filterExtensionResources: true;
-      /** Detect and build codecs from tables or unique constraints tagged @enum. */
+      /** Detect and build codecs from tables or unique constraints tagged `@enum`. */
       enumTables: true;
     }
   }

@@ -4,7 +4,6 @@ import type {
   IntrospectionDataForEntities,
   IntrospectionPolicy,
   IntrospectionPolicyDetails,
-  PurposeList,
   IntrospectionRequest,
   IntrospectOptions,
   MultipassOptions,
@@ -27,6 +26,7 @@ import type {
   PgRange,
   PgRoles,
   PgType,
+  PurposeList,
 } from "./interfaces.ts";
 export { defineIntrospectionPolicy } from "./interfaces.ts";
 export { introspect, introspectRaw } from "./multipass.ts";
@@ -68,7 +68,6 @@ export type {
   IntrospectionDataForEntities,
   IntrospectionPolicy,
   IntrospectionPolicyDetails,
-  PurposeList,
   IntrospectionRequest,
   IntrospectOptions,
   MultipassOptions,
@@ -91,6 +90,7 @@ export type {
   PgRange,
   PgRoles,
   PgType,
+  PurposeList,
 };
 
 export type { AclObject };
@@ -105,3 +105,12 @@ export function parseIntrospectionResults(
 }
 
 export type { PgSmartTagsAndDescription, PgSmartTagsDict };
+
+declare global {
+  namespace PgIntrospection {
+    interface PurposeRegistry {
+      initial: true;
+    }
+    type Purpose = keyof PurposeRegistry;
+  }
+}
