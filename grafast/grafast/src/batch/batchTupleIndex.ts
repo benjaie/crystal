@@ -5,17 +5,6 @@ export type BatchTupleIndex<T> = Map<unknown, T | BatchTupleIndex<T>>;
 
 const $$terminal = Symbol("end of batch tuple");
 
-export function internBatchTuple<TTuple extends readonly unknown[]>(
-  index: BatchTupleIndex<TTuple>,
-  tuple: TTuple,
-): TTuple {
-  return internBatchTupleEntry(index, tuple, identity, identity);
-}
-
-function identity<T>(value: T): T {
-  return value;
-}
-
 export function internBatchTupleEntry<
   TTuple extends readonly unknown[],
   TEntry,

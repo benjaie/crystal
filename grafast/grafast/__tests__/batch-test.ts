@@ -279,6 +279,78 @@ it("matches POJO options shallowly and ignores property order", async () => {
   expect(results).to.deep.equal([[1], [2], [3], [4]]);
 });
 
+it("splits matching option prefixes without reading other suffixes", async () => {
+  const schema = makeSchema();
+  const meta = {};
+  const first = () => "first";
+  const second = () => "second";
+  const calls: [string, number, readonly number[]][] = [];
+  type Options = { load: typeof first; params: { limit: number } };
+  const executor = {
+    name: "loaders",
+    keysetEquality: "strict",
+    callback: (options: Options, keys: readonly number[]) => {
+      if (options.load() !== "new") {
+        calls.push([options.load(), options.params.limit, keys]);
+      }
+      return keys;
+    },
+    optionsMatch: { load: "strict", params: "record" },
+  } as const;
+  const batch = (load: Options["load"], limit: number, key: number) =>
+    batchInMeta(schema, meta, executor, [key], { load, params: { limit } });
+  const results = await Promise.all([
+    batch(first, 1, 1),
+    batch(second, 1, 1),
+    batch(second, 2, 1),
+    batch(second, 1, 2),
+    batch(first, 2, 1),
+    batch(first, 1, 2),
+  ]);
+  expect(calls).to.deep.equal([
+    ["first", 1, [1, 2]],
+    ["second", 1, [1, 2]],
+    ["second", 2, [1]],
+    ["first", 2, [1]],
+  ]);
+  expect(results).to.deep.equal([[1], [1], [1], [2], [1], [2]]);
+
+  const unreadSuffix = () => "new";
+  expect(
+    await batchInMeta(schema, meta, executor, [3], {
+      load: unreadSuffix,
+      get params(): Options["params"] {
+        throw new Error("Should not read the suffix for a distinct loader");
+      },
+    }),
+  ).to.deep.equal([3]);
+});
+
+it("reuses options by identity once a strict branch splits", async () => {
+  let reads = 0;
+  const load = () => {};
+  const first = {
+    load,
+    get params() {
+      reads++;
+      return { limit: 1 };
+    },
+  };
+  const second = { load, params: { limit: 2 } };
+  const executor = defineBatchExecutor({
+    name: "split-options-identity",
+    keysetEquality: "strict",
+    optionsMatch: { load: "strict", params: "record" },
+    callback: (_options: typeof first, keys: readonly number[]) => keys,
+  });
+  const scope = {};
+  await batchInMeta(schema, scope, executor, [1], first);
+  await batchInMeta(schema, scope, executor, [2], second);
+  reads = 0;
+  expect(batchInMeta(schema, scope, executor, [1], first)).to.deep.equal([1]);
+  expect(reads).to.equal(0);
+});
+
 it("supports omitted options", async () => {
   let calls = 0;
   const schema = makeSchema();
@@ -423,8 +495,7 @@ it("matches arrays structurally and class instances by identity", () => {
     true,
   );
 
-  const keys: unknown[] = [];
-  matcher.appendKeys(options, keys, { symbolOrder: null });
+  const keys = [...matcher.keys(options, { symbolOrder: null })];
   expect(keys).to.include(date);
   expect(keys).to.include(Array.prototype);
 });
@@ -453,10 +524,8 @@ it("indexes explicit option rules in declaration order before unspecified keys",
     group: { later: $$later, early: $$early, other: $$other },
     zeta: $$zeta,
   };
-  const firstKeys: unknown[] = [];
-  const secondKeys: unknown[] = [];
-  matcher.appendKeys(first, firstKeys, { symbolOrder: null });
-  matcher.appendKeys(second, secondKeys, { symbolOrder: null });
+  const firstKeys = [...matcher.keys(first, { symbolOrder: null })];
+  const secondKeys = [...matcher.keys(second, { symbolOrder: null })];
   expect(firstKeys.filter((value) => typeof value === "symbol")).to.deep.equal([
     $$priority,
     $$later,
@@ -523,10 +592,14 @@ it("checks matching rules after finding an options index bucket", async () => {
   const second = { value: NaN };
   await Promise.all([
     batchInMeta(schema, meta, executor, [1], first),
-    batchInMeta(schema, meta, executor, [2], second),
+    batchInMeta(schema, meta, executor, [1], second),
     batchInMeta(schema, meta, executor, [3], first),
+    batchInMeta(schema, meta, executor, [4], second),
   ]);
-  expect(calls).to.deep.equal([[1, 3], [2]]);
+  expect(calls).to.deep.equal([
+    [1, 3],
+    [1, 4],
+  ]);
 });
 
 class BatchScopeStep extends Step<string> {

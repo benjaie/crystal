@@ -2,7 +2,6 @@ import type { BatchExecutor } from "../interfaces.ts";
 import { arraysMatch, isPojo } from "../utils.ts";
 import type { BatchFamily, BatchOptions } from "./batchInterfaces.ts";
 import type { BatchTupleIndex } from "./batchTupleIndex.ts";
-import { internBatchTuple } from "./batchTupleIndex.ts";
 
 interface KeyOrder {
   symbolOrder: Map<symbol, number> | null;
@@ -11,22 +10,15 @@ interface KeyOrder {
 /** @internal */
 interface OptionsMatcher {
   matches(left: unknown, right: unknown): boolean;
-  /**
-   * Appends this value's components to the flat key used to find candidate
-   * batches. Nested matchers append to the same array. The index shares
-   * `order` across lookups so symbol keys sort consistently.
-   *
-   * Values that match must produce the same components under Map equality.
-   * Several distinct values can share an index key. `matches` checks the
-   * candidates before reusing a batch.
-   */
-  appendKeys(value: unknown, keys: unknown[], order: KeyOrder): void;
+  readonly leadingKey?: PropertyKey;
+  /** Reads key components only as the trie needs them. */
+  keys(value: unknown, order: KeyOrder): IterableIterator<unknown>;
 }
 
 const strictMatcher: OptionsMatcher = {
   matches: (left, right) => left === right,
-  appendKeys(value, keys) {
-    keys.push(value);
+  *keys(value) {
+    yield value;
   },
 };
 
@@ -36,14 +28,15 @@ const tupleMatcher: OptionsMatcher = {
   matches: (left, right) =>
     left === right ||
     (Array.isArray(left) && Array.isArray(right) && arraysMatch(left, right)),
-  appendKeys(value, keys) {
+  *keys(value) {
     if (Array.isArray(value)) {
-      keys.push(value.length);
+      yield value.length;
       for (let i = 0; i < value.length; i++) {
-        keys.push(value[i]);
+        yield value[i];
       }
     } else {
-      keys.push($$scalar, value);
+      yield $$scalar;
+      yield value;
     }
   },
 };
@@ -81,7 +74,9 @@ function isOptionsObject(
 function makeObjectMatcher(
   rules?: Map<PropertyKey, OptionsMatcher>,
 ): OptionsMatcher {
+  const leadingRule = rules?.entries().next().value;
   return {
+    leadingKey: leadingRule?.[1] === strictMatcher ? leadingRule[0] : undefined,
     matches(left, right) {
       if (left === right) {
         return true;
@@ -92,36 +87,60 @@ function makeObjectMatcher(
       ) {
         return false;
       }
+      let matchedKeys = 0;
+      if (rules !== undefined) {
+        for (const [key, rule] of rules) {
+          const hasKey = Object.hasOwn(left, key);
+          if (hasKey !== Object.hasOwn(right, key)) {
+            return false;
+          }
+          if (hasKey) {
+            if (!rule.matches(left[key], right[key])) {
+              return false;
+            }
+            matchedKeys++;
+          }
+        }
+      }
       const keys = Reflect.ownKeys(left);
       if (keys.length !== Reflect.ownKeys(right).length) {
         return false;
       }
+      if (keys.length === matchedKeys) {
+        return true;
+      }
       for (const key of keys) {
-        if (!Object.hasOwn(right, key)) {
-          return false;
-        }
-        const rule = rules?.get(key) ?? strictMatcher;
-        if (!rule.matches(left[key], right[key])) {
+        if (
+          !rules?.has(key) &&
+          (!Object.hasOwn(right, key) || left[key] !== right[key])
+        ) {
           return false;
         }
       }
       return true;
     },
-    appendKeys(value, keys, order) {
+    *keys(value, order) {
       if (!isOptionsObject(value)) {
-        keys.push($$scalar, value);
+        yield $$scalar;
+        yield value;
         return;
       }
-      const ownKeys = Reflect.ownKeys(value);
-      keys.push(Object.getPrototypeOf(value), ownKeys.length);
+      yield Object.getPrototypeOf(value);
       if (rules !== undefined) {
-        // Explicit rules put the most useful discriminators nearest the root.
+        // Try explicit discriminators before enumerating the rest of the object.
         for (const [key, rule] of rules) {
           if (Object.hasOwn(value, key)) {
-            keys.push(key);
-            rule.appendKeys(value[key], keys, order);
+            yield key;
+            if (rule === strictMatcher) {
+              yield value[key];
+            } else {
+              yield* rule.keys(value[key], order);
+            }
           }
         }
+      }
+      const ownKeys = Reflect.ownKeys(value);
+      if (rules !== undefined) {
         let remaining = 0;
         for (const key of ownKeys) {
           if (!rules.has(key)) {
@@ -130,11 +149,13 @@ function makeObjectMatcher(
         }
         ownKeys.length = remaining;
       }
+      yield ownKeys.length;
       if (ownKeys.length > 1) {
         ownKeys.sort((a, z) => compareOptionKeys(a, z, order));
       }
       for (const key of ownKeys) {
-        keys.push(key, value[key]);
+        yield key;
+        yield value[key];
       }
     },
   };
@@ -190,9 +211,22 @@ export function getOptionsMatcher(
 }
 
 interface OptionsIndex<TOptions, TEntry> extends KeyOrder {
-  byIdentity: Map<TOptions, TEntry>;
-  keys: BatchTupleIndex<readonly unknown[]>;
-  byKeys: Map<readonly unknown[], TEntry | TEntry[]>;
+  byIdentity: Map<TOptions, TEntry> | null;
+  keys: BatchTupleIndex<TEntry | TEntry[]>;
+}
+
+const $$endOfOptions = Symbol("end of batch options");
+const $$missingOption = Symbol("missing leading batch option");
+
+function leadingValue(options: BatchOptions, leadingKey: PropertyKey): unknown {
+  return options != null && Object.hasOwn(options, leadingKey)
+    ? (options as Record<PropertyKey, unknown>)[leadingKey]
+    : $$missingOption;
+}
+
+function nextKey(keys: Iterator<unknown>): unknown {
+  const next = keys.next();
+  return next.done === true ? $$endOfOptions : next.value;
 }
 
 /**
@@ -240,57 +274,103 @@ export class BatchOptionsIndex<
     }
 
     let index = this.index;
-    if (index === null) {
-      if (this.matcher.matches(first.options, options)) {
-        return first;
-      }
-      // Most executors have just one family. Build the index on the first miss.
-      index = {
-        symbolOrder: null,
-        byIdentity: new Map(),
-        keys: new Map(),
-        byKeys: new Map(),
-      };
-      const firstKey = this.getKey(index, first.options);
-      index.byIdentity.set(first.options, first);
-      index.byKeys.set(firstKey, first);
-      this.index = index;
-    }
-
-    const identical = index.byIdentity.get(options);
+    const identical = index?.byIdentity?.get(options);
     if (identical !== undefined) {
       return identical;
     }
-    const key = this.getKey(index, options);
-    const bucket = index.byKeys.get(key);
-    if (Array.isArray(bucket)) {
-      for (const entry of bucket) {
-        if (this.matcher.matches(entry.options, options)) {
-          return entry;
-        }
-      }
-    } else if (
-      bucket !== undefined &&
-      this.matcher.matches(bucket.options, options)
-    ) {
-      return bucket;
+    if (index === null && first.options === options) {
+      return first;
     }
-    const entry = this.createFamily(options);
-    index.byIdentity.set(options, entry);
-    if (Array.isArray(bucket)) {
-      bucket.push(entry);
-    } else {
-      index.byKeys.set(key, bucket === undefined ? entry : [bucket, entry]);
-    }
-    return entry;
-  }
 
-  private getKey(
-    index: OptionsIndex<TOptions, BatchFamily<TOptions, TKeyset, TResult>>,
-    options: TOptions,
-  ) {
-    const keys: unknown[] = [];
-    this.matcher.appendKeys(options, keys, index);
-    return internBatchTuple(index.keys, keys);
+    const { leadingKey } = this.matcher;
+    const value =
+      leadingKey === undefined ? undefined : leadingValue(options, leadingKey);
+    if (index === null) {
+      const firstValue =
+        leadingKey === undefined
+          ? undefined
+          : leadingValue(first.options, leadingKey);
+      if (
+        (leadingKey === undefined || firstValue === value) &&
+        this.matcher.matches(first.options, options)
+      ) {
+        return first;
+      }
+      // Most executors have just one family. Build the index on the first miss.
+      // A branch with a strict leading key can find its family directly.
+      index = {
+        symbolOrder: null,
+        byIdentity:
+          leadingKey === undefined ? new Map([[first.options, first]]) : null,
+        keys: new Map(),
+      };
+      const firstKey =
+        leadingKey === undefined
+          ? nextKey(this.matcher.keys(first.options, index))
+          : firstValue;
+      index.keys.set(firstKey, first);
+      this.index = index;
+    }
+
+    let keys: Iterator<unknown> | undefined;
+    let node = index.keys;
+    let previousKeys: Iterator<unknown> | undefined;
+    for (let depth = 0; ; depth++) {
+      // A strict discriminator can be read directly on the first branch.
+      const key =
+        depth === 0 && leadingKey !== undefined
+          ? value
+          : nextKey((keys ??= this.matcher.keys(options, index)));
+      const entry = node.get(key);
+      if (entry === undefined) {
+        const family = this.createFamily(options);
+        node.set(key, family);
+        if (leadingKey === undefined || depth > 0) {
+          index.byIdentity?.set(options, family);
+        }
+        return family;
+      } else if (entry instanceof Map) {
+        node = entry;
+      } else if (Array.isArray(entry)) {
+        for (const family of entry) {
+          if (this.matcher.matches(family.options, options)) {
+            return family;
+          }
+        }
+        const family = this.createFamily(options);
+        entry.push(family);
+        index.byIdentity?.set(options, family);
+        return family;
+      } else {
+        if (previousKeys === undefined) {
+          if (this.matcher.matches(entry.options, options)) {
+            return entry;
+          }
+        }
+        if (key === $$endOfOptions) {
+          // Key components can collide even when the options do not match.
+          const family = this.createFamily(options);
+          node.set(key, [entry, family]);
+          index.byIdentity?.set(options, family);
+          return family;
+        }
+        if (previousKeys === undefined) {
+          // Cache identities once this family needs a structural lookup.
+          (index.byIdentity ??= new Map()).set(entry.options, entry);
+          // A leaf keeps its family. Matching components stay stable, so we
+          // can replay its prefix only when another family needs this branch.
+          previousKeys = this.matcher.keys(entry.options, index);
+          // The iterator starts after the direct discriminator, if present.
+          const consumed = leadingKey === undefined ? depth + 1 : depth;
+          for (let i = 0; i < consumed; i++) {
+            previousKeys.next();
+          }
+        }
+        const children: typeof node = new Map();
+        children.set(nextKey(previousKeys), entry);
+        node.set(key, children);
+        node = children;
+      }
+    }
   }
 }
