@@ -310,6 +310,60 @@ function outputBucket(
   }
 }
 
+class RequestAbortController {
+  private controller: AbortController | null = null;
+  private aborted = false;
+  private reason: unknown = undefined;
+
+  get signal(): AbortSignal {
+    let controller = this.controller;
+    if (controller === null) {
+      controller = this.controller = new AbortController();
+      if (this.aborted) {
+        controller.abort(this.reason);
+      }
+    }
+    return controller.signal;
+  }
+
+  abort(reason?: unknown): void {
+    if (!this.aborted) {
+      this.aborted = true;
+      this.reason = reason;
+      this.controller?.abort(reason);
+    }
+  }
+}
+
+class ExecutionRequestTools implements RequestTools {
+  readonly args: GrafastInternalExecutionArgs;
+  readonly onError: ErrorBehavior;
+  readonly startTime: number;
+  readonly stopTime: number | null;
+  readonly eventEmitter: RequestTools["eventEmitter"];
+  private readonly abortController: RequestAbortController;
+
+  constructor(
+    args: GrafastInternalExecutionArgs,
+    onError: ErrorBehavior,
+    startTime: number,
+    stopTime: number | null,
+    abortController: RequestAbortController,
+  ) {
+    this.args = args;
+    this.onError = onError;
+    this.startTime = startTime;
+    this.stopTime = stopTime;
+    this.eventEmitter = args[$$eventEmitter];
+    this.abortController = abortController;
+  }
+
+  // Keep the getter shared across requests so request tools use fast properties.
+  get abortSignal(): AbortSignal {
+    return this.abortController.signal;
+  }
+}
+
 /** @internal */
 function executePreemptive(
   args: GrafastInternalExecutionArgs,
@@ -318,7 +372,7 @@ function executePreemptive(
   onError: ErrorBehavior,
   outputDataAsString: boolean,
   executionTimeout: number | null,
-  requestAbortSignal: AbortSignal,
+  requestAbortController: RequestAbortController,
 ): PromiseOrDirect<
   ExecutionResult | AsyncGenerator<AsyncExecutionResult, void, void>
 > {
@@ -354,15 +408,13 @@ function executePreemptive(
   const startTime = timeSource.now();
   const stopTime =
     executionTimeout !== null ? startTime + executionTimeout : null;
-  const requestContext: RequestTools = {
+  const requestContext = new ExecutionRequestTools(
     args,
     onError,
     startTime,
     stopTime,
-    // toSerialize: [],
-    eventEmitter: args[$$eventEmitter],
-    abortSignal: requestAbortSignal,
-  };
+    requestAbortController,
+  );
 
   const bucketPromise = executeBucket(rootBucket, requestContext);
 
@@ -473,6 +525,7 @@ function executePreemptive(
       // `releaseUnusedIterators(rootBucket, rootBucketIndex, null)` here.
       const arr = bucketRootValue as StreamMoreableArray;
       const stream = arr[$$streamMore];
+      const requestAbortSignal = requestAbortController.signal;
       const iteratorAbortController = new AbortController();
       const abortIteratorWhenRequestAborts = () =>
         iteratorAbortController.abort();
@@ -615,7 +668,7 @@ export function grafastPrepare(
   }
 
   const executionTimeout = args.timeouts?.execution ?? null;
-  const abortController = new AbortController();
+  const abortController = new RequestAbortController();
   try {
     const result = executePreemptive(
       args,
@@ -624,7 +677,7 @@ export function grafastPrepare(
       onError,
       args.outputDataAsString ?? false,
       executionTimeout,
-      abortController.signal,
+      abortController,
     );
     if (isPromiseLike(result)) {
       return result.then(
@@ -1143,7 +1196,7 @@ function processDeferred(
  * If so, wrap it so that we know when the generator completes.
  */
 function handleMaybeIterator(
-  abortController: AbortController,
+  abortController: RequestAbortController,
   result:
     | graphql.ExecutionResult
     | AsyncGenerator<graphql.AsyncExecutionResult, void, void>,
