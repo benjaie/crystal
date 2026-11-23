@@ -699,7 +699,20 @@ export function getChildBucketAndIndex(
     );
   }
 
-  const paths = pathsFromAncestorToTargetLayerPlan(bucket.layerPlan, layerPlan);
+  return followChildBucketPaths(
+    pathsFromAncestorToTargetLayerPlan(bucket.layerPlan, layerPlan),
+    bucket,
+    bucketIndex,
+    arrayIndex,
+  );
+}
+
+function followChildBucketPaths(
+  paths: readonly LayerPlan[][],
+  bucket: Bucket,
+  bucketIndex: number,
+  arrayIndex: number | null,
+): [Bucket, number] | null {
   if (paths.length === 0) {
     return null;
   }
@@ -1231,24 +1244,46 @@ function makeArrayExecutor<TAsString extends boolean>(
 
         // Now to populate the children...
         const directChild = bucket.children[childOutputPlan.layerPlan.id];
+        const paths =
+          directChild === undefined
+            ? pathsFromAncestorToTargetLayerPlan(
+                bucket.layerPlan,
+                childOutputPlan.layerPlan,
+              )
+            : null;
         let childBucket: Bucket | null,
           childBucketIndex: number | null,
           lookup: number[] | undefined;
+        let nullableChild: Bucket["children"][number] | undefined;
         if (directChild !== undefined) {
           childBucket = directChild.bucket;
           lookup = directChild.map.get(bucketIndex) as number[];
+        } else if (paths?.length === 1 && paths[0].length === 2) {
+          const [listLayer, nullableLayer] = paths[0];
+          if (
+            listLayer.reason.type === "listItem" &&
+            nullableLayer.reason.type === "nullableBoundary"
+          ) {
+            const listChild = bucket.children[listLayer.id];
+            const listIndexes = listChild?.map.get(bucketIndex);
+            if (Array.isArray(listIndexes) && listIndexes.length >= l) {
+              nullableChild = listChild.bucket.children[nullableLayer.id];
+              lookup = listIndexes;
+            }
+          }
         }
         for (let i = 0; i < l; i++) {
           if (directChild !== undefined) {
             childBucketIndex = lookup![i];
+          } else if (nullableChild !== undefined) {
+            // The list expansion is shared by every item. Only the nullable
+            // boundary's per-item index lookup remains.
+            childBucketIndex =
+              (nullableChild.map.get(lookup![i]) as number | undefined) ?? null;
+            childBucket =
+              childBucketIndex === null ? null : nullableChild.bucket;
           } else {
-            const c = getChildBucketAndIndex(
-              childOutputPlan.layerPlan,
-              this,
-              bucket,
-              bucketIndex,
-              i,
-            );
+            const c = followChildBucketPaths(paths!, bucket, bucketIndex, i);
             if (c !== null) {
               [childBucket, childBucketIndex] = c;
             } else {
