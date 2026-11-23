@@ -840,9 +840,25 @@ function makeExecutor<
     mutablePath: Array<string | number>,
     bucket: Bucket,
     bucketIndex: number,
-    rawBucketRootValue = bucket.store.get(this.rootStep.id)!.at(bucketIndex),
-    bucketRootFlags = bucket.store.get(this.rootStep.id)!._flagsAt(bucketIndex),
+    suppliedRootValue: any = undefined,
+    suppliedRootFlags?: ExecutionEntryFlags,
   ) {
+    let rawBucketRootValue: any;
+    let bucketRootFlags: ExecutionEntryFlags;
+    // The arguments come as a pair. A supplied root value can be undefined.
+    if (suppliedRootFlags === undefined) {
+      const rootExecutionValue = bucket.store.get(this.rootStep.id)!;
+      if (rootExecutionValue.isBatch) {
+        rawBucketRootValue = rootExecutionValue.entries[bucketIndex];
+        bucketRootFlags = rootExecutionValue._flags[bucketIndex];
+      } else {
+        rawBucketRootValue = rootExecutionValue.value;
+        bucketRootFlags = rootExecutionValue._entryFlags;
+      }
+    } else {
+      rawBucketRootValue = suppliedRootValue;
+      bucketRootFlags = suppliedRootFlags;
+    }
     if (this.sideEffectStep !== null) {
       const sideEffectBucketDetails = getChildBucketAndIndex(
         this.sideEffectStep.layerPlan,
@@ -962,6 +978,8 @@ function executeChildPlan(
       }
       return asString ? "null" : null;
     } else {
+      // NOTE: the previous code may have had a bug here, it referenced childBucket.rootStep
+      const sharesRoot = childOutputPlan.rootStep === that.rootStep;
       const fieldResult = childOutputPlan[
         asString ? "executeString" : "execute"
       ](
@@ -969,13 +987,8 @@ function executeChildPlan(
         mutablePath,
         childBucket,
         childBucketIndex!,
-        // NOTE: the previous code may have had a bug here, it referenced childBucket.rootStep
-        childOutputPlan.rootStep === that.rootStep
-          ? rawBucketRootValue
-          : undefined,
-        childOutputPlan.rootStep === that.rootStep
-          ? bucketRootFlags
-          : undefined,
+        sharesRoot ? rawBucketRootValue : undefined,
+        sharesRoot ? bucketRootFlags : undefined,
       );
       if (isNonNull && fieldResult == (asString ? "null" : null)) {
         throw nonNullError(locationDetails, mutablePath.slice(1));
