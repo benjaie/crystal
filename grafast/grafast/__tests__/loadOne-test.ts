@@ -618,6 +618,44 @@ it("uses stable identifiers to avoid the need for double-fetches (obj)", async (
   expect(CALLS[0].attributes).to.deep.equal(["id", "name", "orgId"]);
 });
 
+it("shares frozen attributes and empty params across loads and executions", async () => {
+  const attributesSeen = new Set<readonly string[]>();
+  const paramsSeen: object[] = [];
+  const load = loadOneCallback(
+    (keys: readonly number[], { attributes, params }) => {
+      attributesSeen.add(attributes);
+      paramsSeen.push(params);
+      return keys.map((id) => ({ id }));
+    },
+  );
+  const schema = makeGrafastSchema({
+    typeDefs: `type Query { item: Item } type Item { id: Int, next: Item }`,
+    objects: {
+      Query: { plans: { item: () => loadOne(constant(1), load) } },
+      Item: {
+        plans: {
+          next: ($item) =>
+            loadOne(
+              lambda($item.get("id"), (id) => Number(id) + 1, true),
+              load,
+            ),
+        },
+      },
+    },
+  });
+  const expected = { data: { item: { id: 1, next: { id: 2 } } } };
+  const source = "{ item { id next { id } } }";
+  for (let i = 0; i < 2; i++) {
+    expect(await grafast({ schema, source })).to.deep.equal(expected);
+  }
+  expect([...attributesSeen]).to.deep.equal([["id"]]);
+  expect(Object.isFrozen([...attributesSeen][0])).to.equal(true);
+  expect(paramsSeen).to.have.length(4);
+  expect(new Set(paramsSeen).size).to.equal(1);
+  expect(paramsSeen[0]).to.deep.equal({});
+  expect(Object.isFrozen(paramsSeen[0])).to.equal(true);
+});
+
 for (const many of [false, true]) {
   it(`${many ? "loadMany" : "loadOne"} shares cached keys across successive steps within each execution`, async () => {
     const calls: number[][] = [];

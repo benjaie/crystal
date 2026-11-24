@@ -1,6 +1,5 @@
 import type { ExecutionDetails } from "../index.ts";
 import type {
-  BatchKeysetEquality,
   GrafastResultsList,
   Maybe,
   PromiseOrDirect,
@@ -10,10 +9,12 @@ import type { Multistep, UnwrapMultistep } from "../multistep.ts";
 import { multistep } from "../multistep.ts";
 import { Step } from "../step.ts";
 import { recordsMatch } from "../utils.ts";
-import type { IOEquivalence } from "./_loadCommon.ts";
+import type { IOEquivalence, LoadBatchOptions } from "./_loadCommon.ts";
 import {
   executeLoad,
-  getLoadKeysetEquality,
+  getLoadBatchExecutor,
+  getLoadParamEntries,
+  internLoadOptions,
   ioEquivalenceMatches,
   makeAccessMap,
   paramSig,
@@ -27,8 +28,9 @@ export interface LoadOneInfo<
   TShared = never,
 > {
   shared: TShared;
-  attributes: ReadonlyArray<keyof TItem>;
-  params: Partial<TParams>;
+  /** Frozen at runtime. */
+  attributes: (keyof TItem)[];
+  params: Readonly<Partial<TParams>>;
 
   /** @deprecated Please use 'shared' instead. It's simply renamed */
   unary: TShared;
@@ -99,10 +101,14 @@ export class LoadOneStep<
 
   public isSyncAndSafe = false;
 
-  private loadInfo: Omit<
-    LoadOneInfo<TItem, TParams, UnwrapMultistep<TShared>>,
-    "shared" | "unary" | "params"
+  private loadOptions: LoadBatchOptions<
+    UnwrapMultistep<TLookup>,
+    TItem,
+    TData,
+    TParams,
+    UnwrapMultistep<TShared>
   > | null = null;
+  private paramEntries: readonly (readonly [string, number])[] | null = null;
 
   private attributes = new Set<keyof TItem>();
   private paramDepIdByKey: {
@@ -118,7 +124,7 @@ export class LoadOneStep<
     UnwrapMultistep<TShared>
   >;
   private name: Maybe<string>;
-  private readonly keysetEquality: BatchKeysetEquality;
+  private readonly batchExecutor: ReturnType<typeof getLoadBatchExecutor>;
   constructor(
     lookup: TLookup,
     loader: LoadOneLoader<
@@ -140,7 +146,7 @@ export class LoadOneStep<
       );
     }
     this.ioEquivalence = ioEquivalence ?? null;
-    this.keysetEquality = getLoadKeysetEquality(lookup);
+    this.batchExecutor = getLoadBatchExecutor(lookup);
 
     const $spec = multistep(lookup);
     this.addDependency($spec);
@@ -188,7 +194,7 @@ export class LoadOneStep<
     return peers.filter(
       (p) =>
         p.load === this.load &&
-        p.keysetEquality === this.keysetEquality &&
+        p.batchExecutor === this.batchExecutor &&
         ioEquivalenceMatches(p.ioEquivalence, this.ioEquivalence) &&
         recordsMatch(p.paramDepIdByKey, this.paramDepIdByKey),
     );
@@ -225,9 +231,15 @@ export class LoadOneStep<
       }
     }
 
-    // Build the loadInfo
-    const attributes = [...this.attributes].sort();
-    this.loadInfo = { attributes };
+    this.loadOptions = internLoadOptions(
+      this.operationPlan,
+      this.load,
+      [...this.attributes].sort(),
+    );
+    this.paramEntries = getLoadParamEntries(
+      this.sharedDepId,
+      this.paramDepIdByKey,
+    );
 
     super.finalize();
   }
@@ -244,10 +256,9 @@ export class LoadOneStep<
     >(
       details,
       this.sharedDepId,
-      this.paramDepIdByKey,
-      this.loadInfo!.attributes,
-      this.load,
-      this.keysetEquality,
+      this.paramEntries,
+      this.loadOptions!,
+      this.batchExecutor,
     );
   }
 

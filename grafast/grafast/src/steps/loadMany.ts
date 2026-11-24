@@ -5,7 +5,6 @@ import type {
 } from "../index.ts";
 import { currentFieldStreamDetails } from "../index.ts";
 import type {
-  BatchKeysetEquality,
   ExecutionDetailsStream,
   GrafastResultsList,
   Maybe,
@@ -16,10 +15,12 @@ import type { Multistep, UnwrapMultistep } from "../multistep.ts";
 import { multistep } from "../multistep.ts";
 import { Step } from "../step.ts";
 import { recordsMatch } from "../utils.ts";
+import type { IOEquivalence, LoadBatchOptions } from "./_loadCommon.ts";
 import {
   executeLoad,
-  getLoadKeysetEquality,
-  type IOEquivalence,
+  getLoadBatchExecutor,
+  getLoadParamEntries,
+  internLoadOptions,
   ioEquivalenceMatches,
   makeAccessMap,
   paramSig,
@@ -35,8 +36,9 @@ export interface LoadManyInfo<
   TShared = never,
 > {
   shared: TShared;
-  attributes: ReadonlyArray<keyof TItem>;
-  params: Partial<TParams>;
+  /** Frozen at runtime. */
+  attributes: (keyof TItem)[];
+  params: Readonly<Partial<TParams>>;
 
   /** @deprecated Please use `shared` instead (it's simply renamed) */
   unary: TShared;
@@ -123,10 +125,14 @@ export class LoadManyStep<
 
   public isSyncAndSafe = false;
 
-  private loadInfo: Omit<
-    LoadManyInfo<TItem, TParams, UnwrapMultistep<TShared>>,
-    "shared" | "unary" | "params"
+  private loadOptions: LoadBatchOptions<
+    UnwrapMultistep<TLookup>,
+    TItem,
+    TData,
+    TParams,
+    UnwrapMultistep<TShared>
   > | null = null;
+  private paramEntries: readonly (readonly [string, number])[] | null = null;
 
   private attributes = new Set<keyof TItem>();
   private paramDepIdByKey: {
@@ -143,7 +149,7 @@ export class LoadManyStep<
   >;
   public paginationSupport?: PaginationFeatures;
   private name: Maybe<string>;
-  private keysetEquality: BatchKeysetEquality;
+  private batchExecutor: ReturnType<typeof getLoadBatchExecutor>;
 
   /** Direct field stream */
   private _fieldMightStream: boolean;
@@ -173,7 +179,7 @@ export class LoadManyStep<
       );
     }
     this.ioEquivalence = ioEquivalence ?? null;
-    this.keysetEquality = getLoadKeysetEquality(lookup);
+    this.batchExecutor = getLoadBatchExecutor(lookup);
 
     const $lookup = multistep(lookup);
     this.addDependency($lookup);
@@ -255,7 +261,7 @@ export class LoadManyStep<
     return peers.filter(
       (p) =>
         p.load === this.load &&
-        p.keysetEquality === this.keysetEquality &&
+        p.batchExecutor === this.batchExecutor &&
         ioEquivalenceMatches(p.ioEquivalence, this.ioEquivalence) &&
         recordsMatch(p.paramDepIdByKey, this.paramDepIdByKey),
     );
@@ -301,9 +307,15 @@ export class LoadManyStep<
       }
     }
 
-    // Build the loadOptions
-    const attributes = [...this.attributes].sort();
-    this.loadInfo = { attributes };
+    this.loadOptions = internLoadOptions(
+      this.operationPlan,
+      this.load,
+      [...this.attributes].sort(),
+    );
+    this.paramEntries = getLoadParamEntries(
+      this.sharedDepId,
+      this.paramDepIdByKey,
+    );
 
     super.finalize();
   }
@@ -320,10 +332,9 @@ export class LoadManyStep<
     >(
       details,
       this.sharedDepId,
-      this.paramDepIdByKey,
-      this.loadInfo!.attributes,
-      this.load,
-      this.keysetEquality,
+      this.paramEntries,
+      this.loadOptions!,
+      this.batchExecutor,
     );
   }
 
@@ -347,7 +358,7 @@ export class LoadManyStep<
       ioEquivalence,
     });
 
-    $clone.keysetEquality = this.keysetEquality;
+    $clone.batchExecutor = this.batchExecutor;
 
     // Copy attributes?
     for (const attr of this.attributes) {

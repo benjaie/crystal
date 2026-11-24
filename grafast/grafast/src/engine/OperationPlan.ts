@@ -342,7 +342,7 @@ export class OperationPlan {
     elapsed: number;
   }> = [];
 
-  private optimizeMeta = new Map<
+  private planningMeta = new Map<
     string | number | symbol,
     Record<string, any>
   >();
@@ -584,7 +584,7 @@ export class OperationPlan {
     */
 
     // Allow this to be garbage collected
-    this.optimizeMeta = null as any;
+    this.planningMeta = null as any;
     context?.grafastMetricsEmitter?.emit("plan", {
       elapsed,
       laps: this.laps,
@@ -4374,6 +4374,19 @@ But ${p} is not in ${winner.layerPlan}'s expected polymorphic paths:
   }
 
   /**
+   * Shared metadata for optimization and finalization of this plan.
+   * @internal
+   */
+  getPlanningMeta(key: string | number | symbol): Record<string, any> {
+    let meta = this.planningMeta.get(key);
+    if (meta === undefined) {
+      meta = Object.create(null) as Record<string, any>;
+      this.planningMeta.set(key, meta);
+    }
+    return meta;
+  }
+
+  /**
    * Calls the 'optimize' method on a plan, which may cause the plan to
    * communicate with its (deep) dependencies, and even to replace itself with
    * a different plan.
@@ -4393,14 +4406,10 @@ But ${p} is not in ${winner.layerPlan}'s expected polymorphic paths:
 
     // We know if it's streaming or not based on the LayerPlan it's contained within.
     // const stepOptions = step._stepOptions;
-    let meta;
-    if (step.optimizeMetaKey !== undefined) {
-      meta = this.optimizeMeta.get(step.optimizeMetaKey);
-      if (!meta) {
-        meta = Object.create(null) as Record<string, any>;
-        this.optimizeMeta.set(step.optimizeMetaKey, meta);
-      }
-    }
+    const meta =
+      step.optimizeMetaKey !== undefined
+        ? this.getPlanningMeta(step.optimizeMetaKey)
+        : undefined;
     const wasLocked = isDev && unlock(step);
     const replacementStep = step.optimize({
       stream: step._stepOptions.stream

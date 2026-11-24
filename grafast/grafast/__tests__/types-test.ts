@@ -21,7 +21,10 @@ import {
   get,
   loadOne,
 } from "../dist/index.js";
-import { executeLoad } from "../dist/steps/_loadCommon.js";
+import {
+  executeLoad,
+  getLoadBatchExecutor,
+} from "../dist/steps/_loadCommon.js";
 
 type Expected = {
   test: number[];
@@ -138,8 +141,17 @@ const _executeLoadTypes = (
   type Item = { id: number };
   type Params = { limit: number };
   type Shared = { tenant: string };
+  const paramEntries = [["limit", 2]] as const;
+  const executor = getLoadBatchExecutor(null);
+  const oneOptions = {
+    load: one,
+    attributes: ["id" as const],
+    shared: undefined,
+    params: {},
+  };
+  const manyOptions = { ...oneOptions, load: many };
   const executeOne = executeLoad<number, Item, Item | null, Params, Shared>;
-  const _result = executeOne(details, 1, { limit: 2 }, ["id"], one, "strict");
+  const _result = executeOne(details, 1, paramEntries, oneOptions, executor);
   assert<
     Equals<
       typeof _result,
@@ -148,42 +160,37 @@ const _executeLoadTypes = (
       >
     >
   >();
-  const _inferred = executeLoad(
-    details,
-    1,
-    { limit: 2 },
-    ["id"],
-    one,
-    "strict",
-  );
+  const _inferred = executeLoad(details, 1, paramEntries, oneOptions, executor);
   assert<Equals<typeof _inferred, typeof _result>>();
   executeOne(
     // @ts-expect-error The lookup dependency must yield the callback's key type.
     wrongDetails,
     1,
-    { limit: 2 },
-    ["id"],
-    one,
-    "strict",
+    paramEntries,
+    oneOptions,
+    executor,
   );
   executeOne(
     details,
     1,
-    { limit: 2 },
-    // @ts-expect-error Attributes must belong to the loaded item type.
-    ["missing"],
-    one,
-    "strict",
+    paramEntries,
+    {
+      ...oneOptions,
+      attributes: [
+        // @ts-expect-error Attributes must belong to the loaded item type.
+        "missing",
+      ],
+    },
+    executor,
   );
   // @ts-expect-error A loadMany callback cannot yield a loadOne result.
-  executeOne(details, 1, { limit: 2 }, ["id"], many, "strict");
+  executeOne(details, 1, paramEntries, manyOptions, executor);
   const _results = executeLoad<number, Item, readonly Item[], Params, Shared>(
     details,
     1,
-    { limit: 2 },
-    ["id"],
-    many,
-    "strict",
+    paramEntries,
+    manyOptions,
+    executor,
   );
   assert<
     Equals<

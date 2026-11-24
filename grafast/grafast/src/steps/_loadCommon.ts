@@ -1,6 +1,8 @@
+import type { BatchTupleIndex } from "../batch/batchTupleIndex.ts";
+import { internBatchTupleEntry } from "../batch/batchTupleIndex.ts";
+import type { OperationPlan } from "../engine/OperationPlan.ts";
 import type {
   BatchExecutor,
-  BatchKeysetEquality,
   ExecutionDetails,
   ExecutionResultValue,
   PromiseOrDirect,
@@ -88,18 +90,62 @@ export function paramSig(
   );
 }
 
-type LoadBatchOptions<
+export type LoadBatchOptions<
   TSpec,
   TItem,
   TData,
   TParams extends Record<string, any>,
   TShared,
 > = {
-  load: LoadCallback<TSpec, TItem, TData, TParams, TShared>;
-  attributes: readonly (keyof TItem)[];
-  shared: TShared;
-  params: Partial<TParams>;
+  readonly load: LoadCallback<TSpec, TItem, TData, TParams, TShared>;
+  readonly attributes: (keyof TItem)[];
+  readonly shared: TShared | undefined;
+  readonly params: Readonly<Partial<TParams>>;
 };
+
+const EMPTY_OBJECT = Object.freeze({});
+const $$loadPlanningMeta = Symbol("load planning meta");
+
+export function internLoadOptions<
+  TSpec,
+  TItem,
+  TData,
+  TParams extends Record<string, any>,
+  TShared,
+>(
+  operationPlan: OperationPlan,
+  load: LoadCallback<TSpec, TItem, TData, TParams, TShared>,
+  attributes: (keyof TItem)[],
+): LoadBatchOptions<TSpec, TItem, TData, TParams, TShared> {
+  type Options = LoadBatchOptions<TSpec, TItem, TData, TParams, TShared>;
+  type Entry = {
+    attributes: (keyof TItem)[];
+    optionsByLoad: Map<typeof load, Options>;
+  };
+  const meta = operationPlan.getPlanningMeta($$loadPlanningMeta);
+  const attributeIndex: BatchTupleIndex<Entry> = (meta.attributeIndex ??=
+    new Map());
+  const entry = internBatchTupleEntry(
+    attributeIndex,
+    attributes,
+    (entry) => entry.attributes,
+    (attributes) => {
+      Object.freeze(attributes);
+      return { attributes, optionsByLoad: new Map() };
+    },
+  );
+  let options = entry.optionsByLoad.get(load);
+  if (options === undefined) {
+    options = {
+      load,
+      attributes: entry.attributes,
+      shared: undefined,
+      params: EMPTY_OBJECT,
+    };
+    entry.optionsByLoad.set(load, options);
+  }
+  return options;
+}
 
 function executeLoadBatch<
   TSpec,
@@ -111,11 +157,12 @@ function executeLoadBatch<
   {
     load,
     attributes,
-    shared,
+    shared: sharedValue,
     params,
   }: LoadBatchOptions<TSpec, TItem, TData, TParams, TShared>,
   specs: readonly TSpec[],
 ): PromiseOrDirect<ReadonlyArray<PromiseOrDirect<TData>>> {
+  const shared = sharedValue as TShared;
   return load(specs, {
     shared,
     attributes,
@@ -156,12 +203,23 @@ const loadBatchExecutors = {
   },
 };
 
-export function getLoadKeysetEquality(lookup: Multistep): BatchKeysetEquality {
+export function getLoadBatchExecutor(lookup: Multistep) {
   return lookup == null || lookup instanceof Step
-    ? "strict"
+    ? loadBatchExecutors.strict
     : isTuple(lookup)
-      ? "tuple"
-      : "object";
+      ? loadBatchExecutors.tuple
+      : loadBatchExecutors.object;
+}
+
+type LoadBatchExecutor = ReturnType<typeof getLoadBatchExecutor>;
+
+export function getLoadParamEntries(
+  sharedDepId: number | null,
+  paramDepIdByKey: Record<string, number>,
+): readonly (readonly [string, number])[] | null {
+  const entries = Object.entries(paramDepIdByKey);
+  // Null means the entire options object can be used as planned.
+  return sharedDepId === null && entries.length === 0 ? null : entries;
 }
 
 type LoadCallback<
@@ -184,32 +242,40 @@ export function executeLoad<
 >(
   details: ExecutionDetails<readonly [TSpec, ...any[]]>,
   sharedDepId: number | null,
-  paramDepIdByKey: Record<string, number>,
-  attributes: readonly (keyof TItem)[],
-  load: LoadCallback<TSpec, TItem, TData, TParams, TShared>,
-  keysetEquality: BatchKeysetEquality,
+  paramEntries: readonly (readonly [string, number])[] | null,
+  plannedOptions: LoadBatchOptions<TSpec, TItem, TData, TParams, TShared>,
+  executor: LoadBatchExecutor,
 ): PromiseOrDirect<
   ReadonlyArray<PromiseOrDirect<ExecutionResultValue<TData>>>
 > {
   const { count, values } = details;
   const values0 = values[0];
-  const shared = (
-    sharedDepId !== null ? values[sharedDepId].unaryValue() : undefined
-  ) as TShared;
-  const params = Object.fromEntries(
-    Object.entries(paramDepIdByKey).map(([key, depId]) => [
-      key,
-      values[depId].unaryValue(),
-    ]),
-  ) as Partial<TParams>;
+  let options = plannedOptions;
+  if (paramEntries !== null) {
+    options = {
+      load: plannedOptions.load,
+      attributes: plannedOptions.attributes,
+      shared:
+        sharedDepId !== null ? values[sharedDepId].unaryValue() : undefined,
+      params:
+        paramEntries.length > 0
+          ? (Object.fromEntries(
+              paramEntries.map(([key, depId]) => [
+                key,
+                values[depId].unaryValue(),
+              ]),
+            ) as Partial<TParams>)
+          : EMPTY_OBJECT,
+    };
+  }
 
   return details.batch<
     LoadBatchOptions<TSpec, TItem, TData, TParams, TShared>,
     TSpec,
     PromiseOrDirect<TData>
   >(
-    loadBatchExecutors[keysetEquality],
+    executor,
     values0.isBatch ? values0.entries : arrayOfLength(count, values0.value),
-    { load, attributes, shared, params },
+    options,
   );
 }
