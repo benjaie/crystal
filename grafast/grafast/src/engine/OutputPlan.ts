@@ -43,10 +43,6 @@ const {
   OperationTypeNode,
 } = graphql;
 
-interface FieldTypeDigest {
-  fieldType: "__typename" | "outputPlan!" | "outputPlan?";
-  sameBucket: boolean;
-}
 export type OutputPlanTypeIntrospection = {
   mode: "introspection";
   /**
@@ -582,32 +578,18 @@ export class OutputPlan<TType extends OutputPlanType = OutputPlanType> {
       case "root":
       case "object": {
         const type = this.type as OutputPlanTypeRoot | OutputPlanTypeObject;
-        const digestFieldTypes: {
-          [responseKey: string]: FieldTypeDigest;
-        } = Object.create(null);
-        for (const [responseKey, spec] of Object.entries(this.keys)) {
-          digestFieldTypes[responseKey] = {
-            fieldType:
-              spec.type === "__typename"
-                ? "__typename"
-                : spec.isNonNull
-                  ? "outputPlan!"
-                  : "outputPlan?",
-            sameBucket:
-              spec.type === "__typename" ||
-              spec.outputPlan.layerPlan.id === this.layerPlan.id,
-          };
-        }
         this.execute = makeObjectExecutor(
           type.typeName,
-          digestFieldTypes,
+          this.keys,
+          this.layerPlan.id,
           this.deferredOutputPlans.length > 0,
           type.mode === "root" || type.hasRootBehavior,
           false,
         );
         this.executeString = makeObjectExecutor(
           type.typeName,
-          digestFieldTypes,
+          this.keys,
+          this.layerPlan.id,
           this.deferredOutputPlans.length > 0,
           type.mode === "root" || type.hasRootBehavior,
           true,
@@ -1490,9 +1472,8 @@ const SAFE_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 function makeObjectExecutor<TAsString extends boolean>(
   typeName: string,
-  fieldTypes: {
-    [key: string]: FieldTypeDigest;
-  },
+  keys: OutputPlan["keys"],
+  parentLayerPlanId: number,
   hasDeferredOutputPlans: boolean,
   // this.type.mode === "root",
   isRoot: boolean,
@@ -1504,54 +1485,52 @@ function makeObjectExecutor<TAsString extends boolean>(
     );
   }
   if (isDev) {
-    if (Object.getPrototypeOf(fieldTypes) !== null) {
+    if (Object.getPrototypeOf(keys) !== null) {
       throw new Error(
-        `GrafastInternalError<3d8e3547-d818-44e1-a076-16b828e3a34d>: fieldTypes must have a null prototype`,
+        `GrafastInternalError<3d8e3547-d818-44e1-a076-16b828e3a34d>: keys must have a null prototype`,
       );
     }
   }
-  const fieldDigests = Object.entries(fieldTypes).map(
-    ([responseKey, fieldSpec], i) => {
-      // NOTE: this code relies on the fact that fieldName and typeName do
-      // not require any quoting in JSON/JS - they must conform to GraphQL
-      // `Name`.
-      if (!SAFE_NAME.test(responseKey)) {
-        // This should not be able to happen if the GraphQL operation is valid
+  const fields = Object.entries(keys).map(([responseKey, fieldSpec], i) => {
+    // NOTE: this code relies on the fact that fieldName and typeName do
+    // not require any quoting in JSON/JS - they must conform to GraphQL
+    // `Name`.
+    if (!SAFE_NAME.test(responseKey)) {
+      // This should not be able to happen if the GraphQL operation is valid
+      throw new Error(
+        `Unsafe key: ${responseKey}; doesn't conform to 'Name' in the GraphQL spec`,
+      );
+    }
+    const addComma = asString && i > 0;
+    switch (fieldSpec.type) {
+      case "__typename": {
+        return {
+          isTypeName: true as const,
+          addComma,
+          responseKey,
+          stringValue: asString ? `"${responseKey}":"${typeName}"` : null,
+        } as const;
+      }
+      case "outputPlan": {
+        const layerPlanId = fieldSpec.outputPlan.layerPlan.id;
+        return {
+          isTypeName: false as const,
+          addComma,
+          responseKey,
+          stringPrefix: asString ? `"${responseKey}":` : null,
+          sameBucket: layerPlanId === parentLayerPlanId,
+          layerPlanId,
+          spec: fieldSpec,
+        } as const;
+      }
+      default: {
+        const never: never = fieldSpec;
         throw new Error(
-          `Unsafe key: ${responseKey}; doesn't conform to 'Name' in the GraphQL spec`,
+          `GrafastInternalError<879082f4-fe6f-4112-814f-852b9932ca83>: unsupported key type ${never}`,
         );
       }
-      const { fieldType, sameBucket } = fieldSpec;
-      const addComma = asString && i > 0;
-      switch (fieldType) {
-        case "__typename": {
-          return {
-            isTypeName: true as const,
-            addComma,
-            responseKey,
-            stringValue: asString ? `"${responseKey}":"${typeName}"` : null,
-          } as const;
-        }
-        case "outputPlan!":
-        case "outputPlan?": {
-          return {
-            isTypeName: false as const,
-            addComma,
-            responseKey,
-            stringPrefix: asString ? `"${responseKey}":` : null,
-            sameBucket,
-            isNonNull: fieldType === "outputPlan!",
-          } as const;
-        }
-        default: {
-          const never: never = fieldType;
-          throw new Error(
-            `GrafastInternalError<879082f4-fe6f-4112-814f-852b9932ca83>: unsupported key type ${never}`,
-          );
-        }
-      }
-    },
-  );
+    }
+  });
   return makeExecutor<TAsString, OutputPlanTypeObject>({
     inner(
       bucketRootValue,
@@ -1566,10 +1545,14 @@ function makeObjectExecutor<TAsString extends boolean>(
       const obj: Record<string, JSONValue> | undefined = asString
         ? undefined
         : Object.create(null);
-      const keys = this.keys;
       const mutablePathIndex = mutablePath.push("!") - 1;
 
-      for (const digest of fieldDigests) {
+      for (
+        let fieldIndex = 0, fieldCount = fields.length;
+        fieldIndex < fieldCount;
+        fieldIndex++
+      ) {
+        const digest = fields[fieldIndex];
         if (digest.addComma) {
           string! += ",";
         }
@@ -1582,13 +1565,13 @@ function makeObjectExecutor<TAsString extends boolean>(
           }
         } else {
           mutablePath[mutablePathIndex] = responseKey;
-          const spec = keys[responseKey] as OutputPlanKeyValueOutputPlan;
+          const { spec } = digest;
           if (digest.sameBucket) {
             const val = executeChildPlan(
               this,
               spec.locationDetails,
               spec.outputPlan,
-              digest.isNonNull,
+              spec.isNonNull,
               asString,
               bucket,
               bucketIndex,
@@ -1607,7 +1590,7 @@ function makeObjectExecutor<TAsString extends boolean>(
               obj![responseKey] = val;
             }
           } else {
-            const directChild = bucket.children[spec.outputPlan.layerPlan.id];
+            const directChild = bucket.children[digest.layerPlanId];
             let childBucket, childBucketIndex;
             if (directChild !== undefined) {
               childBucket = directChild.bucket;
@@ -1629,7 +1612,7 @@ function makeObjectExecutor<TAsString extends boolean>(
               this,
               spec.locationDetails,
               spec.outputPlan,
-              digest.isNonNull,
+              spec.isNonNull,
               asString,
               childBucket,
               childBucketIndex as number,
