@@ -40,22 +40,20 @@ export function batchInMeta<
       "Batch executor options must be a plain object, or omitted.",
     );
   }
-  checkExecutor(schema, executor);
-  const { keysetEquality } = executor;
   if (keysets.length === 0) {
+    checkExecutor(schema, executor);
     return [];
   }
 
-  let batches = metaByMetaKey[$$batches];
-  if (batches === undefined) {
-    metaByMetaKey[$$batches] = batches = new Map();
-  }
-  let families = batches.get(executor) as
+  const batches = metaByMetaKey[$$batches];
+  let families = batches?.get(executor) as
     | BatchOptionsIndex<TOptions, TKeyset, TResult>
     | undefined;
   if (families === undefined) {
+    // Each request cache belongs to a single schema.
+    checkExecutor(schema, executor);
     families = new BatchOptionsIndex(executor);
-    batches.set(executor, families);
+    (batches ?? (metaByMetaKey[$$batches] = new Map())).set(executor, families);
   }
   // ExecutionDetails.batch requires options unless TOptions includes undefined.
   const family = families.getOrCreate(options as TOptions);
@@ -63,6 +61,7 @@ export function batchInMeta<
   // Validate composite keys before queuing any work. A malformed later key
   // must not leave an earlier key's batch running without a caller.
   let entries: CompositeEntry<TKeyset, TResult>[] | undefined;
+  const { keysetEquality } = executor;
   switch (keysetEquality) {
     case "strict": {
       break;
