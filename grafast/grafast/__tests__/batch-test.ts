@@ -8,7 +8,12 @@ import { it } from "mocha";
 import { batchInMeta } from "../dist/batch/batchInMeta.js";
 import { getOptionsMatcher } from "../dist/batch/batchOptions.js";
 import { isDev } from "../dist/dev.js";
-import type { BatchExecutor, ExecutionDetails } from "../dist/index.js";
+import type {
+  BatchExecutor,
+  ExecutionDetails,
+  ExecutionResultValue,
+  PromiseOrDirect,
+} from "../dist/index.js";
 import {
   constant,
   defineBatchExecutor,
@@ -875,6 +880,42 @@ it("preserves successful entries when an overlapping batch fails", async () => {
   expect(await overlapping).to.deep.equal([1, flagError(error)]);
   expect(await older).to.deep.equal([1]);
   expect(batchInMeta(schema, meta, executor, [1])).to.deep.equal([1]);
+});
+
+it("keeps keys queued while another batch's results are being cached", async () => {
+  const calls: number[][] = [];
+  const meta = {};
+  const resultWithGetter = {
+    get then() {
+      next ??= batchInMeta(schema, meta, executor, [2]);
+      return undefined;
+    },
+  };
+  type Result = number | typeof resultWithGetter;
+  let next:
+    | PromiseOrDirect<readonly ExecutionResultValue<Result>[]>
+    | undefined;
+  let joined: typeof next;
+  const executor = defineBatchExecutor({
+    name: "queue-during-result-processing",
+    keysetEquality: "strict",
+    callback: (
+      _options: undefined,
+      keys: readonly number[],
+    ): readonly Result[] => {
+      calls.push([...keys]);
+      if (keys[0] === 2) {
+        joined ??= batchInMeta(schema, meta, executor, [2]);
+      }
+      return keys.map((key) => (key === 1 ? resultWithGetter : key));
+    },
+  });
+
+  const first = await batchInMeta(schema, meta, executor, [1]);
+  expect(first[0]).to.equal(resultWithGetter);
+  expect(await next).to.deep.equal([2]);
+  expect(await joined).to.deep.equal([2]);
+  expect(calls).to.deep.equal([[1], [2]]);
 });
 
 it("handles a per-key rejection while waiting for an older overlapping batch", async () => {

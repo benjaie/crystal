@@ -24,28 +24,44 @@ export function executeBatch<TOptions extends BatchOptions, TKeyset, TResult>(
   }
 
   function processResults(loadResults: readonly TResult[]) {
-    if (loadResults.length !== keysets.length) {
+    const keyCount = keysets.length;
+    if (loadResults.length !== keyCount) {
       // This path shouldn't happen, so expensively handle the case that
       // loadResults may include promises
       void Promise.all(loadResults).catch(noop);
       throw new Error(
-        `batch callback returned ${loadResults.length} results for ${keysets.length} keysets`,
+        `batch callback returned ${loadResults.length} results for ${keyCount} keysets`,
       );
     }
-    for (let pendingIndex = 0; pendingIndex < keysets.length; pendingIndex++) {
-      const spec = keysets[pendingIndex];
-      const result = loadResults[pendingIndex];
-      const entry = loadBatch.entries?.[pendingIndex];
-      if (entry === undefined) {
-        family.cache.set(spec, result);
-        family.pending.delete(spec);
+    const { entries } = loadBatch;
+    if (entries === null) {
+      const { cache, pending } = family;
+      for (let i = 0; i < keyCount; i++) {
+        const result = loadResults[i];
+        cache.set(keysets[i], result);
+        if (isPromiseLike(result)) {
+          result.then(null, noop);
+        }
+      }
+      // Cache hits take precedence over pending entries. Once all results are
+      // cached, clear the map in one operation if no other batch is pending.
+      if (pending.size === keyCount) {
+        pending.clear();
       } else {
+        for (let i = 0; i < keyCount; i++) {
+          pending.delete(keysets[i]);
+        }
+      }
+    } else {
+      for (let i = 0; i < keyCount; i++) {
+        const result = loadResults[i];
+        const entry = entries[i];
         entry.result = result;
         entry.batch = null;
         entry.index = -1;
-      }
-      if (isPromiseLike(result)) {
-        result.then(null, noop);
+        if (isPromiseLike(result)) {
+          result.then(null, noop);
+        }
       }
     }
     deferred.resolve(loadResults);
