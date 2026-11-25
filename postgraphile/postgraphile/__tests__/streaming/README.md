@@ -82,3 +82,19 @@ On `4971f105b`, all 65,536 boolean combinations at 25 parents matched ordinary
 execution within the per-case deadline. Another 968 cases varied parent count,
 page size, stream prefix and skip/defer settings. The 100,001-row export also
 matched with a zero-row fallback budget.
+
+The [archived forum fixture] puts `totalCount` inside the defer alongside
+`pageInfo`. The count reads the forum ID independently of the streamed messages.
+A planner check previously treated that independence as grounds to materialize
+the entire page. The fixture sets the materialization budget to zero and checks
+for one PostgreSQL cursor shared by nodes and edges. Run it from the repository
+root.
+
+```sh
+cd grafast/dataplan-pg
+PGHOST=/var/run/postgresql ../../node_modules/.bin/jest --runInBand \
+  archived-forum-inherited-messages.stream-6
+```
+
+[archived forum fixture]:
+  ../../../../grafast/dataplan-pg/__tests__/queries/conditions/archived-forum-inherited-messages.stream-6.test.graphql

@@ -28,7 +28,9 @@ order by __messages__."id" asc;
 
 fetch forward 100 from __SNAPSHOT_CURSOR_0__
 
-savepoint tx1
+close __SNAPSHOT_CURSOR_0__
+
+commit; /*fake*/
 
 with __users_identifiers__ as materialized (
   select ids.ordinality - 1 as idx, (ids.value->>0)::"uuid" as "id0" from json_array_elements($1::json) with ordinality as ids
@@ -48,12 +50,6 @@ lateral (
       true /* authorization checks */
     )
 ) as __users_result__;
-
-release savepoint tx1
-
-close __SNAPSHOT_CURSOR_0__
-
-commit; /*fake*/
 
 select
   __users__."username" as "0",

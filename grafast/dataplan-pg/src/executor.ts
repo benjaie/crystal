@@ -65,6 +65,12 @@ interface CursorSession {
   release: (failed: boolean, error?: unknown) => Promise<void>;
 }
 
+interface CursorContext {
+  session: CursorSession | null;
+  // Reads already submitted for a separate pool lease.
+  pendingReads: Set<Promise<unknown>>;
+}
+
 export interface PgClientQuery {
   /** The query string */
   text: string;
@@ -315,11 +321,9 @@ export type PgExecutorSubscribeOptions = {
  * caching.
  */
 export class PgExecutor<const TName extends string = string, TSettings = any> {
-  // A nested read on the same execution and PostgreSQL context can use the
-  // client already leased by its parent cursor, including with a pool of one.
-  private readonly cursorClients = new WeakMap<
+  private readonly cursorContexts = new WeakMap<
     object,
-    WeakMap<PgExecutorContext, CursorSession>
+    WeakMap<PgExecutorContext, CursorContext>
   >();
   private readonly batchCacheTokens = new WeakMap<PgExecutorContext, object>();
 
@@ -858,13 +862,13 @@ ${duration}
               // PERF: we could probably make this more efficient by grouping the
               // deferreds further, DataLoader-style, and running one SQL query for
               // everything.
-              const readOnCursor =
-                common.cursorScope === undefined
+              const cursorContext =
+                common.cursorScope === undefined || common.useTransaction
                   ? undefined
-                  : this.cursorClients.get(common.cursorScope)?.get(context)
-                      ?.read;
-              const queryResult = common.useTransaction
-                ? await this.executeMutation<PgClientResult<TOutput>>(
+                  : this.getCursorContext(context, common.cursorScope);
+              const readOnCursor = cursorContext?.session?.read;
+              const query = common.useTransaction
+                ? this.executeMutation<PgClientResult<TOutput>>(
                     { context, store, useTransaction: common.useTransaction },
                     (client) =>
                       this._executeWithClient(
@@ -877,7 +881,7 @@ ${duration}
                       ),
                   )
                 : readOnCursor !== undefined
-                  ? await readOnCursor((client) =>
+                  ? readOnCursor((client) =>
                       this._executeWithClient<TOutput>(
                         client,
                         text,
@@ -888,7 +892,7 @@ ${duration}
                       ),
                     )
                   : useCache
-                    ? await this._executeQueued<TOutput>(
+                    ? this._executeQueued<TOutput>(
                         context,
                         text,
                         sqlValues,
@@ -896,14 +900,24 @@ ${duration}
                         publishExecute,
                         common.affinity,
                       )
-                    : await this._execute<TOutput>(
+                    : this._execute<TOutput>(
                         context,
                         text,
                         sqlValues,
                         name,
                         publishExecute,
                       );
-              const { rows } = queryResult;
+              const pendingReads =
+                readOnCursor === undefined
+                  ? cursorContext?.pendingReads
+                  : undefined;
+              pendingReads?.add(query);
+              let rows: readonly TOutput[];
+              try {
+                ({ rows } = await query);
+              } finally {
+                pendingReads?.delete(query);
+              }
               const groups: { [valueIndex: number]: any[] } =
                 Object.create(null);
               for (let i = 0, l = rows.length; i < l; i++) {
@@ -1295,14 +1309,27 @@ ${duration}
     };
   }
 
-  private acquireCursorSession(context: PgExecutorContext, scope: object) {
-    let sessions = this.cursorClients.get(scope);
-    if (sessions === undefined) {
-      sessions = new WeakMap();
-      this.cursorClients.set(scope, sessions);
+  private getCursorContext(
+    context: PgExecutorContext,
+    scope: object,
+  ): CursorContext {
+    let contexts = this.cursorContexts.get(scope);
+    if (contexts === undefined) {
+      contexts = new WeakMap();
+      this.cursorContexts.set(scope, contexts);
     }
-    const existing = sessions.get(context);
-    if (existing !== undefined) {
+    let state = contexts.get(context);
+    if (state === undefined) {
+      state = { session: null, pendingReads: new Set() };
+      contexts.set(context, state);
+    }
+    return state;
+  }
+
+  private acquireCursorSession(context: PgExecutorContext, scope: object) {
+    const state = this.getCursorContext(context, scope);
+    const existing = state.session;
+    if (existing !== null) {
       existing.holders++;
       return existing;
     }
@@ -1310,15 +1337,19 @@ ${duration}
     const ready = Promise.withResolvers<GraphileConfig.DataplanPgClient>();
     const finished = Promise.withResolvers<void>();
     const pendingReads = new Set<Promise<unknown>>();
-    const transaction = context.withPgClient(context.pgSettings, (base) =>
-      base.withTransaction(async (tx) => {
-        ready.resolve(tx);
-        try {
-          await finished.promise;
-        } finally {
-          await Promise.allSettled(pendingReads);
-        }
-      }),
+    // An earlier read may still be queued for the only client. Let those
+    // reads finish before pinning it. Later reads join the session below.
+    const transaction = Promise.allSettled(state.pendingReads).then(() =>
+      context.withPgClient(context.pgSettings, (base) =>
+        base.withTransaction(async (tx) => {
+          ready.resolve(tx);
+          try {
+            await finished.promise;
+          } finally {
+            await Promise.allSettled(pendingReads);
+          }
+        }),
+      ),
     );
     transaction.catch(ready.reject);
     let queue = Promise.resolve();
@@ -1354,7 +1385,7 @@ ${duration}
           failure = error;
         }
         if (--session.holders === 0) {
-          sessions.delete(context);
+          state.session = null;
           if (failed) {
             finished.promise.catch(noop);
             finished.reject(failure);
@@ -1365,7 +1396,7 @@ ${duration}
         }
       },
     };
-    sessions.set(context, session);
+    state.session = session;
     return session;
   }
 
@@ -1379,6 +1410,7 @@ ${duration}
     const { execute, release } = this.acquireCursorSession(context, scope);
     let failed = false;
     let failure: unknown;
+    let finalRows: readonly T[];
     try {
       await execute(
         `declare ${name} insensitive no scroll cursor without hold for
@@ -1392,10 +1424,13 @@ ${text}`,
             `fetch forward 100 from ${name}`,
             [],
           );
-          yield* rows;
           if (rows.length < 100) {
+            // All remaining rows are in hand. Return the client to the pool
+            // before waiting for the consumer to ask for them.
+            finalRows = rows;
             break;
           }
+          yield* rows;
         }
       } catch (e) {
         fetchFailed = true;
@@ -1413,6 +1448,7 @@ ${text}`,
     } finally {
       await release(failed, failure);
     }
+    yield* finalRows;
   }
 
   public executeMutation<T>(

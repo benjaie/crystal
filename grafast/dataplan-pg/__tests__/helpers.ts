@@ -557,9 +557,34 @@ export const assertSnapshotsMatch = async (
     await snapshot(formattedErrors, errorsFileName);
   } else if (only === "sql") {
     const sqlFileName = basePath + (ext || "") + ".sql";
-    const formattedQueries = queries
-      .map((q) => makeSQLSnapshotSafe(q.text))
-      .join("\n\n");
+    const statements: string[] = [];
+    const independent: string[] = [];
+    const { independentSqlPrefix } = props.config;
+    for (let i = 0; i < queries.length; i++) {
+      const sql = makeSQLSnapshotSafe(queries[i].text);
+      if (
+        independentSqlPrefix !== undefined &&
+        sql.startsWith(independentSqlPrefix)
+      ) {
+        // A deferred read can arrive before, during, or after a cursor
+        // transaction. Only the middle case needs its own savepoint.
+        const savepoint = statements.at(-1);
+        if (
+          savepoint?.startsWith("savepoint ") &&
+          queries[i + 1]?.text === `release ${savepoint}`
+        ) {
+          statements.pop();
+          i++;
+        }
+        independent.push(sql);
+      } else {
+        statements.push(sql);
+      }
+    }
+    if (independent.length > 0) {
+      statements.push("-- Independently scheduled SQL", ...independent);
+    }
+    const formattedQueries = statements.join("\n\n");
     // Consistently end in a newline
     await snapshot(formattedQueries + "\n", sqlFileName);
   } else if (only === "mermaid") {

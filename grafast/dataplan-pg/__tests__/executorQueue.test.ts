@@ -462,6 +462,70 @@ test("a paused cursor fetches one batch and releases its client on cancellation"
   expect(withPgClient).toHaveBeenCalledTimes(1);
 });
 
+test("a cursor lets an earlier queued read finish and shares its client with a later read", async () => {
+  const executor = makeExecutor();
+  const started = Promise.withResolvers<void>();
+  const finish = Promise.withResolvers<void>();
+  const { context, seen, withPgClient } = makeContext(async ({ text }) => {
+    if (text === "select early") {
+      started.resolve();
+      await finish.promise;
+    }
+    return { rows: [[1]], rowCount: 1 };
+  });
+  const input = [{ context, queryValues: [] }];
+  const common = { cursorScope: {}, rawSqlValues: [], eventEmitter: undefined };
+  const { streams } = await executor.executeStream(input, {
+    ...common,
+    text: "select page",
+  });
+  const cursor = (await streams[0])[Symbol.asyncIterator]();
+  const early = executor.executeWithCache(input, {
+    ...common,
+    text: "select early",
+  });
+  const prefix = cursor.next();
+  const later = executor.executeWithCache(input, {
+    ...common,
+    text: "select later",
+  });
+  try {
+    await started.promise;
+    expect(withPgClient).toHaveBeenCalledTimes(1);
+    finish.resolve();
+    await Promise.all([early, prefix, later]);
+    const clientFor = (text: string) =>
+      seen.find((q) => q.text.startsWith(text))!.clientNumber;
+    expect(clientFor("select early")).toBe(1);
+    expect(clientFor("declare ")).toBe(2);
+    expect(clientFor("select later")).toBe(2);
+  } finally {
+    finish.resolve();
+    await cursor.return!();
+  }
+});
+
+test("a short fetch releases the cursor before its last rows are consumed", async () => {
+  const executor = makeExecutor();
+  const { context, seen } = makeContext(async ({ text }) => {
+    const rows = text.startsWith("fetch ") ? [[1], [2]] : [];
+    return { rows, rowCount: rows.length };
+  });
+  const { streams } = await executor.executeStream(
+    [{ context, queryValues: [] }],
+    { text: "select page", rawSqlValues: [], eventEmitter: undefined },
+  );
+  const cursor = (await streams[0])[Symbol.asyncIterator]();
+  expect(await cursor.next()).toEqual({ value: [1], done: false });
+  expect(seen.map((q) => q.text.split(" ")[0])).toEqual([
+    "declare",
+    "fetch",
+    "close",
+  ]);
+  expect(await cursor.next()).toEqual({ value: [2], done: false });
+  expect((await cursor.next()).done).toBe(true);
+});
+
 test("cursor cleanup waits for nested reads already using its transaction", async () => {
   const executor = makeExecutor();
   const cursorScope = {};
@@ -474,6 +538,11 @@ test("cursor cleanup waits for nested reads already using its transaction", asyn
       await release.promise;
     } else if (text.startsWith("close ")) {
       closed.resolve();
+    } else if (text.startsWith("fetch ")) {
+      return {
+        rows: Array.from({ length: 100 }, (_, i) => [i]),
+        rowCount: 100,
+      };
     }
     return { rows: [[1]], rowCount: 1 };
   });

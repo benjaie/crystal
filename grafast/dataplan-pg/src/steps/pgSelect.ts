@@ -8,6 +8,7 @@ import type {
   ExecutionResultValue,
   GrafastResultsList,
   Maybe,
+  OperationPlan,
   PromiseOrDirect,
   StepOptimizeOptions,
   UnbatchedExecutionExtra,
@@ -112,6 +113,8 @@ import { validateParsedCursor } from "./pgValidateParsedCursor.ts";
 // they add up they become more expensive. Let's cap it at something
 // reasonable.
 const AUTO_MAX_INLINE_LEFT_JOINS = 3;
+// Only operations that can open a cursor need to coordinate their pool leases.
+const plansWithPgCursors = new WeakSet<OperationPlan>();
 
 const ALWAYS_ALLOWED = true;
 
@@ -1371,7 +1374,9 @@ ${text.slice(0, -1)}
         : text;
       const common = {
         store,
-        cursorScope: request,
+        cursorScope: plansWithPgCursors.has(this.operationPlan)
+          ? request
+          : undefined,
         text: fetchText,
         rawSqlValues,
         identifierIndex,
@@ -1599,15 +1604,18 @@ ${relation}
               !step.hasSideEffects &&
               step.resource.executor === this.resource.executor &&
               step.dependencies[step.contextId] ===
-                this.dependencies[this.contextId] &&
-              stepADependsOnStepB(step, this)
+                this.dependencies[this.contextId]
             ) {
-              // The nested select can run on the parent's cursor transaction.
+              // Independent reads (e.g. a deferred totalCount) can use the
+              // same cursor transaction as reads that depend on the rows.
               continue;
             }
             this.canStreamRows = false;
             break;
           }
+        }
+        if (this.canStreamRows) {
+          plansWithPgCursors.add(this.operationPlan);
         }
       }
     }

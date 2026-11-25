@@ -1,5 +1,6 @@
 ## expect(errors).toBeFalsy()
-## expect(queries).toHaveLength(10);
+## expect(queries.filter(q => q.text.startsWith("declare "))).toHaveLength(1);
+## expect(queries.filter(q => q.text.startsWith("fetch "))).toHaveLength(1);
 {
   forums(includeArchived: EXCLUSIVELY) {
     name
