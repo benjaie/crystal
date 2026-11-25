@@ -16,7 +16,7 @@ with __messages_identifiers__ as materialized (
 select __messages_result__.*
 from __messages_identifiers__,
 lateral (
-  select
+  select * from (select
     __messages_identifiers__.idx as "0"
   from app_public.messages as __messages__
   where
@@ -28,7 +28,7 @@ lateral (
       (__messages__.archived_at is null) = (__messages_identifiers__."id1" is null)
     )
   order by __messages__."id" asc
-  limit 6
+  limit 6) as page limit 1 offset 5
 ) as __messages_result__;
 
 with __messages_identifiers__ as materialized (

@@ -11,9 +11,7 @@ where
   )
 order by __forums__."id" asc;
 
-begin; /*fake*/
-
-declare __SNAPSHOT_CURSOR_0__ insensitive no scroll cursor without hold for
+select * from (
 select
   __messages__."body" as "0",
   __messages__."author_id" as "1",
@@ -25,13 +23,8 @@ where
   ) and (
     (__messages__.archived_at is null) = ($2::"timestamptz" is null)
   )
-order by __messages__."id" asc;
-
-fetch forward 100 from __SNAPSHOT_CURSOR_0__
-
-close __SNAPSHOT_CURSOR_0__
-
-commit; /*fake*/
+order by __messages__."id" asc
+) as page limit 100002
 
 select
   (count(*))::text as "0"

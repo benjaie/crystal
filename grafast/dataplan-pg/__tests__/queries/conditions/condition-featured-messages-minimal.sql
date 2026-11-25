@@ -1,7 +1,7 @@
 select
   __forums__."id" as "0",
   array(
-    select array[null]::text[]
+    select * from (select array[null]::text[]
     from app_public.messages as __messages__
     where
       (
@@ -12,7 +12,7 @@ select
         (__messages__.archived_at is null) = (__forums__."archived_at" is null)
       )
     order by __messages__."id" asc
-    limit 6
+    limit 6) as page limit 1 offset 5
   )::text as "1",
   array(
     select array[
