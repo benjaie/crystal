@@ -19,7 +19,9 @@ import {
   __ItemStep,
   __TrackedValueStep,
   access,
+  AccessStep,
   arrayOfLength,
+  ConnectionStep,
   ConstantStep,
   currentFieldStreamDetails,
   DEFAULT_ACCEPT_FLAGS,
@@ -30,10 +32,13 @@ import {
   isDev,
   isPromiseLike,
   lambda,
+  LoadManyStep,
+  LoadOneStep,
   maybeArraysMatch,
   reverseArray,
   SafeError,
   Step,
+  stepADependsOnStepB,
   stepAMayDependOnStepB,
   stepAShouldTryAndInlineIntoStepB,
   UnbatchedStep,
@@ -48,7 +53,7 @@ import type {
   PgResourceParameter,
   PgResourceUnique,
 } from "../datasource.ts";
-import type { PgExecutorContext, PgExecutorInput } from "../executor.ts";
+import type { PgExecutorContext } from "../executor.ts";
 import { PgExecutor } from "../executor.ts";
 import type {
   GetPgResourceAttributes,
@@ -355,14 +360,8 @@ interface QueryBuildResult {
   // The values to feed into the query
   rawSqlValues: SQLRawValue[];
 
-  // The `DECLARE ... CURSOR` query for @stream
-  textForDeclare?: string;
-
-  // The values to feed into the `DECLARE ... CURSOR` query
-  rawSqlValuesForDeclare?: SQLRawValue[];
-
-  // If streaming, what's the initialCount
-  streamInitialCount?: number;
+  /** A single forward cursor supplies both the prefix and the continuation. */
+  stream: boolean;
 
   // The column on the result that indicates which group the result belongs to
   identifierIndex: number | null;
@@ -383,7 +382,7 @@ interface QueryBuildResult {
 }
 
 interface PgSelectStepResult extends ConnectionHandlingResult<unknown> {
-  hasNextPage: boolean;
+  hasNextPage: PromiseOrDirect<boolean>;
   hasPreviousPage: boolean;
   /** a tuple based on what is selected at runtime */
   items: ReadonlyArray<unknown[]> | AsyncIterable<unknown[]>;
@@ -700,6 +699,9 @@ export class PgSelectStep<
       $clone.firstStepId = cloneFromMatchingMode.firstStepId;
       $clone.lastStepId = cloneFromMatchingMode.lastStepId;
       $clone.fetchOneExtra = cloneFromMatchingMode.fetchOneExtra;
+      $clone.needsForwardLookahead =
+        cloneFromMatchingMode.needsForwardLookahead;
+      $clone.upfrontHasMore = cloneFromMatchingMode.upfrontHasMore;
       $clone.offsetStepId = cloneFromMatchingMode.offsetStepId;
 
       // dependencies were already added, so we can just copy the dependency references
@@ -1199,11 +1201,9 @@ export class PgSelectStep<
       meta,
       text,
       rawSqlValues,
-      textForDeclare,
-      rawSqlValuesForDeclare,
+      stream,
       identifierIndex,
       name,
-      streamInitialCount,
       queryValues: rawQueryValues,
       shouldReverseOrder,
       first,
@@ -1246,7 +1246,12 @@ export class PgSelectStep<
      */
     const isSkippable = this.mode === "normal" && !this.hasSideEffects;
 
-    if (streamInitialCount == null) {
+    if (
+      !stream ||
+      executionDetails.extra._bucket.size !== 1 ||
+      !this.canStreamRows ||
+      this.connectionOwner?.canStreamItems() === false
+    ) {
       const keysets: (readonly unknown[])[] = [];
       let resultIndexes: ReadonlyArray<number | null>;
       if (identifierIndex === null) {
@@ -1311,12 +1316,32 @@ export class PgSelectStep<
           return keysetIndex;
         });
       }
+      const request = executionDetails.extra._requestContext;
+      const bounded =
+        request.remainingStreamRows !== Infinity &&
+        this.mightHaveStream() &&
+        !isMutation;
+      // At most one lookahead row per parent is hidden from the result.
+      const pageSize = first ?? last;
+      const limitQuery =
+        bounded &&
+        (pageSize == null ||
+          pageSize * keysets.length > request.remainingStreamRows);
+      const maxFetched = limitQuery
+        ? Math.max(0, request.remainingStreamRows) + keysets.length + 1
+        : Infinity;
+      const fetchText = limitQuery
+        ? `select * from (
+${text.slice(0, -1)}
+) as page limit ${maxFetched}`
+        : text;
       const common = {
         store,
-        text,
+        cursorScope: request,
+        text: fetchText,
         rawSqlValues,
         identifierIndex,
-        name,
+        name: limitQuery ? hash(fetchText) : name,
         affinity: this.executionAffinity,
         eventEmitter,
         useTransaction: isMutation,
@@ -1324,7 +1349,7 @@ export class PgSelectStep<
       const executionResult =
         keysets.length === 0
           ? null
-          : isMutation
+          : isMutation || limitQuery
             ? await this.resource.executeWithoutCache(
                 keysets.map((queryValues) => ({ context, queryValues })),
                 common,
@@ -1336,7 +1361,16 @@ export class PgSelectStep<
                   pgStepBatchOptions(this.resource.executor, context, common),
                 ),
               };
-      // debugExecute("%s; result: %c", this, executionResult);
+      if (
+        limitQuery &&
+        executionResult != null &&
+        executionResult.values.reduce(
+          (count, rows) => count + (Array.isArray(rows) ? rows.length : 0),
+          0,
+        ) >= maxFetched
+      ) {
+        throw new SafeError("Materialized stream row limit exceeded");
+      }
 
       return indexMap((i) => {
         const executionResultIndex = resultIndexes[i];
@@ -1348,7 +1382,7 @@ export class PgSelectStep<
           // Must be an error
           return allVals as never;
         }
-        return createSelectResult(allVals, {
+        const result = createSelectResult(allVals, {
           first,
           last,
           offset,
@@ -1358,134 +1392,171 @@ export class PgSelectStep<
           cursorDetails,
           groupDetails,
         });
+        if (bounded && Array.isArray(result?.items)) {
+          request.retainStreamRows(result.items.length);
+        }
+        return result;
       });
     } else {
-      if (shouldReverseOrder !== false) {
-        throw new Error("shouldReverseOrder must be false for stream");
-      }
-      if (!rawSqlValuesForDeclare || !textForDeclare) {
-        throw new Error("declare query must exist for stream");
-      }
-
-      let specs: readonly PgExecutorInput<any>[] | null = null;
-      if (text) {
-        specs = indexMap((i) => {
-          return {
-            // The context is how we'd handle different connections with different claims
-            context,
-            queryValues:
-              identifierIndex != null
-                ? rawQueryValues.map(({ dependencyIndex, codec }) => {
-                    const val = values[dependencyIndex].at(i);
-                    return val == null ? null : codec.toPg(val);
-                  })
-                : EMPTY_ARRAY,
-          };
-        });
-      }
-      const initialFetchResult = specs
-        ? (
-            await this.resource.executeWithoutCache(specs, {
-              store,
-              text,
-              rawSqlValues,
-              identifierIndex,
-              eventEmitter,
-            })
-          ).values
-        : null;
-
-      const streamSpecs = indexMap<PgExecutorInput<any>>((i) => {
-        return {
-          // The context is how we'd handle different connections with different claims
-          context,
-          queryValues:
-            identifierIndex != null
-              ? rawQueryValues.map(({ dependencyIndex, codec }) => {
-                  const val = values[dependencyIndex].at(i);
-                  return val == null ? val : codec.toPg(val);
-                })
-              : EMPTY_ARRAY,
-        };
+      // Streaming is restricted to one parent so rows for a later parent
+      // cannot be blocked behind buffered rows for an earlier parent.
+      const queryValues = rawQueryValues.map(({ dependencyIndex, codec }) => {
+        const value = values[dependencyIndex].at(0);
+        return value == null ? null : codec.toPg(value);
       });
-      const streams = (
-        await this.resource.executeStream(streamSpecs, {
-          text: textForDeclare,
-          rawSqlValues: rawSqlValuesForDeclare,
-          identifierIndex,
-          eventEmitter,
-        })
-      ).streams;
-
-      return streams.map((iterable, idx) => {
-        if (!isAsyncIterable(iterable)) {
-          // Must be an error
-          return iterable as never;
+      if (
+        isSkippable &&
+        this.identifierDepIds.some((id) => values[id].at(0) == null)
+      ) {
+        return [NO_ROWS];
+      }
+      const specs = [{ context, queryValues }];
+      let hasMore = false;
+      let cursorText = text;
+      const checkAtEnd =
+        this.needsForwardLookahead && first != null && !this.upfrontHasMore;
+      if (this.fetchOneExtra && first != null && !checkAtEnd) {
+        // Use exactly the paginated relation, including authorization, cursor
+        // bounds and offset. Query values can include a lateral parent key.
+        const relation = text.slice(0, -1);
+        const pageLimit = sql.compile(sql.literal(first)).text;
+        if (this.upfrontHasMore) {
+          const probe = await this.resource.executeWithoutCache(specs, {
+            text: `select 1 from (
+${relation}
+) as page offset ${pageLimit} limit 1`,
+            rawSqlValues:
+              identifierIndex == null
+                ? rawSqlValues
+                : [...rawSqlValues, JSON.stringify([queryValues])],
+            identifierIndex: null,
+            eventEmitter,
+            store,
+          });
+          hasMore = probe.values[0].length > 0;
         }
-        if (!initialFetchResult) {
-          return {
-            hasNextPage: false,
-            hasPreviousPage: false,
-            items: iterable,
-            cursorDetails,
-            groupDetails,
-            m: meta,
-          };
-        }
-
-        // Munge the initialCount records into the streams
-        const innerIterator = iterable[Symbol.asyncIterator]();
-
-        let i = 0;
-        let done = false;
-        const l = initialFetchResult[idx].length;
-        const mergedGenerator: AsyncGenerator<PromiseOrDirect<unknown[]>> = {
-          async [Symbol.asyncDispose]() {
-            await this.return(undefined);
-          },
-          next() {
-            if (done) {
-              return Promise.resolve({ value: undefined, done });
-            } else if (i < l) {
-              return Promise.resolve({
-                value: initialFetchResult[idx][i++],
-                done,
-              });
-            } else if (streamInitialCount != null && l < streamInitialCount) {
-              done = true;
-              const r = innerIterator.return?.();
-              return r ?? Promise.resolve({ value: undefined, done });
-            } else {
-              return innerIterator.next();
-            }
-          },
-          return(value) {
-            done = true;
-            const r = innerIterator.return?.(value);
-            return r ?? Promise.resolve({ value: undefined, done });
-          },
-          throw(e) {
-            done = true;
-            const r = innerIterator.throw?.(e);
-            return r ?? Promise.resolve({ value: undefined, done });
-          },
-          [Symbol.asyncIterator]() {
-            return this;
-          },
-        };
-        return {
-          hasNextPage: false,
-          hasPreviousPage: false,
-          items: mergedGenerator,
+        cursorText = `select * from (
+${relation}
+) as page limit ${pageLimit}`;
+      }
+      const { streams } = await this.resource.executeStream(specs, {
+        cursorScope: executionDetails.extra._requestContext,
+        text: cursorText,
+        rawSqlValues,
+        identifierIndex,
+        eventEmitter,
+      });
+      const source = streams[0];
+      if (!isAsyncIterable(source)) {
+        return [source as never];
+      }
+      const signal = executionDetails.extra._requestContext.abortSignal;
+      const iterators = (executionDetails.extra._bucket.iterators[0] ??=
+        new Set());
+      const rows = pageRows(
+        source,
+        signal,
+        checkAtEnd ? first : null,
+        iterators,
+      );
+      return [
+        {
+          hasNextPage: checkAtEnd
+            ? rows.hasExtra
+            : hasNextPageCb(first, last, hasMore),
+          hasPreviousPage: hasPreviousPageCb(first, last, offset, hasMore),
+          items: rows.items,
           cursorDetails,
           groupDetails,
           m: meta,
-        };
-      });
+        },
+      ];
     }
   }
 
+  private canStreamRows = false;
+  private connectionOwner: ConnectionStep<any, any, any, any> | null = null;
+  private needsForwardLookahead = false;
+  private upfrontHasMore = false;
+
+  public override setNeedsHasMore(
+    forwardLookahead: "initial" | "deferred" | "unused" = "initial",
+  ) {
+    super.setNeedsHasMore();
+    this.needsForwardLookahead ||= forwardLookahead !== "unused";
+    this.upfrontHasMore ||= forwardLookahead === "initial";
+  }
+
   public finalize(): void {
+    if (
+      this.mightHaveStream() &&
+      this.mode === "normal" &&
+      !this.hasSideEffects &&
+      !this.forceIdentity &&
+      this.operationPlan.operation.operation === "query" &&
+      this.layerPlan.deferBoundaryDepth === 0
+    ) {
+      // Metadata access is replayable. Only one path may extract the items.
+      const owners = this.dependents.filter(
+        ({ step }) =>
+          !(
+            step instanceof AccessStep &&
+            [
+              "m",
+              "cursorDetails",
+              "groupDetails",
+              "hasPreviousPage",
+              "hasNextPage",
+            ].includes(String(step.path[0]))
+          ),
+      );
+      this.canStreamRows =
+        owners.length === 1 &&
+        (owners[0].step instanceof ConnectionStep ||
+          owners[0].step instanceof PgSelectRowsStep);
+      if (this.canStreamRows && owners[0].step instanceof ConnectionStep) {
+        this.connectionOwner = owners[0].step;
+      }
+      // A cursor pins a client. A query that needs another statement to
+      // produce its payload must make progress even with a one-client pool.
+      if (this.canStreamRows) {
+        for (const step of this.operationPlan.stepTracker.activeSteps) {
+          // User loaders and side effects can acquire their own database
+          // client. They cannot borrow this cursor's transaction.
+          if (
+            step !== this &&
+            (step.hasSideEffects ||
+              step instanceof LoadOneStep ||
+              step instanceof LoadManyStep) &&
+            !stepADependsOnStepB(this, step)
+          ) {
+            this.canStreamRows = false;
+            break;
+          }
+          if (
+            step !== this &&
+            step instanceof PgStmtBaseStep &&
+            !stepADependsOnStepB(this, step)
+          ) {
+            if (
+              step instanceof PgSelectStep &&
+              !step.mightHaveStream() &&
+              step.mode !== "mutation" &&
+              !step.hasSideEffects &&
+              step.resource.executor === this.resource.executor &&
+              step.dependencies[step.contextId] ===
+                this.dependencies[this.contextId] &&
+              stepADependsOnStepB(step, this)
+            ) {
+              // The nested select can run on the parent's cursor transaction.
+              continue;
+            }
+            this.canStreamRows = false;
+            break;
+          }
+        }
+      }
+    }
     // In case we have any lock actions in future:
     this.lock();
 
@@ -1697,6 +1768,7 @@ export class PgSelectStep<
 
   /** @internal */
   public deduplicatedWith(replacement: PgSelectStep<TResource>): void {
+    replacement._fieldMightStream ||= this._fieldMightStream;
     if (
       typeof this.symbol === "symbol" &&
       typeof replacement.symbol === "symbol"
@@ -1710,6 +1782,8 @@ export class PgSelectStep<
 
     if (this.fetchOneExtra) {
       replacement.fetchOneExtra = true;
+      replacement.needsForwardLookahead ||= this.needsForwardLookahead;
+      replacement.upfrontHasMore ||= this.upfrontHasMore;
     }
     if (this.needsCursor) {
       replacement.needsCursor = true;
@@ -1997,6 +2071,9 @@ export class PgSelectStep<
     $details: Step<ExecutionDetailsStream | null> | false | null,
   ) {
     if ($details) {
+      // An unstreamed sibling can require the full page even when a different
+      // projection requested streaming. Keep that fallback subject to the cap.
+      this._fieldMightStream = true;
       this.streamDetailsDepIds?.push(this.addUnaryDependency($details));
     } else {
       // Explicitly disable streaming
@@ -3262,7 +3339,7 @@ function buildTheQueryCore<
     info.cursorDigest = getOrderByDigest(info);
   }
   // PERF: only calculate this if needed
-  const { sql: trueOrderBySQL } = buildOrderBy(info, false);
+
   if (info.cursorIndicies) {
     // PERF: calculate cursorDigest here instead?
     if (info.orders.length > 0) {
@@ -3324,7 +3401,6 @@ function buildTheQueryCore<
 
   return {
     count,
-    trueOrderBySQL,
     info,
     stream,
     meta,
@@ -3340,7 +3416,7 @@ function buildTheQuery<
     fixedPlaceholderValues,
     _symbolSubstitutes,
   } = rawInfo;
-  const { count, trueOrderBySQL, info, stream, meta } = runtimeScopedSQL(() =>
+  const { count, info, stream, meta } = runtimeScopedSQL(() =>
     buildTheQueryCore(rawInfo),
   );
 
@@ -3378,21 +3454,12 @@ function buildTheQuery<
   for (const [key, value] of fixedPlaceholderValues) {
     placeholderValues.set(key, value);
   }
-  const forceOrder = (stream && info.shouldReverseOrder) || false;
-
-  const makeQuery = ({
-    limit,
-    offset,
-    options,
-  }: {
-    limit?: number;
-    offset?: number;
-    options?: Parameters<typeof sql.compile>[1];
-  } = {}): {
+  const makeQuery = (): {
     text: string;
     rawSqlValues: SQLRawValue[];
     identifierIndex: number | null;
   } => {
+    const options = { placeholderValues };
     if (
       queryValues.length > 0 ||
       (count !== 1 && (forceIdentity || hasSideEffects))
@@ -3401,55 +3468,10 @@ function buildTheQuery<
 
       const identifierIndexOffset =
         extraSelects.push(sql`${identifiersAlias}.idx`) - 1;
-      // PERF: try and re-use existing trueOrderBySQL selection?
-      const rowNumberIndexOffset =
-        forceOrder || limit != null || offset != null
-          ? extraSelects.push(
-              sql`row_number() over (${sql.indent(trueOrderBySQL)})`,
-            ) - 1
-          : -1;
-
       const { sql: baseQuery, extraSelectIndexes } = buildQuery(info, {
         extraSelects,
-        forceOrder,
       });
       const identifierIndex = extraSelectIndexes[identifierIndexOffset];
-
-      const rowNumberIndex =
-        rowNumberIndexOffset >= 0
-          ? extraSelectIndexes[rowNumberIndexOffset]
-          : null;
-      const innerWrapper = sql.identifier(Symbol("stream_wrapped"));
-
-      /*
-       * This wrapper around the inner query is for @stream:
-       *
-       * - stream must be in the correct order, so if we have
-       *   `shouldReverseOrder` then we must reverse the order
-       *   ourselves here;
-       * - stream can have an `initialCount` - we want to satisfy all
-       *   `initialCount` records from _each identifier group_ before we then
-       *   resolve the remaining records.
-       *
-       * NOTE: if neither of the above cases apply then we can skip this,
-       * even for @stream.
-       */
-      const wrappedInnerQuery =
-        rowNumberIndex != null ||
-        limit != null ||
-        (offset != null && offset > 0)
-          ? sql`select *\nfrom (${sql.indent(
-              baseQuery,
-            )}) ${innerWrapper}\norder by ${innerWrapper}.${sql.identifier(
-              String(rowNumberIndex),
-            )}${
-              limit != null ? sql`\nlimit ${sql.literal(limit)}` : sql.blank
-            }${
-              offset != null && offset > 0
-                ? sql`\noffset ${sql.literal(offset)}`
-                : sql.blank
-            }`
-          : baseQuery;
 
       // PERF: if the query does not have a limit/offset; should we use an
       // `inner join` in a flattened query instead of a wrapped query with
@@ -3463,7 +3485,7 @@ function buildTheQuery<
         values: rawSqlValues,
         [$$symbolToIdentifier]: symbolToIdentifier,
       } = sql.compile(
-        sql`lateral (${sql.indent(wrappedInnerQuery)}) as ${wrapperAlias}`,
+        sql`lateral (${sql.indent(baseQuery)}) as ${wrapperAlias}`,
         options,
       );
 
@@ -3497,62 +3519,6 @@ from ${identifiersAliasText},
 ${lateralText};`;
 
       return { text, rawSqlValues, identifierIndex };
-    } else if (
-      (limit != null && limit >= 0) ||
-      (offset != null && offset > 0)
-    ) {
-      // ENHANCEMENT: make this nicer; combine with the `if` branch above?
-
-      const extraSelects: SQL[] = [];
-      const rowNumberIndexOffset =
-        forceOrder || limit != null || offset != null
-          ? extraSelects.push(
-              sql`row_number() over (${sql.indent(trueOrderBySQL)})`,
-            ) - 1
-          : -1;
-
-      const { sql: baseQuery, extraSelectIndexes } = buildQuery(info, {
-        extraSelects,
-      });
-      const rowNumberIndex =
-        rowNumberIndexOffset >= 0
-          ? extraSelectIndexes[rowNumberIndexOffset]
-          : null;
-      const innerWrapper = sql.identifier(Symbol("stream_wrapped"));
-      /*
-       * This wrapper around the inner query is for @stream:
-       *
-       * - stream must be in the correct order, so if we have
-       *   `shouldReverseOrder` then we must reverse the order
-       *   ourselves here;
-       * - stream can have an `initialCount` - we want to satisfy all
-       *   `initialCount` records from _each identifier group_ before we then
-       *   resolve the remaining records.
-       *
-       * NOTE: if neither of the above cases apply then we can skip this,
-       * even for @stream.
-       */
-      const wrappedInnerQuery =
-        rowNumberIndex != null ||
-        limit != null ||
-        (offset != null && offset > 0)
-          ? sql`select *\nfrom (${sql.indent(
-              baseQuery,
-            )}) ${innerWrapper}\norder by ${innerWrapper}.${sql.identifier(
-              String(rowNumberIndex),
-            )}${
-              limit != null ? sql`\nlimit ${sql.literal(limit)}` : sql.blank
-            }${
-              offset != null && offset > 0
-                ? sql`\noffset ${sql.literal(offset)}`
-                : sql.blank
-            };`
-          : sql`${baseQuery};`;
-      const { text, values: rawSqlValues } = sql.compile(
-        wrappedInnerQuery,
-        options,
-      );
-      return { text, rawSqlValues, identifierIndex: null };
     } else {
       const { sql: query } = buildQuery(info, {});
       const { text, values: rawSqlValues } = sql.compile(
@@ -3571,114 +3537,23 @@ ${lateralText};`;
     ? { indicies: groupIndicies }
     : undefined;
 
-  const initialCount = stream?.initialCount;
-  if (initialCount != null) {
-    // PERF: should use the queryForSingle optimization in here too
-
-    // When streaming we can't reverse order in JS - we must do it in the DB.
-    if (initialCount > 0) {
-      /*
-       * Here our stream is constructed of two parts - an
-       * `initialFetchQuery` to satisfy the `initialCount` and then a
-       * `streamQuery` to build the PostgreSQL cursor for fetching the
-       * remaining results across all groups.
-       */
-      const {
-        text,
-        rawSqlValues,
-        identifierIndex: initialFetchIdentifierIndex,
-      } = makeQuery({
-        limit: initialCount,
-        options: { placeholderValues },
-      });
-      const {
-        text: textForDeclare,
-        rawSqlValues: rawSqlValuesForDeclare,
-        identifierIndex: streamIdentifierIndex,
-      } = makeQuery({
-        offset: initialCount,
-        options: { placeholderValues },
-      });
-      if (initialFetchIdentifierIndex !== streamIdentifierIndex) {
-        throw new Error(
-          `GrafastInternalError<3760b02e-dfd0-4924-bf62-2e0ef9399605>: expected identifier indexes to match`,
-        );
-      }
-      const identifierIndex = initialFetchIdentifierIndex;
-      return {
-        meta,
-        text,
-        rawSqlValues,
-        textForDeclare,
-        rawSqlValuesForDeclare,
-        identifierIndex,
-        shouldReverseOrder: false,
-        streamInitialCount: initialCount,
-        queryValues,
-        first,
-        last,
-        offset,
-        cursorDetails,
-        groupDetails,
-      };
-    } else {
-      /*
-       * Unlike the above case, here we have an `initialCount` of zero so
-       * we can skip the `initialFetchQuery` and jump straight to the
-       * `streamQuery`.
-       */
-      const {
-        text: textForDeclare,
-        rawSqlValues: rawSqlValuesForDeclare,
-        identifierIndex: streamIdentifierIndex,
-      } = makeQuery({
-        offset: 0,
-        options: {
-          placeholderValues,
-        },
-      });
-      return {
-        meta,
-        // This is a hack since this is the _only_ place we don't want
-        // `text`; loosening the types would risk us forgetting in more
-        // places (and cause us to do excessive type safety checks) so we
-        // use an explicit empty string to mark this.
-        text: "",
-        rawSqlValues: [],
-        textForDeclare,
-        rawSqlValuesForDeclare,
-        identifierIndex: streamIdentifierIndex,
-        shouldReverseOrder: false,
-        streamInitialCount: 0,
-        queryValues,
-        first,
-        last,
-        offset,
-        cursorDetails,
-        groupDetails,
-      };
-    }
-  } else {
-    const { text, rawSqlValues, identifierIndex } = makeQuery({
-      options: {
-        placeholderValues,
-      },
-    });
-    return {
-      meta,
-      text,
-      rawSqlValues,
-      identifierIndex,
-      shouldReverseOrder,
-      name: hash(text),
-      queryValues,
-      first,
-      last,
-      offset,
-      cursorDetails,
-      groupDetails,
-    };
-  }
+  const { text, rawSqlValues, identifierIndex } = makeQuery();
+  return {
+    stream:
+      stream !== null && count === 1 && last == null && !shouldReverseOrder,
+    meta,
+    text,
+    rawSqlValues,
+    identifierIndex,
+    shouldReverseOrder,
+    name: hash(text),
+    queryValues,
+    first,
+    last,
+    offset,
+    cursorDetails,
+    groupDetails,
+  };
 }
 
 type StaticKeys =
@@ -4375,6 +4250,74 @@ function buildAliases(_symbolSubstitutes: ReadonlyMap<symbol, symbol>) {
     sqlAliases.push(sql.symbolAlias(a, b));
   }
   return sql.join(sqlAliases, "");
+}
+
+/** Own the database cursor until all visible rows and requested lookahead have
+ * been read, or the request is cancelled. */
+function pageRows(
+  source: AsyncIterable<unknown[]>,
+  signal: AbortSignal,
+  limit: number | null,
+  unclaimed: Set<AsyncIterator<any> | Iterator<any>>,
+) {
+  const cursor = source[Symbol.asyncIterator]();
+  const extra = limit == null ? null : Promise.withResolvers<boolean>();
+  extra?.promise.catch(() => {});
+  let index = 0;
+  let closing: Promise<void> | null = null;
+  function cancel() {
+    extra?.reject(signal.reason);
+    void close().catch(() => {});
+  }
+  function close() {
+    if (closing === null) {
+      signal.removeEventListener("abort", cancel);
+      closing = Promise.resolve(cursor.return?.()).then(() => {});
+    }
+    return closing;
+  }
+  const items: AsyncIterableIterator<unknown[]> = {
+    [Symbol.asyncIterator]() {
+      unclaimed.delete(this);
+      return this;
+    },
+    async next() {
+      try {
+        if (closing !== null) {
+          return { done: true, value: undefined };
+        }
+        const row = await cursor.next();
+        if (row.done || (limit != null && index === limit)) {
+          extra?.resolve(!row.done);
+          await close();
+          return { done: true, value: undefined };
+        }
+        index++;
+        return row;
+      } catch (e) {
+        extra?.reject(e);
+        await close();
+        throw e;
+      }
+    },
+    async return() {
+      try {
+        while (extra !== null && closing === null && !signal.aborted) {
+          await items.next();
+        }
+      } finally {
+        await close();
+      }
+      return { done: true, value: undefined };
+    },
+  };
+  if (signal.aborted) {
+    cancel();
+  } else {
+    signal.addEventListener("abort", cancel, { once: true });
+  }
+  unclaimed.add(items);
+  return { items, hasExtra: extra?.promise ?? false };
 }
 
 function createSelectResult(
