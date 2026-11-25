@@ -38,7 +38,7 @@ import {
   getChildBucketAndIndex,
   getDirectLayerPlanChild,
 } from "./engine/OutputPlan.ts";
-import { flagError, isFlaggedValue, SafeError } from "./error.ts";
+import { isFlaggedValue, SafeError } from "./error.ts";
 import type {
   ErrorBehavior,
   GrafastInternalExecutionArgs,
@@ -383,6 +383,7 @@ function executePreemptive(
   const requestContext: RequestTools = {
     args,
     onError,
+    variableValues,
     remainingStreamRows: rowLimit,
     retainStreamRows(count) {
       this.remainingStreamRows -= count;
@@ -812,18 +813,11 @@ async function processStream(
   outputDataAsString: boolean,
 ): Promise<void> {
   type ResultTuple = [value: any, index: number, flags: number];
-  const entryFor = async (
+  const entryFor = (
     result: IteratorResult<any>,
     index: number,
-  ): Promise<ResultTuple> => {
+  ): ResultTuple => {
     let value = result.value;
-    if (isPromiseLike(value)) {
-      try {
-        value = await value;
-      } catch (e) {
-        value = flagError(e);
-      }
-    }
     let flags = NO_FLAGS;
     if (value !== null && typeof value === "object" && isFlaggedValue(value)) {
       flags = value.flags;
@@ -974,7 +968,7 @@ async function processStream(
       if (first.done) {
         break;
       }
-      const entries: ResultTuple[] = [await entryFor(first, index++)];
+      const entries: ResultTuple[] = [entryFor(first, index++)];
       let done = false;
       let timer: ReturnType<typeof setTimeout>;
       const deadline = new Promise<null>((resolve) => {
@@ -992,7 +986,7 @@ async function processStream(
             done = true;
             break;
           }
-          entries.push(await entryFor(result, index++));
+          entries.push(entryFor(result, index++));
         }
       } finally {
         clearTimeout(timer!);

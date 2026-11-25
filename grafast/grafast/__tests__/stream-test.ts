@@ -1,4 +1,7 @@
 /* eslint-disable graphile-export/exhaustive-deps, graphile-export/export-methods, graphile-export/export-plans, graphile-export/export-instances, graphile-export/export-subclasses, graphile-export/no-nested */
+import { IncomingMessage } from "node:http";
+import { Socket } from "node:net";
+
 import { expect } from "chai";
 import { resolvePreset } from "graphile-config";
 import type { AsyncExecutionResult } from "graphql";
@@ -10,6 +13,7 @@ import type {
   PromiseOrDirect,
 } from "../dist/index.js";
 import {
+  connection,
   constant,
   flagError,
   grafast,
@@ -313,4 +317,212 @@ it("preserves null entries and errors in the streamed tail", async () => {
   }
   expect(data).to.deep.equal([1, null, null, 4]);
   expect(errors).to.deep.equal([[["rows", 2], "row failed"]]);
+});
+
+it("reads metadata from an HTTP request without consuming its body", async () => {
+  const message = new IncomingMessage(new Socket());
+  message.method = "POST";
+  message.url = "/upload";
+  message.push("body");
+  message.push(null);
+  const schema = makeGrafastSchema({
+    typeDefs:
+      "type Query { request: Request } type Request { method: String, url: String }",
+    objects: {
+      Query: { plans: { request: () => lambda(constant(0), () => message) } },
+    },
+  });
+  try {
+    const result = await grafast({
+      schema,
+      source: "{ request { method url } }",
+    });
+    expect(result).to.deep.equal({
+      data: { request: { method: "POST", url: "/upload" } },
+    });
+    expect(message.readableDidRead).to.equal(false);
+  } finally {
+    message.destroy();
+  }
+});
+
+it("only pulls the skipped rows, page and requested lookahead from a connection", async () => {
+  let pulls = 0;
+  let closed = 0;
+  async function* rows() {
+    try {
+      for (;;) {
+        if (++pulls > 4) throw new Error("Read beyond the requested page");
+        yield pulls;
+      }
+    } finally {
+      closed++;
+    }
+  }
+  const schema = makeGrafastSchema({
+    typeDefs:
+      "type Query { page(first: Int, offset: Int): Page } type Page { nodes: [Int!]!, pageInfo: PageInfo! } type PageInfo { hasNextPage: Boolean! }",
+    enableDeferStream: true,
+    objects: {
+      Query: {
+        plans: {
+          page: (_, fieldArgs) =>
+            connection(lambda(constant(0), rows) as unknown as Step<number[]>, {
+              fieldArgs,
+            }),
+        },
+      },
+    },
+  });
+  for (const query of [
+    "{ page(first: 1, offset: 2) { nodes } }",
+    "{ page(first: 1, offset: 2) { nodes @stream ... @defer { pageInfo { hasNextPage } } } }",
+  ]) {
+    pulls = closed = 0;
+    const result = await grafast({
+      schema,
+      source: query,
+      resolvedPreset: resolvePreset({
+        grafast: { maxMaterializedStreamRows: 1 },
+      }),
+    });
+    if (Symbol.asyncIterator in result) {
+      const patches = [];
+      for await (const patch of result) patches.push(patch);
+      expect(patches.map((patch) => patch.data)).to.deep.include(3);
+      expect(patches.map((patch) => patch.data)).to.deep.include({
+        pageInfo: { hasNextPage: true },
+      });
+      expect(pulls).to.equal(4);
+    } else {
+      expect(result).to.deep.equal({ data: { page: { nodes: [3] } } });
+      expect(pulls).to.equal(3);
+    }
+    expect(closed).to.equal(1);
+  }
+});
+
+it("retains the final page of a forward-only source in input order", async () => {
+  const schema = makeGrafastSchema({
+    typeDefs:
+      "type Query { page(last: Int): Page } type Page { nodes: [Int!]!, pageInfo: PageInfo! } type PageInfo { hasPreviousPage: Boolean! }",
+    enableDeferStream: true,
+    objects: {
+      Query: {
+        plans: {
+          page: (_, fieldArgs) => {
+            const $rows = lambda(null, async function* () {
+              yield* [1, 2, 3, 4, 5];
+            });
+            return connection($rows as unknown as Step<number[]>, {
+              fieldArgs,
+            });
+          },
+        },
+      },
+    },
+  });
+  const result = await grafast({
+    schema,
+    source:
+      "{ page(last: 2) { nodes @stream(initialCount: 3) pageInfo { hasPreviousPage } } }",
+    resolvedPreset: resolvePreset({
+      grafast: { maxMaterializedStreamRows: 2 },
+    }),
+  });
+  expect(result).to.deep.equal({
+    data: { page: { nodes: [4, 5], pageInfo: { hasPreviousPage: true } } },
+  });
+});
+
+it("applies a zero fallback budget only to enabled streams", async () => {
+  async function* rows() {
+    yield 1;
+    yield 2;
+  }
+  const schema = makeGrafastSchema({
+    typeDefs:
+      "type Query { rows: [Int!]!, parents: [Parent!]! } type Parent { rows: [Int!]! }",
+    enableDeferStream: true,
+    objects: {
+      Query: {
+        plans: {
+          rows: () => lambda(constant(0), rows),
+          parents: () => constant([1, 1]),
+        },
+      },
+      Parent: {
+        plans: {
+          rows: ($key: Step<number>) =>
+            loadMany($key, (keys) => keys.map(rows)),
+        },
+      },
+    },
+  });
+  const resolvedPreset = resolvePreset({
+    grafast: { maxMaterializedStreamRows: 0 },
+  });
+  for (const directive of ["", "@stream(if: false)"]) {
+    const result = await grafast({
+      schema,
+      resolvedPreset,
+      source: `{ rows ${directive} parents { rows ${directive} } }`,
+    });
+    expect(result).to.deep.equal({
+      data: { rows: [1, 2], parents: [{ rows: [1, 2] }, { rows: [1, 2] }] },
+    });
+  }
+  const source =
+    "query($stream: Boolean! = true) { parents { rows @stream(if: $stream) } }";
+  const disabled = await grafast({
+    schema,
+    resolvedPreset,
+    source,
+    variableValues: { stream: false },
+  });
+  expect(disabled).to.deep.equal({
+    data: { parents: [{ rows: [1, 2] }, { rows: [1, 2] }] },
+  });
+  const enabled = await grafast({ schema, resolvedPreset, source });
+  if (Symbol.asyncIterator in enabled) {
+    throw new Error("Expected the shared list to exceed its fallback budget");
+  }
+  expect(enabled.errors?.[0].message).to.equal(
+    "Materialized stream row limit exceeded",
+  );
+});
+
+it("delivers a ready array item before a later promise settles", async () => {
+  const pending = Promise.withResolvers<number>();
+  const schema = makeGrafastSchema({
+    typeDefs: "type Query { rows: [Int]! }",
+    enableDeferStream: true,
+    objects: {
+      Query: {
+        plans: { rows: () => lambda(constant(0), () => [1, pending.promise]) },
+      },
+    },
+  });
+  const result = await grafast({ schema, source: "{ rows @stream }" });
+  if (!(Symbol.asyncIterator in result)) {
+    throw new Error("Expected streamed rows");
+  }
+  const iterator = result[Symbol.asyncIterator]();
+  try {
+    expect((await iterator.next()).value?.data).to.deep.equal({ rows: [] });
+    expect((await iterator.next()).value).to.deep.equal({
+      path: ["rows", 0],
+      data: 1,
+      hasNext: true,
+    });
+    pending.resolve(2);
+    expect((await iterator.next()).value).to.deep.equal({
+      path: ["rows", 1],
+      data: 2,
+      hasNext: true,
+    });
+  } finally {
+    pending.resolve(2);
+    await iterator.return?.();
+  }
 });

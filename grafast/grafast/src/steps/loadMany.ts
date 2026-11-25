@@ -18,7 +18,7 @@ import type {
 import type { Multistep, UnwrapMultistep } from "../multistep.ts";
 import { multistep } from "../multistep.ts";
 import { Step } from "../step.ts";
-import { readCachedList } from "../streamItems.ts";
+import { listStreamRequested, readCachedList } from "../streamItems.ts";
 import { isPromiseLike, recordsMatch } from "../utils.ts";
 import {
   executeLoad,
@@ -194,12 +194,15 @@ export class LoadManyStep<
     }
   }
 
+  private readonly connectionStreamDepIds: number[] = [];
+
   addStreamDetails?(
     $streamDetails: Step<ExecutionDetailsStream | null> | null,
   ) {
     if ($streamDetails === null) {
       this._fieldMightStreamViaConnection = false;
     } else {
+      this.connectionStreamDepIds.push(this.addUnaryDependency($streamDetails));
       if (this._fieldMightStreamViaConnection === null) {
         this._fieldMightStreamViaConnection = true;
       }
@@ -340,10 +343,14 @@ export class LoadManyStep<
       return loaded;
     }
     const replay = (value: ExecutionResultValue<TData>) =>
-      isAsyncIterable(value)
+      !Array.isArray(value) && isAsyncIterable(value)
         ? (readCachedList(
             value,
             details.extra._requestContext,
+            listStreamRequested(this, details.extra._requestContext) ||
+              this.connectionStreamDepIds.some(
+                (id) => details.values[id].unaryValue() != null,
+              ),
           ) as unknown as Promise<TData>)
         : value;
     const replayAll = (values: Awaited<typeof loaded>) =>

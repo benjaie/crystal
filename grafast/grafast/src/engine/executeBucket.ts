@@ -37,7 +37,12 @@ import type {
 import type { Step, UnbatchedStep } from "../step.ts";
 import { __ItemStep } from "../steps/__item.ts";
 import { __ValueStep } from "../steps/__value.ts";
-import { MaterializedList, trackLastItem } from "../streamItems.ts";
+import {
+  arrayContinuation,
+  listStreamRequested,
+  MaterializedList,
+  trackLastItem,
+} from "../streamItems.ts";
 import { timeSource } from "../timeSource.ts";
 import {
   arrayOfLength,
@@ -311,8 +316,8 @@ export function executeBucket(
           return;
         }
 
-        // PERF: do we want to handle arrays differently?
-        if (Array.isArray(rawValue) && $$streamMore in rawValue) {
+        const isArray = Array.isArray(rawValue);
+        if (isArray && $$streamMore in rawValue) {
           // This prefix and its continuation already have a shared reader.
           bucket.setResult(finishedStep, resultIndex, rawValue, flags);
           return;
@@ -325,15 +330,11 @@ export function executeBucket(
         let valueIsAsyncIterable = false;
         if (
           projections !== null ||
-          materialize ||
+          finishedStep._materializeIterable ||
           finishedStep.cloneStreams ||
           finishedStep._stepOptions.walkIterable
         ) {
-          valueIsIterable =
-            (finishedStep.cloneStreams ||
-              finishedStep._stepOptions.walkIterable ||
-              projections !== null) &&
-            isIterable(rawValue);
+          valueIsIterable = isArray || isIterable(rawValue);
           valueIsAsyncIterable = !valueIsIterable && isAsyncIterable(rawValue);
         }
 
@@ -358,14 +359,20 @@ export function executeBucket(
           }
           stream = Number.isFinite(initialCount) ? { initialCount } : null;
         }
-        if (!stream && !valueIsAsyncIterable && Array.isArray(rawValue)) {
-          // Fast mode
+        if (isArray) {
+          const initialCount = materialize
+            ? Infinity
+            : (stream?.initialCount ?? Infinity);
+          const prefixLength = Math.max(
+            0,
+            Math.min(rawValue.length, initialCount),
+          );
+          const hasTail = initialCount <= rawValue.length;
           const value = rawValue;
 
-          const valueCount = value.length;
-          /** We only create a duplicate array if the source array contains promises */
-          let replacement: Array<any> | null = null;
-          for (let i = 0; i < valueCount; i++) {
+          // Ordinary arrays without promises can pass through by reference.
+          let replacement: Array<any> | null = hasTail ? [] : null;
+          for (let i = 0; i < prefixLength; i++) {
             const item = value[i];
             if (isPromiseLike(item)) {
               if (replacement === null) {
@@ -389,13 +396,25 @@ export function executeBucket(
             }
           }
           const list = replacement === null ? value : replacement;
+          if (hasTail) {
+            let continuation: Iterator<any> | AsyncIterator<any> =
+              arrayContinuation(value, prefixLength);
+            if (finishedStep._needsLastItem && projections !== null) {
+              continuation = trackLastItem(
+                continuation,
+                requestContext.abortSignal,
+              );
+            }
+            (list as StreamMaybeMoreableArray<any>)[$$streamMore] =
+              continuation;
+            (bucket.iterators[resultIndex] ??= new Set()).add(continuation);
+          }
           bucket.setResult(finishedStep, resultIndex, list, flags);
           return;
         }
 
         if (
           finishedStep._lazyMaterialization &&
-          !Array.isArray(rawValue) &&
           (valueIsAsyncIterable || valueIsIterable)
         ) {
           bucket.setResult(
@@ -404,6 +423,7 @@ export function executeBucket(
             new MaterializedList(
               rawValue as AsyncIterable<any>,
               requestContext,
+              listStreamRequested(finishedStep, requestContext),
             ),
             flags,
           );
@@ -420,6 +440,10 @@ export function executeBucket(
           const initialCount = materialize
             ? Infinity
             : (stream?.initialCount ?? Infinity);
+
+          const chargeRows =
+            initialCount === Infinity &&
+            listStreamRequested(finishedStep, requestContext);
 
           let iterator: Iterator<any, any, any> | AsyncIterator<any, any, any>;
           try {
@@ -475,19 +499,10 @@ export function executeBucket(
                   if (resolvedResult.done) {
                     break;
                   }
-                  if (initialCount === Infinity && !Array.isArray(rawValue)) {
+                  if (chargeRows) {
                     requestContext.retainStreamRows(1);
                   }
-                  try {
-                    const v = resolvedResult.value;
-                    if (isPromiseLike(v)) {
-                      arr.push(await v);
-                    } else {
-                      arr.push(v);
-                    }
-                  } catch (e) {
-                    arr.push(flagError(e));
-                  }
+                  arr.push(resolvedResult.value);
                   if (++valuesSeen >= initialCount) {
                     // This is safe to do in the `while` since we checked
                     // the `0` entries condition in the optimization

@@ -4,6 +4,7 @@ import * as assert from "../assert.ts";
 import type { RequestTools } from "../bucket.ts";
 import type { LayerPlan } from "../engine/LayerPlan.ts";
 import {
+  currentFieldStreamCondition,
   currentFieldStreamDetails,
   currentLayerPlan,
 } from "../engine/lib/withGlobalLayerPlan.ts";
@@ -20,6 +21,7 @@ import type {
 } from "../interfaces.ts";
 import { promiseWithResolve } from "../promiseWithResolve.ts";
 import { Step, UnbatchedStep } from "../step.ts";
+import { listStreamRequested } from "../streamItems.ts";
 import {
   asyncIteratorWithCleanup,
   isPromiseLike,
@@ -779,6 +781,9 @@ export class ConnectionStep<
 
       this._mightStream = false;
     } else {
+      const condition = currentFieldStreamCondition();
+      this._recordListStream(condition);
+      this.getSubplan()._recordListStream(condition);
       this.getHandler(true).addStreamDetails?.($streamDetails);
 
       if (this._mightStream === null) {
@@ -875,6 +880,14 @@ export class ConnectionStep<
     return this;
   }
   deduplicatedWith(replacement: ConnectionStep<any, any, any, any, any>) {
+    const conditions = this._listStreamConditions;
+    if (conditions === true) {
+      replacement._recordListStream(true);
+    } else if (conditions !== null) {
+      for (const condition of conditions) {
+        replacement._recordListStream(condition);
+      }
+    }
     replacement.needsStart ||= this.needsStart;
     replacement.needsEnd ||= this.needsEnd;
     replacement.needsAllItems ||= this.needsAllItems;
@@ -916,6 +929,9 @@ export class ConnectionStep<
             this.paramsDepId
           ].unaryValue() as PaginationParams<TCursorValue>)
         : null;
+    const budget = listStreamRequested(this, extra._requestContext)
+      ? extra._requestContext
+      : null;
     return indexMap((i) => {
       const collectionValue = collectionDep.at(i);
 
@@ -939,7 +955,7 @@ export class ConnectionStep<
           return (async () => {
             const items = Array.isArray(result.items)
               ? result.items
-              : await iterableToArray(result.items, extra._requestContext);
+              : await iterableToArray(result.items, budget);
             return {
               ...result,
               items,
@@ -999,29 +1015,34 @@ export class ConnectionStep<
         return null;
       }
 
+      const tailBudget =
+        typeof params.__hasMore !== "boolean" && params.__hasMore[0] === "l"
+          ? budget
+          : null;
+      const result = makeProcessedCollection(
+        mode,
+        collection,
+        params,
+        !this.collectionPaginationSupport?.cursor,
+        tailBudget,
+      );
       if (
+        !Array.isArray(result.items) &&
         (params.stream == null ||
-          (this.needsHasMore && typeof params.__hasMore !== "boolean")) &&
-        (mode === MODE_ITERABLE || mode === MODE_ASYNC_ITERABLE)
+          (this.needsHasMore && typeof params.__hasMore !== "boolean"))
       ) {
-        // Convert to array, then process
-        return iterableToArray(collection, extra._requestContext).then(
-          (array) =>
-            makeProcessedCollection(
-              MODE_ARRAY,
-              array,
-              params,
-              !this.collectionPaginationSupport?.cursor,
-            ),
-        );
-      } else {
-        return makeProcessedCollection(
-          mode,
-          collection,
-          params,
-          !this.collectionPaginationSupport?.cursor,
-        );
+        // Consume the paginated iterator, so skipped rows and lookahead are
+        // never retained and a forward page can close an unbounded source.
+        return iterableToArray(
+          result.items,
+          tailBudget === null ? budget : null,
+        ).then(async (items) => ({
+          items,
+          hasNextPage: await result.hasNextPage,
+          hasPreviousPage: await result.hasPreviousPage,
+        }));
       }
+      return result;
     });
   }
 }
@@ -1040,6 +1061,7 @@ function makeProcessedCollection<TItem>(
   collection: Array<TItem> | Iterable<TItem> | AsyncIterable<TItem>,
   params: PaginationParams<any>,
   wrapIndicies: boolean,
+  tailBudget: RequestTools | null,
 ): ConnectionResult<TItem> {
   const { __isForwardPagination, __hasMore, __skipOver, __limit } = params;
 
@@ -1064,34 +1086,30 @@ function makeProcessedCollection<TItem>(
     | Iterable<MaybeIndexed<TItem>>
     | AsyncIterable<MaybeIndexed<TItem>>;
   if (mode === MODE_ARRAY) {
-    let array = collection as ReadonlyArray<TItem>;
-    if (__skipOver > 0) {
-      array = array.slice(__skipOver);
-    }
-    if (__limit != null) {
-      array = array.slice(0, __limit);
-    }
+    const array = collection as TItem[];
+    let start = Math.min(Math.max(__skipOver, 0), array.length);
+    let end =
+      __limit === null
+        ? array.length
+        : __limit < 0
+          ? Math.max(start, array.length + __limit)
+          : Math.min(start + __limit, array.length);
     if (typeof __hasMore === "boolean") {
       hasNext = __hasMore;
     } else {
       const [side, limit] = __hasMore;
-      if (side === "l") {
-        if (array.length > limit) {
-          hasNext = true;
-          array = array.slice(array.length - limit);
+      hasNext = end - start > limit;
+      if (hasNext) {
+        if (side === "l") {
+          start = end - limit;
         } else {
-          hasNext = false;
-        }
-      } else {
-        if (array.length > limit) {
-          hasNext = true;
-          array = array.slice(0, limit);
-        } else {
-          hasNext = false;
+          end = start + limit;
         }
       }
     }
-    items = wrapIndicies ? array.map(indexedItem) : array;
+    const page =
+      start === 0 && end === array.length ? array : array.slice(start, end);
+    items = wrapIndicies ? page.map(indexedItem) : page;
   } else {
     let resolveHasNext: ((hasNext: boolean) => void) | undefined;
     if (typeof __hasMore === "boolean") {
@@ -1106,8 +1124,10 @@ function makeProcessedCollection<TItem>(
       (async function* () {
         let skip = __skipOver;
         let index = 0;
+        let oldest = 0;
         const accumulator: TItem[] | null =
           typeof __hasMore !== "boolean" && __hasMore[0] === "l" ? [] : null;
+        if (__limit === 0) return;
         started = true;
         for await (const item of collection) {
           if (skip > 0) {
@@ -1118,18 +1138,17 @@ function makeProcessedCollection<TItem>(
             } else {
               const limit = __hasMore[1];
               if (accumulator /* same as __hasMore[0] === "l" */) {
-                // DO NOT USE `index` IN THIS BRANCH
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                const index = null;
-
-                if (accumulator.length < limit) {
-                  // All good
+                if (limit === 0) {
+                  didHaveNext = true;
+                  break;
+                } else if (accumulator.length < limit) {
+                  tailBudget?.retainStreamRows(1);
+                  accumulator.push(item);
                 } else {
-                  // Drop one!
-                  accumulator.shift();
+                  accumulator[oldest] = item;
+                  oldest = (oldest + 1) % limit;
                   didHaveNext = true;
                 }
-                accumulator.push(item);
               } else {
                 if (index < limit) {
                   yield wrapIndicies ? { index, item } : item;
@@ -1140,15 +1159,15 @@ function makeProcessedCollection<TItem>(
               }
             }
             index++;
+            if (index === __limit) break;
           } else {
             break;
           }
         }
         if (accumulator) {
-          index = 0;
-          for (const item of accumulator) {
-            yield wrapIndicies ? { index, item } : item;
-            ++index;
+          for (let i = 0; i < accumulator.length; i++) {
+            const item = accumulator[(oldest + i) % accumulator.length];
+            yield wrapIndicies ? { index: i, item } : item;
           }
         }
       })(),
@@ -1598,8 +1617,8 @@ export class ConnectionParamsStep<TCursorValue> extends UnbatchedStep<
             params.limit = params.__skipOver + max + (needsHasMore ? 1 : 0);
             params.__hasMore = needsHasMore ? ["r", max] : false;
           } else {
-            // We're using __hasMore as a hack to apply our limit
-            params.__hasMore = ["r", max];
+            params.__limit = max + (needsHasMore ? 1 : 0);
+            params.__hasMore = needsHasMore ? ["r", max] : false;
           }
         } else {
           // There is no limit
@@ -1789,11 +1808,11 @@ export class ConnectionItemsStep extends Step {
 
 async function iterableToArray<T>(
   input: Iterable<T> | AsyncIterable<T>,
-  request: RequestTools,
+  budget: RequestTools | null,
 ): Promise<ReadonlyArray<T>> {
   const items: T[] = [];
   for await (const item of input) {
-    request.retainStreamRows(1);
+    budget?.retainStreamRows(1);
     items.push(item);
   }
   return items;

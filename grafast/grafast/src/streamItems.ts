@@ -1,6 +1,39 @@
 import type { RequestTools } from "./bucket.ts";
 import { flagError } from "./error.ts";
+import type { Step } from "./step.ts";
 import { consume, isPromiseLike, terminateIterable } from "./utils.ts";
+
+export function listStreamRequested(step: Step, request: RequestTools) {
+  const conditions = step._listStreamConditions;
+  return (
+    conditions === true ||
+    (conditions !== null &&
+      conditions.some((name) => request.variableValues[name] !== false))
+  );
+}
+
+/** An array can contain rejected promises even in its unread tail. Observe
+ * them immediately and expose each settled entry through next(). */
+export function arrayContinuation(items: any[], start: number) {
+  let tail: any[] | null = null;
+  for (let i = start; i < items.length; i++) {
+    const item = items[i];
+    if (isPromiseLike(item)) {
+      tail ??= items.slice(start);
+      tail[i - start] = Promise.resolve(item).catch(flagError);
+    }
+  }
+  if (tail !== null) {
+    return (async function* (values) {
+      yield* values;
+    })(tail);
+  }
+  return (function* () {
+    for (let i = start; i < items.length; i++) {
+      yield items[i];
+    }
+  })();
+}
 
 const lastItems = new WeakMap<object, Promise<unknown>>();
 
@@ -62,12 +95,15 @@ export class MaterializedList {
   private readonly cancel: () => void;
   private readonly source: AsyncIterable<unknown> | Iterable<unknown>;
   private readonly request: RequestTools;
+  private readonly chargeRows: boolean;
   constructor(
     source: AsyncIterable<unknown> | Iterable<unknown>,
     request: RequestTools,
+    chargeRows: boolean,
   ) {
     this.source = source;
     this.request = request;
+    this.chargeRows = chargeRows;
     this.cancel = () => consume(this.close());
     if (request.abortSignal.aborted) {
       this.cancel();
@@ -107,16 +143,10 @@ export class MaterializedList {
         if (result.done) {
           break;
         }
-        this.request.retainStreamRows(1);
-        if (isPromiseLike(result.value)) {
-          try {
-            rows.push(await result.value);
-          } catch (e) {
-            rows.push(flagError(e));
-          }
-        } else {
-          rows.push(result.value);
+        if (this.chargeRows) {
+          this.request.retainStreamRows(1);
         }
+        rows.push(result.value);
       }
     } catch (e) {
       await this.close();
@@ -138,6 +168,7 @@ const cachedLists = new WeakMap<
 export function readCachedList(
   source: AsyncIterable<unknown>,
   request: RequestTools,
+  chargeRows: boolean,
 ) {
   let lists = cachedLists.get(request);
   if (lists === undefined) {
@@ -146,7 +177,7 @@ export function readCachedList(
   }
   let list = lists.get(source);
   if (list === undefined) {
-    list = new MaterializedList(source, request);
+    list = new MaterializedList(source, request, chargeRows);
     lists.set(source, list);
   }
   return list.read();

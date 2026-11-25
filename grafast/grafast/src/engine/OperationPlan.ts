@@ -1355,8 +1355,15 @@ export class OperationPlan {
               // Validation promises the values are the same
               continue;
             } else {
-              // Create streamDetails
+              const condition = streamDirective.arguments?.find(
+                (arg) => arg.name.value === "if",
+              )?.value;
               streamDetails = this.withRootLayerPlan(() => ({
+                condition:
+                  condition?.kind === graphql.Kind.VARIABLE
+                    ? condition.name.value
+                    : condition?.kind !== graphql.Kind.BOOLEAN ||
+                      condition.value,
                 initialCount: this.internalDependency(
                   directiveArgument<number>(
                     this,
@@ -3070,6 +3077,7 @@ export class OperationPlan {
       } else if (streamDetails != null) {
         // List with @stream
         stepStreamOptions = {
+          condition: streamDetails.condition,
           initialCountStepId: streamDetails.initialCount.id,
           ifStepId: streamDetails.if.id,
           labelStepId: streamDetails.label.id,
@@ -5165,6 +5173,22 @@ But ${p} is not in ${winner.layerPlan}'s expected polymorphic paths:
       return true;
     };
     for (const step of this.stepTracker.activeSteps) {
+      const stream = step._stepOptions.stream;
+      if (stream !== null && stream !== true) {
+        step._recordListStream(stream.condition ?? true);
+        if (step instanceof __CloneStreamStep) {
+          sudo(step).dependencies[0]._recordListStream(
+            stream.condition ?? true,
+          );
+        }
+      }
+      if (
+        !step.cloneStreams &&
+        !step._stepOptions.walkIterable &&
+        !step.dependents.some(({ step }) => step instanceof __CloneStreamStep)
+      ) {
+        continue;
+      }
       const projections: Step[] = [];
       let incompatible = false;
       const outputs = this.stepTracker.outputPlansByRootStep.get(step);

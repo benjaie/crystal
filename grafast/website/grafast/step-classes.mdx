@@ -151,6 +151,11 @@ loop yourself, the `details.indexMap` helper will call the given callback with
 each index in the batch in turn; this is commonly used when returning the result
 of the execute method.
 
+For a GraphQL list field, a step can yield an array containing promises for
+individual items. Synchronous and asynchronous iterators must supply the item
+itself in `IteratorResult.value`. An asynchronous iterator can await the item
+inside `next()` before returning the result.
+
 #### details.batch
 
 (Experimental)

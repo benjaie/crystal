@@ -290,6 +290,22 @@ export /* abstract */ class Step<TData = any> {
    */
   public cloneStreams: boolean;
 
+  /** @internal Conditions of streams consuming this list, including clones. */
+  public _listStreamConditions: true | string[] | null = null;
+  /** @internal */
+  public _recordListStream(condition: boolean | string) {
+    if (condition === false || this._listStreamConditions === true) {
+      return;
+    }
+    if (condition === true) {
+      this._listStreamConditions = true;
+    } else if (this._listStreamConditions === null) {
+      this._listStreamConditions = [condition];
+    } else if (!this._listStreamConditions.includes(condition)) {
+      this._listStreamConditions.push(condition);
+    }
+  }
+
   /** @internal Consumers of a single list prefix in the same delivery group. */
   public _streamProjections: readonly Step[] | null = null;
   /** @internal */

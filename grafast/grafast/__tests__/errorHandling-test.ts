@@ -17,6 +17,7 @@ import type {
 import {
   constant,
   context,
+  flagError,
   grafast,
   lambda,
   makeGrafastSchema,
@@ -103,27 +104,12 @@ const schema = makeGrafastSchema({
           ]);
         },
         asyncListContainingErrors() {
-          return lambda(null, () => {
-            // If we tried to do this with an async generator function, it
-            // would terminate after item 3, so instead we've written our own
-            // async iterable.
-            let i = 0;
-            return {
-              [Symbol.asyncIterator]() {
-                return this;
-              },
-              async next() {
-                i++;
-                if (i >= 8) {
-                  return { done: true, value: undefined };
-                }
-                const value =
-                  i === 3 || i === 6
-                    ? Promise.reject(new GraphQLError(`Test ${i}`))
-                    : i;
-                return { done: false, value };
-              },
-            };
+          return lambda(null, async function* () {
+            for (let i = 1; i <= 7; i++) {
+              yield i === 3 || i === 6
+                ? flagError(new GraphQLError(`Test ${i}`))
+                : i;
+            }
           });
         },
         sideEffectListCheck(_: Step, fieldArgs: FieldArgs) {
