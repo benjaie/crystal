@@ -21,7 +21,12 @@ import type { Step, UnbatchedStep } from "../step.ts";
 import type { __ValueStep } from "../steps/index.ts";
 import { arrayOfLength, arraysMatch, setsMatch } from "../utils.ts";
 import { isDistributor } from "./distributor.ts";
-import { batchExecutionValue, newBucket } from "./executeBucket.ts";
+import type { ChildBucketDispatch } from "./executeBucket.ts";
+import {
+  batchExecutionValue,
+  newBucket,
+  planChildBucketDispatch,
+} from "./executeBucket.ts";
 import type { OperationPlan } from "./OperationPlan.ts";
 
 /**
@@ -347,6 +352,9 @@ export class LayerPlan<TReason extends LayerPlanReason = LayerPlanReason> {
   /** @internal */
   public children: LayerPlan[] = [];
 
+  /** @internal */
+  public childBucketDispatch: ChildBucketDispatch | null = null;
+
   public distributorDependencies: null | {
     // Map of all the dependent stepIds for a given distributor step
     [distributorStepId: number]: number[];
@@ -619,6 +627,7 @@ export class LayerPlan<TReason extends LayerPlanReason = LayerPlanReason> {
   }
 
   public finalize(): void {
+    this.childBucketDispatch = planChildBucketDispatch(this);
     this.finalCombinations = this.combinations.map((c) => {
       const { targetStepId, sources } = c;
       const sourceStepsByLayerPlanId = Object.create(null) as Record<

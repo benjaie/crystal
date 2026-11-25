@@ -1290,120 +1290,62 @@ function markLayerPlanAsDone(
   }
   sharedState._doneBucketIds.add(layerPlan.id);
 
-  const childPromises: PromiseLike<any>[] = [];
+  return layerPlan.childBucketDispatch?.(requestContext, sharedState, bucket);
+}
 
-  // This promise should never reject
-  let mutationQueue: PromiseLike<void> | null = null;
-  /**
-   * Ensures that callback is only called once all other enqueued callbacks
-   * are called.
-   */
-  const enqueue = <T>(
-    callback: () => PromiseOrDirect<T>,
-  ): PromiseOrDirect<T> => {
-    const result = mutationQueue ? mutationQueue.then(callback) : callback();
-    if (isPromiseLike(result)) {
-      mutationQueue = result.then(noop, noop);
-    }
-    return result;
-  };
-  const { children: childLayerPlans } = layerPlan;
+/** @internal */
+export type ChildBucketDispatch = (
+  requestContext: RequestTools,
+  sharedState: SharedBucketState,
+  bucket: Bucket | null,
+) => PromiseOrDirect<void>;
 
-  // PERF: create a JIT factory for this at planning time
-  loop: for (const childLayerPlan of childLayerPlans) {
-    switch (childLayerPlan.reason.type) {
+type ChildBucketAction = {
+  serial: boolean;
+  execute: (
+    requestContext: RequestTools,
+    sharedState: SharedBucketState,
+    bucket: Bucket | null,
+    mutationQueue: PromiseLike<void> | undefined,
+  ) => PromiseOrDirect<void>;
+};
+
+/** @internal */
+export function planChildBucketDispatch(
+  layerPlan: LayerPlan,
+): ChildBucketDispatch | null {
+  if (layerPlan.children.length === 0) return null;
+
+  const children: LayerPlan[] = [];
+  let allParallel = true;
+  for (const child of layerPlan.children) {
+    switch (child.reason.type) {
       case "nullableBoundary":
       case "listItem":
       case "polymorphic":
       case "polymorphicPartition": {
-        const childBucket =
-          bucket == null ? null : childLayerPlan.newBucket(bucket);
-        // Execute
-        const result: PromiseOrDirect<void> =
-          childBucket !== null
-            ? executeBucket(childBucket, requestContext)
-            : markLayerPlanAsDone(
-                requestContext,
-                sharedState,
-                childLayerPlan,
-                null,
-              );
-        if (isPromiseLike(result)) {
-          childPromises.push(result);
-        }
+        children.push(child);
         break;
       }
-      case "mutationField": {
-        const childBucket =
-          bucket == null ? null : childLayerPlan.newBucket(bucket);
-        // Enqueue for execution (mutations must run in order)
-        const promise: PromiseOrDirect<void> = enqueue(() =>
-          childBucket !== null
-            ? executeBucket(childBucket, requestContext)
-            : markLayerPlanAsDone(
-                requestContext,
-                sharedState,
-                childLayerPlan,
-                null,
-              ),
-        );
-        if (isPromiseLike(promise)) {
-          childPromises.push(promise);
-        }
-
-        break;
-      }
+      case "mutationField":
       case "combined": {
-        // First, see if _all_ parent layer plans are ready
-        let allParentLayerPlansAreReady = true;
-        for (const lp of childLayerPlan.reason.parentLayerPlans) {
-          if (lp === layerPlan) continue;
-          if (!sharedState._doneBucketIds.has(lp.id)) {
-            allParentLayerPlansAreReady = false;
-            break;
-          }
-        }
-        if (!allParentLayerPlansAreReady) {
-          // The last parent layer plan to complete will handle it.
-          // Make sure we're retained so it can use our data!
-          // Released below.
-          if (bucket != null) {
-            bucket.sharedState.retain(bucket);
-          }
-
-          continue loop;
-        }
-        const childBucket = childLayerPlan.newCombinedBucket({ sharedState });
-        // Every parent except the final parent was retained while waiting for all
-        // parents to complete; release those temporary retains now.
-        for (const plp of childLayerPlan.reason.parentLayerPlans) {
-          if (plp === layerPlan) continue; // Was never retained
-          const otherBucket = sharedState._retainedBuckets.get(plp.id);
-          if (otherBucket !== undefined) sharedState.release(otherBucket);
-        }
-        if (childBucket !== null) {
-          // Execute
-          const result = executeBucket(childBucket, requestContext);
-          if (isPromiseLike(result)) {
-            childPromises.push(result);
-          }
-        }
+        allParallel = false;
+        children.push(child);
         break;
       }
       case "subroutine":
       case "subscription":
       case "defer": {
-        // Ignore; these are handled elsewhere
-        continue loop;
+        // These layers have their own execution drivers.
+        break;
       }
       case "root": {
         throw new Error(
-          // *confused emoji*
-          "GrafastInternalError<05fb7069-81b5-43f7-ae71-f62547d2c2b7>: root cannot be not the root (...)",
+          "GrafastInternalError<05fb7069-81b5-43f7-ae71-f62547d2c2b7>: root cannot be a child layer",
         );
       }
       default: {
-        const never: never = childLayerPlan.reason;
+        const never: never = child.reason;
         throw new Error(
           `GrafastInternalError<c6984a96-050e-4d40-ab18-a8c5dc7e239b>: unhandled reason '${inspect(
             never,
@@ -1412,12 +1354,148 @@ function markLayerPlanAsDone(
       }
     }
   }
-  if (childPromises.length > 0) {
-    // These should never reject; rejections will bubble up through the promise chain
-    return Promise.all(childPromises).then(noop);
-  } else {
-    return;
+
+  if (children.length === 0) return null;
+
+  if (allParallel) {
+    return (requestContext, sharedState, bucket) => {
+      let childPromises: PromiseLike<void>[] | undefined;
+      for (const child of children) {
+        const childBucket = bucket === null ? null : child.newBucket(bucket);
+        const result = executeChildBucket(
+          requestContext,
+          sharedState,
+          child,
+          childBucket,
+        );
+        if (isPromiseLike(result)) {
+          (childPromises ??= []).push(result);
+        }
+      }
+      return childPromises === undefined
+        ? undefined
+        : Promise.all(childPromises).then(noop);
+    };
   }
+
+  const actions: ChildBucketAction[] = children.map((child) => {
+    const { reason } = child;
+    if (reason.type === "combined") {
+      return {
+        serial: false,
+        execute: (requestContext, sharedState, bucket) =>
+          executeCombinedChildBucket(
+            requestContext,
+            sharedState,
+            child,
+            reason.parentLayerPlans,
+            layerPlan,
+            bucket,
+          ),
+      };
+    }
+    if (reason.type === "mutationField") {
+      return {
+        serial: true,
+        execute: (requestContext, sharedState, bucket, mutationQueue) => {
+          const childBucket = bucket === null ? null : child.newBucket(bucket);
+          return mutationQueue === undefined
+            ? executeChildBucket(
+                requestContext,
+                sharedState,
+                child,
+                childBucket,
+              )
+            : mutationQueue.then(() =>
+                executeChildBucket(
+                  requestContext,
+                  sharedState,
+                  child,
+                  childBucket,
+                ),
+              );
+        },
+      };
+    }
+    return {
+      serial: false,
+      execute: (requestContext, sharedState, bucket) => {
+        const childBucket = bucket === null ? null : child.newBucket(bucket);
+        return executeChildBucket(
+          requestContext,
+          sharedState,
+          child,
+          childBucket,
+        );
+      },
+    };
+  });
+
+  return (requestContext, sharedState, bucket) => {
+    let childPromises: PromiseLike<void>[] | undefined;
+    let mutationQueue: PromiseLike<void> | undefined;
+    for (const action of actions) {
+      const result = action.execute(
+        requestContext,
+        sharedState,
+        bucket,
+        mutationQueue,
+      );
+      if (isPromiseLike(result)) {
+        if (action.serial) {
+          // Later mutation fields start once this field and its descendants finish.
+          mutationQueue = result.then(noop, noop);
+        }
+        (childPromises ??= []).push(result);
+      }
+    }
+    return childPromises === undefined
+      ? undefined
+      : Promise.all(childPromises).then(noop);
+  };
+}
+
+function executeChildBucket(
+  requestContext: RequestTools,
+  sharedState: SharedBucketState,
+  child: LayerPlan,
+  childBucket: Bucket | null,
+): PromiseOrDirect<void> {
+  return childBucket === null
+    ? markLayerPlanAsDone(requestContext, sharedState, child, null)
+    : executeBucket(childBucket, requestContext);
+}
+
+function executeCombinedChildBucket(
+  requestContext: RequestTools,
+  sharedState: SharedBucketState,
+  child: LayerPlan,
+  parents: ReadonlyArray<LayerPlan>,
+  completedParent: LayerPlan,
+  bucket: Bucket | null,
+): PromiseOrDirect<void> {
+  for (const parent of parents) {
+    if (parent === completedParent) continue;
+    if (!sharedState._doneBucketIds.has(parent.id)) {
+      // The last parent to finish will combine the retained buckets.
+      if (bucket !== null) {
+        sharedState.retain(bucket);
+      }
+      return;
+    }
+  }
+
+  const childBucket = child.newCombinedBucket({ sharedState });
+  for (const parent of parents) {
+    if (parent === completedParent) continue;
+    const parentBucket = sharedState._retainedBuckets.get(parent.id);
+    if (parentBucket !== undefined) {
+      sharedState.release(parentBucket);
+    }
+  }
+  return childBucket === null
+    ? undefined
+    : executeBucket(childBucket, requestContext);
 }
 
 function makeSharedState(layerPlan: LayerPlan): SharedBucketState {

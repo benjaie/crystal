@@ -4,6 +4,7 @@ import { resolvePreset } from "graphile-config";
 import { it } from "mocha";
 
 import {
+  constant,
   context,
   grafast,
   inhibitOnNull,
@@ -207,4 +208,61 @@ it("does not reuse a context access step across mutation fields", async () => {
     },
   });
   assert.deepEqual(contextValue, { number: 3 });
+});
+
+it("finishes async descendants before starting the next mutation field", async () => {
+  const trace: string[] = [];
+  const schema = makeGrafastSchema({
+    typeDefs: /* GraphQL */ `
+      type Query {
+        noop: Int
+      }
+      type Mutation {
+        first: Payload
+        second: Int
+      }
+      type Payload {
+        value: Int
+      }
+    `,
+    plans: {
+      Mutation: {
+        first() {
+          return constant({});
+        },
+        second() {
+          return sideEffect(null, () => {
+            trace.push("second");
+            return 2;
+          });
+        },
+      },
+      Payload: {
+        value() {
+          return sideEffect(null, async () => {
+            trace.push("value started");
+            await Promise.resolve();
+            trace.push("value finished");
+            return 1;
+          });
+        },
+      },
+    },
+  });
+
+  const result = await grafast({
+    schema,
+    source: /* GraphQL */ `
+      mutation {
+        first {
+          value
+        }
+        second
+      }
+    `,
+    resolvedPreset,
+  });
+
+  assert.deepEqual(result, { data: { first: { value: 1 }, second: 2 } });
+  assert.deepEqual(trace, ["value started", "value finished", "second"]);
 });
