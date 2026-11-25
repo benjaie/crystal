@@ -1,0 +1,67 @@
+query A(
+  $first: Int!
+  $parents: Int! = 25
+  $skip1: Boolean! = false
+  $skip2: Boolean! = false
+  $skip3: Boolean! = false
+  $skip4: Boolean! = false
+  $skip5: Boolean! = false
+  $skip6: Boolean! = false
+  $skip7: Boolean! = false
+  $defer1: Boolean! = false
+  $defer2: Boolean! = false
+  $defer3: Boolean! = false
+  $defer4: Boolean! = false
+  $defer5: Boolean! = false
+  $defer6: Boolean! = false
+  $defer7: Boolean! = false
+  $stream1: Boolean! = false
+  $stream2: Boolean! = false
+  $initialCount1: Int! = 0
+  $initialCount2: Int! = 0
+) {
+  myOrganizations: allPeopleList(first: $parents) {
+    id
+    name
+    members: postsByAuthorId(first: $first) {
+      ... @skip(if: $skip1) @defer(if: $defer1) {
+        ... @skip(if: $skip2) @defer(if: $defer2) {
+          nodes @stream(if: $stream1, initialCount: $initialCount1) {
+            ...Member1
+          }
+        }
+        ... @skip(if: $skip3) @defer(if: $defer3) {
+          edges @stream(if: $stream2, initialCount: $initialCount2) {
+            cursor
+            node {
+              ...Member2
+            }
+          }
+        }
+        ... @skip(if: $skip4) @defer(if: $defer4) {
+          pageInfo {
+            hasPreviousPage
+            ... @skip(if: $skip5) @defer(if: $defer5) {
+              startCursor
+            }
+            ... @skip(if: $skip6) @defer(if: $defer6) {
+              endCursor
+            }
+            ... @skip(if: $skip7) @defer(if: $defer7) {
+              hasNextPage
+            }
+          }
+        }
+      }
+      totalCount
+    }
+  }
+}
+fragment Member1 on Post {
+  id
+  headline
+}
+fragment Member2 on Post {
+  id
+  body
+}
