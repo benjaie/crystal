@@ -837,6 +837,7 @@ export class LayerPlan<TReason extends LayerPlanReason = LayerPlanReason> {
           }
         }
 
+        const batchCopyCount = batchCopy.length;
         // We'll typically be creating more listItem bucket entries than we
         // have parent buckets, so we must "multiply up" the store entries.
         for (
@@ -853,6 +854,9 @@ export class LayerPlan<TReason extends LayerPlanReason = LayerPlanReason> {
           ) {
             const newIndexes: number[] = [];
             map.set(originalIndex, newIndexes);
+            const polymorphicPath =
+              parentBucket.polymorphicPathList[originalIndex];
+            const iteratorSet = parentBucket.iterators[originalIndex];
             for (let j = 0, l = list.length; j < l; j++) {
               const newIndex = size++;
               newIndexes.push(newIndex);
@@ -870,10 +874,10 @@ export class LayerPlan<TReason extends LayerPlanReason = LayerPlanReason> {
               flagUnion |= flags;
               ev._setResult(newIndex, val, flags);
 
-              polymorphicPathList[newIndex] =
-                parentBucket.polymorphicPathList[originalIndex];
-              iterators[newIndex] = parentBucket.iterators[originalIndex];
-              for (const { orig, ev } of batchCopy) {
+              polymorphicPathList[newIndex] = polymorphicPath;
+              iterators[newIndex] = iteratorSet;
+              for (let copyIndex = 0; copyIndex < batchCopyCount; copyIndex++) {
+                const { orig, ev } = batchCopy[copyIndex];
                 ev._copyResult(newIndex, orig, originalIndex);
               }
             }
