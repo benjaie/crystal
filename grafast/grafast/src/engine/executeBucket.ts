@@ -556,12 +556,16 @@ export function executeBucket(
       }
       const allStepsLength = _allSteps.length;
       const extras: UnbatchedExecutionExtra[] = [];
+      const batchResults: (BatchExecutionValue | null)[] = [];
+      // Each dependency keeps the same execution value across rows of this phase.
+      const dependenciesByStep: (ExecutionValue | undefined)[][] = [];
       for (
         let allStepsIndex = executedLength;
         allStepsIndex < allStepsLength;
         allStepsIndex++
       ) {
         const step = _allSteps[allStepsIndex];
+        dependenciesByStep[allStepsIndex] = [];
         const meta =
           step.metaKey !== undefined ? metaByMetaKey[step.metaKey] : undefined;
         extras[allStepsIndex] = {
@@ -572,10 +576,12 @@ export function executeBucket(
           _bucket: bucket,
           _requestContext: requestContext,
         };
-        if (step._isUnary) {
-          // Handled later
-        } else {
-          bucket.store.set(step.id, batchExecutionValue(arrayOfLength(size)));
+        const batchResult = step._isUnary
+          ? null
+          : batchExecutionValue(arrayOfLength(size));
+        batchResults[allStepsIndex] = batchResult;
+        if (batchResult !== null) {
+          bucket.store.set(step.id, batchResult);
         }
       }
       for (let dataIndex = 0; dataIndex < size; dataIndex++) {
@@ -625,7 +631,10 @@ export function executeBucket(
           }
 
           try {
-            const deps: any = [];
+            const dependencies = step.dependencies;
+            const dependencyCount = dependencies.length;
+            const deps: any[] | null = dependencyCount > 1 ? [] : null;
+            let firstDependencyValue: any;
             const extra = extras[allStepsIndex];
             let forceIndexValue: Error | null | undefined = undefined;
             let rejectValue: Error | null | undefined = undefined;
@@ -648,11 +657,12 @@ export function executeBucket(
               indexFlags |= FLAG_POLY_SKIPPED;
               forceIndexValue = null;
             } else {
-              for (let i = 0, l = step.dependencies.length; i < l; i++) {
-                const $dep = step.dependencies[i];
+              const dependencyValues = dependenciesByStep[allStepsIndex];
+              for (let i = 0; i < dependencyCount; i++) {
+                const $dep = dependencies[i];
                 const forbiddenFlags = step.dependencyForbiddenFlags[i];
-                const onReject = step.dependencyOnReject[i];
-                const depExecutionVal = bucket.store.get($dep.id);
+                const depExecutionVal = (dependencyValues[i] ??=
+                  bucket.store.get($dep.id));
                 if (depExecutionVal === undefined) {
                   throw new Error(
                     `GrafastInternalError<480e7c98-a777-4efb-b826-c339129ccff8>: could not find value in ${bucket} for ${$dep}, dependency ${i} of ${step}`,
@@ -662,6 +672,7 @@ export function executeBucket(
                 const flags = depExecutionVal._flagsAt(dataIndex);
                 const disallowedFlags = flags & forbiddenFlags;
                 if (disallowedFlags) {
+                  const onReject = step.dependencyOnReject[i];
                   indexFlags |= disallowedFlags;
                   // If there's a reject behavior and we're FRESHLY rejected (weren't
                   // already inhibited), use that as a fallback.
@@ -688,17 +699,14 @@ export function executeBucket(
                   // End "f2b3b1b3" block
                 } else if (forceIndexValue === undefined) {
                   const depVal = depExecutionVal.at(dataIndex);
-                  let depFlags;
                   if (
-                    (bucket.flagUnion & FLAG_ERROR) === FLAG_ERROR &&
-                    ((depFlags = depExecutionVal._flagsAt(dataIndex)) &
-                      FLAG_ERROR) ===
-                      FLAG_ERROR
+                    (flags & FLAG_ERROR) === FLAG_ERROR &&
+                    (bucket.flagUnion & FLAG_ERROR) === FLAG_ERROR
                   ) {
                     if (step._isUnary) {
                       // COPY the unary value
                       bucket.store.set(step.id, depExecutionVal);
-                      bucket.flagUnion |= depFlags;
+                      bucket.flagUnion |= flags;
                     } else {
                       bucket.setResult(step, dataIndex, depVal, FLAG_ERROR);
                     }
@@ -719,6 +727,8 @@ export function executeBucket(
                       bucket.setResult(step, dataIndex, err, FLAG_ERROR);
                     }
                     continue stepLoop;
+                  } else if (deps === null) {
+                    firstDependencyValue = depVal;
                   } else {
                     deps.push(depVal);
                   }
@@ -743,7 +753,12 @@ export function executeBucket(
               stepResult = forceIndexValue;
               stepFlags = indexFlags;
             } else {
-              const rawStepResult = step.unbatchedExecute(extra, ...deps);
+              const rawStepResult =
+                deps !== null
+                  ? step.unbatchedExecute(extra, ...deps)
+                  : dependencyCount === 1
+                    ? step.unbatchedExecute(extra, firstDependencyValue)
+                    : step.unbatchedExecute(extra);
               if (
                 typeof rawStepResult === "object" &&
                 rawStepResult !== null &&
@@ -762,7 +777,13 @@ export function executeBucket(
             // be "isSyncAndSafe". As such, we don't need to worry about it
             // returning an error (unsafe) or a promise (async), we only
             // need to check if it's null.
-            bucket.setResult(step, dataIndex, stepResult, stepFlags);
+            const batchResult = batchResults[allStepsIndex];
+            if (batchResult === null) {
+              bucket.setResult(step, dataIndex, stepResult, stepFlags);
+            } else {
+              batchResult._setResult(dataIndex, stepResult, stepFlags);
+              bucket.flagUnion |= stepFlags;
+            }
           } catch (e) {
             bucket.setResult(step, dataIndex, e, FLAG_ERROR);
           }
