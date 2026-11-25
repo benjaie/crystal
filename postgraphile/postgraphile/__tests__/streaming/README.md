@@ -19,8 +19,8 @@ PGHOST=/var/run/postgresql ../../node_modules/.bin/jest --runInBand \
 
 The default run covers the large-page export selection, cancellation,
 materialization limits, page metadata, and 128 boolean combinations. The fixture
-has a one-client pool, two parents with over 1,200 posts each, and short and
-empty pages. The test applies patches in arrival order and compares the
+tests pools of one and two clients, two parents with over 1,200 posts each,
+and short and empty pages. The test applies patches in arrival order and compares the
 assembled data with the same query with its incremental directives removed.
 
 Set `POSTGRAPHILE_STREAM_SWEEP=all` on the same command to exercise all 65,536
@@ -49,7 +49,7 @@ revision. Larger pages and SQL inspection exposed four problems.
 
 The export now opens one cursor per parent and fetches at most 100 rows per pull
 from PostgreSQL. The tests check that the client can cancel with unread pages
-and immediately reuse the only pool connection. Small sibling pages whose
+and issue independent reads while exports are paused. Small sibling pages whose
 combined upper bound fits a single fetch can use one batched query.
 
 With `{"stream1":true,"skip4":true,"first":100000}`, both lists are selected and

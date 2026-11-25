@@ -78,6 +78,12 @@ it("probes an upfront page flag before opening its cursor", async () => {
   expect(
     streamed.queries.findIndex((q) => q.text.startsWith("select 1 from (")),
   ).toBe(0);
+  // The upfront probe owns lookahead; the cursor only needs the two page rows.
+  expect(
+    streamed.queries
+      .filter((q) => q.text.startsWith("fetch "))
+      .map((q) => q.text),
+  ).toEqual([expect.stringMatching(/^fetch forward 2 from /)]);
   expect(streamed.queries.some((q) => q.text.startsWith("declare "))).toBe(
     true,
   );
@@ -164,6 +170,11 @@ it("uses the streamed lookahead when only hasPreviousPage is needed upfront", as
   const result = await runTestQuery(query, { maxMaterializedStreamRows: 0 });
   expect(result.errors).toBeUndefined();
   expect(assemble(result)).toEqual(ordinary.data);
+  expect(
+    result.queries
+      .filter((q) => q.text.startsWith("fetch "))
+      .map((q) => q.text),
+  ).toEqual([expect.stringMatching(/^fetch forward 3 from /)]);
   expect(result.queries.some((q) => q.text.startsWith("declare "))).toBe(true);
   expect(result.queries.some((q) => q.text.startsWith("select 1 from ("))).toBe(
     false,

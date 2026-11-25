@@ -3,8 +3,6 @@ import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 
 import { makePgService } from "@dataplan/pg/adaptors/pg";
-import type { TestDb } from "@localrepo/test-helpers";
-import { createTestDatabaseWithPool } from "@localrepo/test-helpers";
 import { execute, hookArgs, isAsyncIterable } from "grafast";
 import type { DocumentNode, ExecutionPatchResult } from "grafast/graphql";
 import { parse, validate, visit } from "grafast/graphql";
@@ -14,20 +12,21 @@ import type { PoolClient } from "pg";
 import { makeSchema } from "../../dist/index.js";
 import AmberPreset from "../../dist/presets/amber.js";
 import { makeV4Preset } from "../../dist/presets/v4.js";
+import { useTestDatabase } from "../database.ts";
 
 type Variables = Record<string, boolean | number>;
 const observe = (client: PoolClient) => jest.spyOn(client, "query");
-let db: TestDb;
-let queries: ReturnType<typeof observe>;
+const getTestDb = useTestDatabase();
+const querySpies: ReturnType<typeof observe>[] = [];
 let api: Awaited<ReturnType<typeof makeSchema>>;
 let document: DocumentNode;
 let ordinary: DocumentNode;
 
 beforeAll(async () => {
-  db = await createTestDatabaseWithPool();
+  const db = getTestDb();
   db.pgPool.options.max = 1;
   db.pgPool.on("connect", (client) => {
-    queries = observe(client);
+    querySpies.push(observe(client));
   });
   await db.pgPool.query(
     await readFile(join(__dirname, "../kitchen-sink-data.sql"), "utf8"),
@@ -62,21 +61,19 @@ beforeAll(async () => {
       }
     },
   });
+  // Larger exports can pin one cursor client and still serve parallel reads.
+  db.pgPool.options.max = 2;
   for (const doc of [document, ordinary]) {
     expect(validate(api.schema, doc)).toEqual([]);
   }
 }, 30000);
-
-afterAll(async () => {
-  await db?.release();
-});
 
 async function start(
   doc: DocumentNode,
   variableValues: Variables,
   cap?: number,
 ) {
-  queries.mockClear();
+  for (const spy of querySpies) spy.mockClear();
   const resolvedPreset =
     cap === undefined
       ? api.resolvedPreset
@@ -98,10 +95,17 @@ async function start(
 }
 
 function executedSql() {
-  return queries.mock.calls.map(
-    ([query]: [string | { text: string }, ...unknown[]]) =>
-      typeof query === "string" ? query : query.text,
-  );
+  return querySpies
+    .flatMap((spy) =>
+      spy.mock.calls.map(
+        ([query]: [string | { text: string }, ...unknown[]], index) => ({
+          order: spy.mock.invocationCallOrder[index],
+          text: typeof query === "string" ? query : query.text,
+        }),
+      ),
+    )
+    .sort((a, z) => a.order - z.order)
+    .map(({ text }) => text);
 }
 
 async function run(
@@ -151,6 +155,58 @@ const exportVariables = {
   skip3: true,
   skip4: true,
 };
+
+it.each([1, 2])(
+  "allows direct pool reads with a paused export and max %i",
+  async (max) => {
+    const pool = getTestDb().pgPool;
+    pool.options.max = max;
+    const streams = [];
+    try {
+      for (let i = 0; i < max; i++) {
+        const result = await start(document, {
+          ...exportVariables,
+          parents: 1,
+          first: 201,
+          initialCount1: 1,
+        });
+        if (!isAsyncIterable(result)) throw new Error("Expected streamed rows");
+        const iterator = result[Symbol.asyncIterator]();
+        streams.push(iterator);
+        expect((await iterator.next()).value).toMatchObject({ hasNext: true });
+        if (i === max - 1) {
+          expect(
+            executedSql().some((q) => q.startsWith("fetch forward 1 from")),
+          ).toBe(true);
+          expect(executedSql().some((q) => q.startsWith("close "))).toBe(true);
+        }
+      }
+      // Equivalent to an opaque child resolver waiting for pool.query()
+      // before the executor can ask the parent for its next row.
+      expect((await pool.query("select 1 as n")).rows).toEqual([{ n: 1 }]);
+    } finally {
+      await Promise.all(streams.map((iterator) => iterator.return?.()));
+      pool.options.max = 2;
+    }
+  },
+);
+
+it("releases the sole client when a cursor page exceeds its fallback budget", async () => {
+  const pool = getTestDb().pgPool;
+  pool.options.max = 1;
+  try {
+    await expect(
+      run(
+        document,
+        { ...exportVariables, parents: 1, first: 201, initialCount1: 1 },
+        100,
+      ),
+    ).rejects.toThrow("Materialized stream row limit exceeded");
+    expect((await pool.query("select 1 as n")).rows).toEqual([{ n: 1 }]);
+  } finally {
+    pool.options.max = 2;
+  }
+});
 
 it.each([
   ["nodes", exportVariables],
@@ -222,7 +278,7 @@ it("fetches the shared page once when edges are required upfront", async () => {
   );
 });
 
-it("cancels an export and releases the only client with unread pages", async () => {
+it("cancels an export and releases the cursor client with unread pages", async () => {
   const result = await start(
     document,
     { ...exportVariables, initialCount1: 1 },
@@ -237,7 +293,7 @@ it("cancels an export and releases the only client with unread pages", async () 
   } finally {
     await iterator.return?.();
   }
-  await db.pgPool.query("select 1");
+  await getTestDb().pgPool.query("select 1");
   const sql = executedSql();
   const fetches = sql.filter((q) => q.startsWith("fetch forward"));
   expect(fetches.length).toBeGreaterThan(0);
@@ -365,7 +421,7 @@ it(
 (process.env.POSTGRAPHILE_STREAM_LARGE === "1" ? it : it.skip)(
   "streams 100,001 rows through a zero-row fallback budget",
   async () => {
-    await db.pgPool.query(`
+    await getTestDb().pgPool.query(`
       insert into a.post(id, author_id, headline, body)
         select 100000 + j, 1, 'Export ' || j, null from generate_series(1, 100010) j
     `);

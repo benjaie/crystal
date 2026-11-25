@@ -6,6 +6,8 @@ limit 1;
 
 begin; /*fake*/
 
+set transaction read only
+
 declare __SNAPSHOT_CURSOR_0__ insensitive no scroll cursor without hold for
 select
   __post__."id"::text as "0",

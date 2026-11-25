@@ -33,13 +33,10 @@ import {
   isDev,
   isPromiseLike,
   lambda,
-  LoadManyStep,
-  LoadOneStep,
   maybeArraysMatch,
   reverseArray,
   SafeError,
   Step,
-  stepADependsOnStepB,
   stepAMayDependOnStepB,
   stepAShouldTryAndInlineIntoStepB,
   UnbatchedStep,
@@ -55,7 +52,7 @@ import type {
   PgResourceUnique,
 } from "../datasource.ts";
 import type { PgExecutorContext } from "../executor.ts";
-import { PgExecutor } from "../executor.ts";
+import { CURSOR_BATCH_SIZE, PgExecutor } from "../executor.ts";
 import type {
   GetPgResourceAttributes,
   GetPgResourceCodec,
@@ -1271,7 +1268,8 @@ export class PgSelectStep<
     const batchSmallPages =
       count > 1 &&
       first != null &&
-      first * count <= Math.min(100, request.remainingStreamRows) &&
+      first * count <=
+        Math.min(CURSOR_BATCH_SIZE, request.remainingStreamRows) &&
       this.connectionOwner?.itemsInSamePayload(this.layerPlan) === true;
     if (
       !stream ||
@@ -1473,6 +1471,12 @@ export class PgSelectStep<
       const { streams } = await this.resource.executeStream(specs, {
         ...makeQuery({ maxRows }),
         cursorScope: request,
+        cursorPage: {
+          rowCount: first == null ? Infinity : first + (checkAtEnd ? 1 : 0),
+          visibleCount: first ?? Infinity,
+          retainRows: (count) => request.retainStreamRows(count),
+          signal: request.abortSignal,
+        },
         eventEmitter,
       });
       return indexMap((i) => {
@@ -1556,47 +1560,8 @@ export class PgSelectStep<
       if (this.canStreamRows && owner instanceof ConnectionStep) {
         this.connectionOwner = owner;
       }
-      // A cursor pins a client. A query that needs another statement to
-      // produce its payload must make progress even with a one-client pool.
       if (this.canStreamRows) {
-        for (const step of this.operationPlan.stepTracker.activeSteps) {
-          // User loaders and side effects can acquire their own database
-          // client. They cannot borrow this cursor's transaction.
-          if (
-            step !== this &&
-            (step.hasSideEffects ||
-              step instanceof LoadOneStep ||
-              step instanceof LoadManyStep) &&
-            !stepADependsOnStepB(this, step)
-          ) {
-            this.canStreamRows = false;
-            break;
-          }
-          if (
-            step !== this &&
-            step instanceof PgStmtBaseStep &&
-            !stepADependsOnStepB(this, step)
-          ) {
-            if (
-              step instanceof PgSelectStep &&
-              !step.mightHaveStream() &&
-              step.mode !== "mutation" &&
-              !step.hasSideEffects &&
-              step.resource.executor === this.resource.executor &&
-              step.dependencies[step.contextId] ===
-                this.dependencies[this.contextId]
-            ) {
-              // Independent reads (e.g. a deferred totalCount) can use the
-              // same cursor transaction as reads that depend on the rows.
-              continue;
-            }
-            this.canStreamRows = false;
-            break;
-          }
-        }
-        if (this.canStreamRows) {
-          plansWithPgCursors.add(this.operationPlan);
-        }
+        plansWithPgCursors.add(this.operationPlan);
       }
     }
     // In case we have any lock actions in future:

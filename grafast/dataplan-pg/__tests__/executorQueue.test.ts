@@ -22,6 +22,7 @@ function makeContext(query: (opts: any, clientNumber: number) => Promise<any>) {
   const withPgClient = jest.fn(async (_settings, callback) => {
     const clientNumber = ++clientCount;
     const client = {
+      tryReserveCursor: () => () => {},
       query: async (opts: any) => {
         seen.push({ clientNumber, text: opts.text, name: opts.name });
         return query(opts, clientNumber);
@@ -518,6 +519,7 @@ test("a short fetch releases the cursor before its last rows are consumed", asyn
   const cursor = (await streams[0])[Symbol.asyncIterator]();
   expect(await cursor.next()).toEqual({ value: [1], done: false });
   expect(seen.map((q) => q.text.split(" ")[0])).toEqual([
+    "set",
     "declare",
     "fetch",
     "close",
@@ -592,6 +594,7 @@ test("a failed cursor fetch preserves the source error and ends the iterator", a
   await expect(cursor.next()).rejects.toBe(failure);
   expect((await cursor.next()).done).toBe(true);
   expect(seen.map((query) => query.text.split(" ")[0])).toEqual([
+    "set",
     "declare",
     "fetch",
   ]);
