@@ -44,6 +44,18 @@ const NO_TYPENAME_FLAGS =
  */
 const ERROR_OR_POLY_SKIPPED_FLAGS = FLAG_ERROR | FLAG_POLY_SKIPPED;
 
+class IdentityBucketMap {
+  private readonly size: number;
+
+  constructor(size: number) {
+    this.size = size;
+  }
+
+  get(index: number): number | undefined {
+    return index >= 0 && index < this.size ? index : undefined;
+  }
+}
+
 /*
  * Branching: e.g. polymorphic, conditional, etc - means that different
  * directions can be chosen - the plan "branches" at that point based on a
@@ -630,15 +642,16 @@ export class LayerPlan<TReason extends LayerPlanReason = LayerPlanReason> {
     }
     const { copyStepIds } = this;
     const store: Bucket["store"] = new Map();
-    const polymorphicPathList: (string | null)[] =
+    let polymorphicPathList: (string | null)[] =
       this.reason.type === "mutationField"
         ? (parentBucket.polymorphicPathList as string[])
         : [];
     const polymorphicType =
       this.reason.type === "polymorphic" ? ([] as string[]) : null;
-    const iterators: Array<Set<AsyncIterator<any> | Iterator<any>>> =
+    let iterators: Array<Set<AsyncIterator<any> | Iterator<any>>> =
       this.reason.type === "mutationField" ? parentBucket.iterators : [];
     const map: Map<number, number | number[]> = new Map();
+    let childIndexMap: Bucket["children"][number]["map"] = map;
     let flagUnion = parentBucket.flagUnion;
 
     const $parentSideEffect = this.parentSideEffectStep;
@@ -665,11 +678,6 @@ export class LayerPlan<TReason extends LayerPlanReason = LayerPlanReason> {
           );
         }
         const itemStepId = this.rootStep.id;
-
-        // PERF: if parent bucket has no nulls/errors in `itemStepId`
-        // then we can just copy everything wholesale rather than building
-        // new arrays and looping.
-        const hasNoNullsOrErrors = false;
 
         if (this.rootStep._isUnary) {
           const fieldValue = parentBucket.store.get(
@@ -716,7 +724,17 @@ export class LayerPlan<TReason extends LayerPlanReason = LayerPlanReason> {
               }
             }
           }
-        } else if (hasNoNullsOrErrors) {
+        } else if (
+          parentSideEffectValue === null &&
+          !(parentBucket.flagUnion & FLAG_NULL) &&
+          ((parentBucket.layerPlan.reason.type === "listItem" &&
+            parentBucket.layerPlan.rootStep === this.rootStep) ||
+            (parentBucket.layerPlan.reason.type === "nullableBoundary" &&
+              this.rootStep.layerPlan === parentBucket.layerPlan))
+        ) {
+          // List expansion and steps executed in the parent include their
+          // result flags in its union.
+          // All indexes survive, so we can reuse the completed results.
           const nullableStepStore = parentBucket.store.get(itemStepId);
           if (!nullableStepStore) {
             throw new Error(
@@ -729,17 +747,10 @@ export class LayerPlan<TReason extends LayerPlanReason = LayerPlanReason> {
           for (const stepId of copyStepIds) {
             store.set(stepId, parentBucket.store.get(stepId)!);
           }
-          for (
-            let originalIndex = 0;
-            originalIndex < parentBucket.size;
-            originalIndex++
-          ) {
-            const newIndex = size++;
-            map.set(originalIndex, newIndex);
-            polymorphicPathList[newIndex] =
-              parentBucket.polymorphicPathList[originalIndex];
-            iterators[newIndex] = parentBucket.iterators[originalIndex];
-          }
+          polymorphicPathList = parentBucket.polymorphicPathList.slice();
+          iterators = parentBucket.iterators.slice();
+          size = parentBucket.size;
+          childIndexMap = new IdentityBucketMap(size);
         } else {
           const ev = batchExecutionValue([]);
           store.set(itemStepId, ev);
@@ -1099,7 +1110,7 @@ export class LayerPlan<TReason extends LayerPlanReason = LayerPlanReason> {
       });
       parentBucket.children[this.id] = {
         bucket: childBucket,
-        map,
+        map: childIndexMap,
       };
 
       return childBucket;

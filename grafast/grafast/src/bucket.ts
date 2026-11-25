@@ -162,7 +162,7 @@ export interface Bucket {
   children: {
     [layerPlanId: number]: {
       bucket: Bucket;
-      map: Map<number, number | number[]>;
+      map: Pick<ReadonlyMap<number, number | number[]>, "get">;
     };
   };
 }

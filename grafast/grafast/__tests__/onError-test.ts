@@ -7,17 +7,95 @@ import { it } from "mocha";
 import {
   constant,
   context,
+  flagError,
   get,
   grafast,
   GraphQLSpecifiedErrorBehaviors,
   lambda,
   list,
+  loadOne,
   makeGrafastSchema,
   Step,
 } from "../dist/index.js";
 
 const resolvedPreset = resolvePreset({});
 const requestContext = {};
+
+it("preserves list indexes across clean and filtered nullable boundaries", async () => {
+  const schema = makeGrafastSchema({
+    typeDefs: "type Query { items: [Item] } type Item { id: Int! }",
+    objects: {
+      Query: { plans: { items: ($root) => get($root, "items") } },
+    },
+  });
+  const source = "{ items { id } }";
+  const first = { id: 1 };
+  const last = { id: 3 };
+  const clean = await grafast({
+    schema,
+    source,
+    rootValue: { items: [first, { id: 2 }, last] },
+  });
+  expect(clean).to.deep.equal({ data: { items: [first, { id: 2 }, last] } });
+  const failed = flagError(new Error("item failed"));
+  const withError = (await grafast({
+    schema,
+    source,
+    rootValue: { items: [first, failed, last] },
+  })) as ExecutionResult;
+  expect(withError.data).to.deep.equal({ items: [first, null, last] });
+  expect(withError.errors).to.have.length(1);
+  expect(withError.errors![0].path).to.deep.equal(["items", 1]);
+  const sparse = await grafast({
+    schema,
+    source,
+    rootValue: { items: [first, null, failed, last] },
+  });
+  expect(sparse).to.deep.include({
+    data: { items: [first, null, null, last] },
+  });
+  expect((sparse as ExecutionResult).errors![0].path).to.deep.equal([
+    "items",
+    2,
+  ]);
+});
+
+it("keeps nested load results aligned when a nullable child is missing", async () => {
+  const loadChild = (ids: readonly number[]) =>
+    ids.map((id) => (id === 2 ? null : { id: id + 10 }));
+  const schema = makeGrafastSchema({
+    typeDefs:
+      "type Query { items: [Item] } type Item { id: Int!, child: Item }",
+    objects: {
+      Query: { plans: { items: ($root) => get($root, "items") } },
+      Item: {
+        plans: {
+          child: ($item) =>
+            loadOne(get($item, "id") as Step<number>, loadChild),
+        },
+      },
+    },
+  });
+  const source = "{ items { id child { id } } }";
+  for (const ids of [
+    [1, 3],
+    [1, 2, 3],
+  ]) {
+    const result = await grafast({
+      schema,
+      source,
+      rootValue: { items: ids.map((id) => ({ id })) },
+    });
+    expect(result).to.deep.equal({
+      data: {
+        items: ids.map((id) => ({
+          id,
+          child: id === 2 ? null : { id: id + 10 },
+        })),
+      },
+    });
+  }
+});
 
 declare global {
   namespace Grafast {
