@@ -13,6 +13,7 @@ import {
   $$extensions,
   $$streamMore,
   FLAG_ERROR,
+  FLAG_NULL,
   NO_FLAGS,
 } from "./constants.ts";
 import { isDev } from "./dev.ts";
@@ -37,6 +38,7 @@ import {
   getChildBucketAndIndex,
   getDirectLayerPlanChild,
 } from "./engine/OutputPlan.ts";
+import { flagError, isFlaggedValue, SafeError } from "./error.ts";
 import type {
   ErrorBehavior,
   GrafastInternalExecutionArgs,
@@ -113,9 +115,21 @@ function processRoot(
   }
 
   const promises: PromiseLike<void>[] = [];
-  for (const stream of streams) {
+  const groups = new Map<
+    SubsequentStreamSpec["stream"],
+    SubsequentStreamSpec[]
+  >();
+  for (const spec of streams) {
+    const group = groups.get(spec.stream);
+    if (group === undefined) {
+      groups.set(spec.stream, [spec]);
+    } else {
+      group.push(spec);
+    }
+  }
+  for (const group of groups.values()) {
     promises.push(
-      processStream(ctx.requestContext, iterator, stream, outputDataAsString),
+      processStream(ctx.requestContext, iterator, group, outputDataAsString),
     );
   }
   for (const deferred of queue) {
@@ -150,8 +164,7 @@ function releaseUnusedIterators(
     return;
   }
   if (streams) {
-    for (const streamSpec of streams) {
-      const { stream } = streamSpec;
+    for (const stream of new Set(streams.map((spec) => spec.stream))) {
       if (!allStreams.delete(stream)) {
         console.error(
           `GrafastInternalError<1e43efdf-f901-43dd-8a82-768246e61478>: Stream was returned from an output plan, but that stream wasn't tracked via the bucket.`,
@@ -161,6 +174,7 @@ function releaseUnusedIterators(
   }
   if (allStreams.size > 0) {
     for (const stream of allStreams) {
+      allStreams.delete(stream);
       if (stream.return) {
         try {
           consume(stream.return());
@@ -192,10 +206,9 @@ const finalize = (
 ): ExecutionResult | AsyncGenerator<AsyncExecutionResult, void, void> => {
   if (ctx.root.streams.length > 0 || ctx.root.queue.length > 0) {
     // Return an async iterator
-    let _alive = true;
+    let alive = true;
     const iterator: ResultIterator = newIterator(() => {
-      // ENHANCE: AbortSignal or similar, feed into `processRoot`?
-      _alive = false;
+      alive = false;
     });
     const payload = Object.create(null);
     if (data !== undefined) {
@@ -215,8 +228,11 @@ const finalize = (
     if (isPromiseLike(promise)) {
       promise.then(
         () => {
+          if (!alive) {
+            return;
+          }
           iterator.push({ hasNext: false });
-          iterator.return(undefined).then(null, noop);
+          iterator.finish();
         },
         (e) => {
           iterator.throw(e).then(null, noop);
@@ -224,7 +240,7 @@ const finalize = (
       );
     } else {
       iterator.push({ hasNext: false });
-      iterator.return(undefined).then(null, noop);
+      iterator.finish();
     }
 
     return iterator;
@@ -354,9 +370,26 @@ function executePreemptive(
   const startTime = timeSource.now();
   const stopTime =
     executionTimeout !== null ? startTime + executionTimeout : null;
+  const rowLimit =
+    args.resolvedPreset?.grafast?.maxMaterializedStreamRows ?? 100_000;
+  if (
+    rowLimit !== Infinity &&
+    (!Number.isSafeInteger(rowLimit) || rowLimit < 0)
+  ) {
+    throw new Error(
+      "maxMaterializedStreamRows must be a non-negative safe integer or Infinity",
+    );
+  }
   const requestContext: RequestTools = {
     args,
     onError,
+    remainingStreamRows: rowLimit,
+    retainStreamRows(count) {
+      this.remainingStreamRows -= count;
+      if (this.remainingStreamRows < 0) {
+        throw new SafeError("Materialized stream row limit exceeded");
+      }
+    },
     startTime,
     stopTime,
     // toSerialize: [],
@@ -504,8 +537,7 @@ function executePreemptive(
       });
       (async () => {
         let i = 0;
-        // eslint-disable-next-line no-constant-condition
-        while (true) {
+        while (await iterator.ready()) {
           const next = await abortable(
             iteratorAbortSignal,
             undefined,
@@ -519,45 +551,44 @@ function executePreemptive(
             // Stream already exited
             break;
           }
-          try {
-            const payload = await abortable(
-              iteratorAbortSignal,
-              undefined,
-              executeStreamPayload(next.value, i),
-            );
-            if (payload === undefined) {
-              break;
-            }
-            if (isAsyncIterable(payload)) {
-              const payloadIterator = payload[Symbol.asyncIterator]();
-              while (true) {
-                const next = await abortable(
-                  iteratorAbortSignal,
-                  undefined,
-                  payloadIterator.next(),
-                );
-                if (next === undefined) {
-                  consume(payloadIterator.return?.(undefined));
-                  break;
-                }
-                if (next.done) {
-                  // Iterator already exited
-                  break;
-                }
-                iterator.push(next.value);
-              }
-            } else {
-              iterator.push(payload);
-            }
-            i++;
-          } catch (error) {
-            consume(iterator.return?.());
-            throw error;
+          const payload = await abortable(
+            iteratorAbortSignal,
+            undefined,
+            executeStreamPayload(next.value, i),
+          );
+          if (payload === undefined) {
+            break;
           }
+          if (isAsyncIterable(payload)) {
+            const payloadIterator = payload[Symbol.asyncIterator]();
+            while (true) {
+              if (!(await iterator.ready())) {
+                await payloadIterator.return?.(undefined);
+                break;
+              }
+              const next = await abortable(
+                iteratorAbortSignal,
+                undefined,
+                payloadIterator.next(),
+              );
+              if (next === undefined) {
+                consume(payloadIterator.return?.(undefined));
+                break;
+              }
+              if (next.done) {
+                // Iterator already exited
+                break;
+              }
+              iterator.push(next.value);
+            }
+          } else {
+            iterator.push(payload);
+          }
+          i++;
         }
       })()
         .then(
-          () => iterator.return(),
+          () => iterator.finish(),
           (e) => iterator.throw(e),
         )
         .then(null, noop);
@@ -645,6 +676,8 @@ export function grafastPrepare(
 
 interface PushableAsyncGenerator<T> extends AsyncGenerator<T, void, undefined> {
   push(v: T): void;
+  ready(): PromiseOrDirect<boolean>;
+  finish(): void;
 }
 
 type ResultIterator = PushableAsyncGenerator<AsyncExecutionResult>;
@@ -662,7 +695,19 @@ function newIterator<T = any>(
     ]
   > = [];
   let done = false;
+  let drained: PromiseWithResolvers<boolean> | null = null;
+  let failure: { error: unknown } | null = null;
   return {
+    ready() {
+      if (done) {
+        return false;
+      }
+      if (valueQueue.length === 0) {
+        return true;
+      }
+      drained ??= Promise.withResolvers<boolean>();
+      return drained.promise;
+    },
     [Symbol.asyncIterator]() {
       return this;
     },
@@ -671,10 +716,8 @@ function newIterator<T = any>(
     },
     push(v: T | PromiseLike<T>) {
       if (done) {
-        // LOGGING: should we raise this as a bigger issue?
-        console.warn(
-          "GrafastWarning<85e02385-d3d2-48a1-b791-b4cf87817899>: value pushed into iterable after done; ignoring",
-        );
+        // A projection already in flight can finish after the client returns.
+        consume(v);
         return;
       }
       const cbs = pullQueue.shift();
@@ -700,10 +743,17 @@ function newIterator<T = any>(
     },
     next() {
       if (valueQueue.length > 0) {
-        return Promise.resolve(valueQueue.shift()).then((value) => ({
+        const next = valueQueue.shift();
+        if (valueQueue.length === 0) {
+          drained?.resolve(true);
+          drained = null;
+        }
+        return Promise.resolve(next).then((value) => ({
           done: false,
           value,
         }));
+      } else if (failure !== null) {
+        return Promise.reject(failure.error);
       } else if (done) {
         return Promise.resolve({
           done: true,
@@ -715,9 +765,10 @@ function newIterator<T = any>(
         });
       }
     },
-    return() {
+    finish() {
       if (!done) {
         done = true;
+        drained?.resolve(false);
         abort();
         for (const entry of pullQueue) {
           try {
@@ -726,12 +777,20 @@ function newIterator<T = any>(
             // ignore
           }
         }
+        pullQueue.length = 0;
       }
+    },
+    return() {
+      valueQueue.length = 0;
+      failure = null;
+      this.finish();
       return Promise.resolve({ done: true, value: undefined });
     },
     throw(e) {
       if (!done) {
         done = true;
+        drained?.resolve(false);
+        failure = { error: e };
         abort(e);
         for (const entry of pullQueue) {
           try {
@@ -749,20 +808,37 @@ function newIterator<T = any>(
 async function processStream(
   requestContext: RequestTools,
   iterator: ResultIterator,
-  spec: SubsequentStreamSpec,
+  specs: SubsequentStreamSpec[],
   outputDataAsString: boolean,
 ): Promise<void> {
-  /** Resolve this when finished */
-  const whenDone = Promise.withResolvers<void>();
-  whenDone.promise.catch(noop); // Guard against unhandledPromiseRejection
-
-  type ResultTuple = [any, number];
-
-  let queue: null | ResultTuple[] = null;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  let timeout: NodeJS.Timer | null = null;
-
-  const _processQueue = (entries: ResultTuple[]) => {
+  type ResultTuple = [value: any, index: number, flags: number];
+  const entryFor = async (
+    result: IteratorResult<any>,
+    index: number,
+  ): Promise<ResultTuple> => {
+    let value = result.value;
+    if (isPromiseLike(value)) {
+      try {
+        value = await value;
+      } catch (e) {
+        value = flagError(e);
+      }
+    }
+    let flags = NO_FLAGS;
+    if (value !== null && typeof value === "object" && isFlaggedValue(value)) {
+      flags = value.flags;
+      value = value.value;
+    }
+    if (value == null) {
+      flags |= FLAG_NULL;
+    }
+    return [value, index, flags];
+  };
+  const project = (
+    spec: SubsequentStreamSpec,
+    entries: ResultTuple[],
+    metaByMetaKey: ReturnType<OperationPlan["makeMetaByMetaKey"]>,
+  ) => {
     const size = entries.length;
     const store: Bucket["store"] = new Map();
     const polymorphicPathList: (string | null)[] = [];
@@ -787,18 +863,33 @@ async function processStream(
           size,
           executionValue.at(spec.bucketIndex),
         );
-        store.set(copyStepId, batchExecutionValue(values));
+        store.set(
+          copyStepId,
+          batchExecutionValue(
+            values,
+            arrayOfLength(size, executionValue._flagsAt(spec.bucketIndex)),
+          ),
+        );
       } else {
         store.set(copyStepId, executionValue);
       }
     }
 
     if (isUnary) {
-      assert.ok(entries.length === 0, "Unary step should only have one index");
-      store.set(listItemStepId, unaryExecutionValue(entries[0][0]));
+      assert.ok(entries.length === 1, "Unary step should only have one index");
+      store.set(
+        listItemStepId,
+        unaryExecutionValue(entries[0][0], entries[0][2]),
+      );
     } else {
       const listItemStepIdList = entries.map((e) => e[0]);
-      store.set(listItemStepId, batchExecutionValue(listItemStepIdList));
+      store.set(
+        listItemStepId,
+        batchExecutionValue(
+          listItemStepIdList,
+          entries.map((entry) => entry[2]),
+        ),
+      );
     }
 
     for (let bucketIndex = 0; bucketIndex < size; bucketIndex++) {
@@ -809,15 +900,21 @@ async function processStream(
 
     // const childBucket = newBucket(directLayerPlanChild, noDepsList, store);
     // const childBucketIndex = 0;
-    const rootBucket = newBucket(spec.bucket, {
-      layerPlan: directLayerPlanChild,
-      size,
-      store,
-      flagUnion: NO_FLAGS,
-      polymorphicPathList,
-      polymorphicType: null,
-      iterators,
-    });
+    const rootBucket = newBucket(
+      { sharedState: spec.bucket.sharedState, metaByMetaKey },
+      {
+        layerPlan: directLayerPlanChild,
+        size,
+        store,
+        flagUnion: entries.reduce(
+          (union, entry) => union | entry[2],
+          spec.bucket.flagUnion,
+        ),
+        polymorphicPathList,
+        polymorphicType: null,
+        iterators,
+      },
+    );
 
     const bucketPromise = executeBucket(rootBucket, requestContext);
 
@@ -867,70 +964,53 @@ async function processStream(
     }
   };
 
-  let pendingQueues = 0;
-  const queueComplete = () => {
-    pendingQueues--;
-    if (loopComplete && pendingQueues <= 0) {
-      whenDone.resolve();
-    }
-  };
-  const processQueue = () => {
-    timeout = null;
-    assert.ok(
-      queue,
-      "GrafastInternalError<bcf5cef8-2c60-419e-b942-14fd34b8caa7>: processQueue called with no queue",
-    );
-
-    // This is guaranteed to have at least one entry in it
-    const entries = queue;
-    queue = null;
-
-    try {
-      const result = _processQueue(entries);
-      if (isPromiseLike(result)) {
-        result.then(queueComplete, (e) => {
-          whenDone.reject(e);
-        });
-      } else {
-        queueComplete();
-      }
-    } catch (e) {
-      whenDone.reject(e);
-    }
-  };
-
-  const processResult = (result: any, payloadIndex: number) => {
-    if (queue !== null) {
-      queue.push([result, payloadIndex]);
-    } else {
-      pendingQueues++;
-      queue = [[result, payloadIndex]];
-      // OPTIMIZE: tune this delay
-      timeout = setTimeout(processQueue, 1);
-    }
-  };
-
-  let loopComplete = false;
+  const { stream, startIndex } = specs[0];
+  let index = startIndex;
+  let next: Promise<IteratorResult<any>> | null = null;
   try {
-    let payloadIndex = spec.startIndex;
-    let nextValuePromise: PromiseOrDirect<IteratorResult<any, any>>;
-    while ((nextValuePromise = spec.stream.next())) {
-      const iteratorResult = await nextValuePromise;
-      if (iteratorResult.done) {
+    while (await iterator.ready()) {
+      const first = await (next ?? stream.next());
+      next = null;
+      if (first.done) {
         break;
       }
-      const result = iteratorResult.value;
-      processResult(result, payloadIndex);
-      payloadIndex++;
+      const entries: ResultTuple[] = [await entryFor(first, index++)];
+      let done = false;
+      let timer: ReturnType<typeof setTimeout>;
+      const deadline = new Promise<null>((resolve) => {
+        timer = setTimeout(resolve, 1, null);
+      });
+      try {
+        while (entries.length < 100) {
+          next = Promise.resolve(stream.next());
+          const result = await Promise.race([next, deadline]);
+          if (result === null) {
+            break;
+          }
+          next = null;
+          if (result.done) {
+            done = true;
+            break;
+          }
+          entries.push(await entryFor(result, index++));
+        }
+      } finally {
+        clearTimeout(timer!);
+      }
+      if (entries.length > 0) {
+        // Batch caches for projected rows must become collectible as the
+        // response advances. Sibling projections still share their batch.
+        const meta =
+          specs[0].bucket.layerPlan.operationPlan.makeMetaByMetaKey();
+        await Promise.all(specs.map((spec) => project(spec, entries, meta)));
+      }
+      if (done) {
+        break;
+      }
     }
   } finally {
-    loopComplete = true;
-    if (pendingQueues === 0) {
-      whenDone.resolve();
-    }
-    // TODO: cleanup
+    await stream.return?.();
   }
-  return whenDone.promise;
 }
 
 function processSingleDeferred(
@@ -945,17 +1025,7 @@ function processSingleDeferred(
   const polymorphicPathList: (string | null)[] = [];
   const iterators: Array<Set<AsyncIterator<any> | Iterator<any>>> = [];
 
-  // HACK: when we re-write stream/defer this needs fixing.
   const firstBucket = specs[0][1].bucket;
-  if (isDev) {
-    for (const spec of specs) {
-      if (spec[1].bucket !== firstBucket) {
-        throw new Error(
-          `GrafastInternalError<c277422e-adb7-4b07-861e-acab931fc01a>: sorry, it seems the unary dependencies feature broke our incremental delivery support. This incremental delivery is going to be fully rewritten at some point anyway, so we recommend you avoid using it for now (the spec itself has changed since we implemented it).`,
-        );
-      }
-    }
-  }
 
   for (const copyStepId of outputPlan.layerPlan.copyStepIds) {
     const executionValue = firstBucket.store.get(copyStepId)!;
@@ -963,7 +1033,13 @@ function processSingleDeferred(
       const values = specs.map(([, spec]) =>
         executionValue.at(spec.bucketIndex),
       );
-      store.set(copyStepId, batchExecutionValue(values));
+      store.set(
+        copyStepId,
+        batchExecutionValue(
+          values,
+          specs.map(([, spec]) => executionValue._flagsAt(spec.bucketIndex)),
+        ),
+      );
     } else {
       store.set(copyStepId, executionValue);
     }
@@ -983,7 +1059,7 @@ function processSingleDeferred(
     layerPlan: outputPlan.layerPlan,
     size,
     store,
-    flagUnion: NO_FLAGS,
+    flagUnion: firstBucket.flagUnion,
     polymorphicPathList,
     polymorphicType: null,
     iterators,
@@ -1037,69 +1113,13 @@ function processSingleDeferred(
   }
 }
 
-function processBatches(
-  batchesByRequestTools: Map<
-    RequestTools,
-    Map<OutputPlan, Array<[ResultIterator, SubsequentPayloadSpec]>>
-  >,
-  whenDone: PromiseWithResolvers<void>,
-  asString: boolean,
-) {
-  try {
-    // Key is only used for batching
-    const promises: PromiseLike<void>[] = [];
-    for (const [requestContext, batches] of batchesByRequestTools.entries()) {
-      for (const [outputPlan, specs] of batches.entries()) {
-        const promise = processSingleDeferred(
-          requestContext,
-          outputPlan,
-          specs,
-          asString,
-        );
-        if (isPromiseLike(promise)) {
-          promises.push(promise);
-        }
-      }
-    }
-    if (promises.length > 0) {
-      Promise.all(promises).then(
-        () => whenDone.resolve(),
-        (e) => whenDone.reject(e),
-      );
-    } else {
-      whenDone.resolve();
-    }
-  } catch (e) {
-    whenDone.reject(e);
-  }
+interface DeferredBatch {
+  entries: Array<[ResultIterator, SubsequentPayloadSpec]>;
+  done: PromiseWithResolvers<void>;
 }
 
-function processBatchAsString() {
-  const batchesByRequestContext = deferredBatchesByRequestToolsAsString;
-  deferredBatchesByRequestToolsAsString = new Map();
-  const whenDone = nextBatchAsString!;
-  nextBatchAsString = null;
-
-  processBatches(batchesByRequestContext, whenDone, true);
-}
-
-function processBatchNotAsString() {
-  const batchesByRequestContext = deferredBatchesByRequestToolsNotAsString;
-  deferredBatchesByRequestToolsNotAsString = new Map();
-  const whenDone = nextBatchNotAsString!;
-  nextBatchNotAsString = null;
-
-  processBatches(batchesByRequestContext, whenDone, false);
-}
-
-type DBBRC = Map<
-  RequestTools,
-  Map<OutputPlan, Array<[ResultIterator, SubsequentPayloadSpec]>>
->;
-let deferredBatchesByRequestToolsAsString: DBBRC = new Map();
-let deferredBatchesByRequestToolsNotAsString: DBBRC = new Map();
-let nextBatchAsString: PromiseWithResolvers<void> | null = null;
-let nextBatchNotAsString: PromiseWithResolvers<void> | null = null;
+// Unary values and shared execution state belong to the originating bucket.
+const deferredBatches = new WeakMap<Bucket, Map<OutputPlan, DeferredBatch>>();
 
 function processDeferred(
   requestContext: RequestTools,
@@ -1107,35 +1127,41 @@ function processDeferred(
   spec: SubsequentPayloadSpec,
   outputDataAsString: boolean,
 ): PromiseLike<void> {
-  const deferredBatchesByRequestTools = outputDataAsString
-    ? deferredBatchesByRequestToolsAsString
-    : deferredBatchesByRequestToolsNotAsString;
-  let deferredBatches = deferredBatchesByRequestTools.get(requestContext);
-  if (!deferredBatches) {
-    deferredBatches = new Map();
-    deferredBatchesByRequestTools.set(requestContext, deferredBatches);
+  let batches = deferredBatches.get(spec.bucket);
+  if (batches === undefined) {
+    batches = new Map();
+    deferredBatches.set(spec.bucket, batches);
   }
-  const list = deferredBatches.get(spec.outputPlan);
-  if (list !== undefined) {
-    list.push([iterator, spec]);
-  } else {
-    deferredBatches.set(spec.outputPlan, [[iterator, spec]]);
+  const existing = batches.get(spec.outputPlan);
+  if (existing !== undefined) {
+    existing.entries.push([iterator, spec]);
+    return existing.done.promise;
   }
-  if (outputDataAsString) {
-    if (!nextBatchAsString) {
-      nextBatchAsString = Promise.withResolvers();
-      nextBatchAsString.promise.catch(noop); // Guard against unhandledPromiseRejection
-      setTimeout(processBatchAsString, 1);
+  const batch: DeferredBatch = {
+    entries: [[iterator, spec]],
+    done: Promise.withResolvers<void>(),
+  };
+  batches.set(spec.outputPlan, batch);
+  setTimeout(() => {
+    batches.delete(spec.outputPlan);
+    if (requestContext.abortSignal.aborted) {
+      batch.done.resolve();
+      return;
     }
-    return nextBatchAsString.promise;
-  } else {
-    if (!nextBatchNotAsString) {
-      nextBatchNotAsString = Promise.withResolvers();
-      nextBatchNotAsString.promise.catch(noop); // Guard against unhandledPromiseRejection
-      setTimeout(processBatchNotAsString, 1);
+    try {
+      batch.done.resolve(
+        processSingleDeferred(
+          requestContext,
+          spec.outputPlan,
+          batch.entries,
+          outputDataAsString,
+        ),
+      );
+    } catch (e) {
+      batch.done.reject(e);
     }
-    return nextBatchNotAsString.promise;
-  }
+  }, 1);
+  return batch.done.promise;
 }
 
 /**

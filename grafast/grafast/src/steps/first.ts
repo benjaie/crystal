@@ -5,6 +5,7 @@ import type {
   UnbatchedExecutionExtra,
 } from "../interfaces.ts";
 import { Step } from "../step.ts";
+import { MaterializedList } from "../streamItems.ts";
 import type { StepRepresentingList } from "./connection.ts";
 import { itemsOrStep } from "./connection.ts";
 import { ListStep } from "./list.ts";
@@ -50,6 +51,9 @@ export class FirstStep<TData> extends Step<TData> {
     return indexMap((i) => {
       const val = values0.at(i);
       if (val == null) return val;
+      if (val instanceof MaterializedList) {
+        return val.read().then((items) => items[0] as TData);
+      }
       if (Array.isArray(val)) return val[0];
       // Iterable? Return the first entry
       return (async () => {

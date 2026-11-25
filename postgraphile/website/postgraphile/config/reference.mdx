@@ -357,6 +357,7 @@ Type: `boolean | undefined`
   context?: Partial<Grafast.Context> | ((ctx: Partial<Grafast.RequestContext>, args: Grafast.ExecutionArgs) => PromiseOrValue<Partial<Grafast.Context>>);
   explain?: boolean | string[];
   maxPlanningDepth?: number;
+  maxMaterializedStreamRows?: number;
   timeouts?: GrafastTimeouts;
 
   // Advanced
@@ -409,55 +410,23 @@ Type: `GrafastTimeouts | undefined`
 ### Advanced
 
 Only use these settings if you know what you are doing!
-#### grafast.distributorPauseDuration
 
-:::warning Advanced
-
-:::
+#### grafast.maxMaterializedStreamRows
 
 Type: `number | undefined`
 
-Duration (in milliseconds) for the distributor to pause whilst waiting
-for the slowest consumer to advance once the
-`distributorTargetBufferSize` has been reached.
-
-Must be at least 0.
+Limits the total number of rows that streaming fallbacks can materialize in a
+request. The default is 100,000. Set a non-negative integer to change the
+limit or `Infinity` to disable it.
 
 #### grafast.distributorTargetBufferSize
 
-:::warning Advanced
+Deprecated. When configured, lists with an `initialCount` at or above this
+threshold are delivered in full.
 
-:::
+#### grafast.distributorPauseDuration and grafast.distributorTargetBufferSizeIncrement
 
-Type: `number | undefined`
-
-This supports the `$step.cloneStreams = true` option, allowing
-multiple consumers to consume the same underlying stream, but tries to
-avoid any one consumer getting more than `distributorTargetBufferSize`
-items ahead of any other. When a fast consumer gets this far ahead of
-the slowest consumer, it will be paused for `distributorPauseDuration`
-milliseconds to allow the slowest consumer to advance. Should the
-slowest consumer not advance in time, the fast consumer will be
-allowed to continue and all intermediary results will be cached - so
-beware of memory exhaustion and be sure to place sensible limits on
-your queries (and construct them wisely).
-
-This must be set higher than the largest `@stream(initialCount:)`
-argument you want to support.
-
-#### grafast.distributorTargetBufferSizeIncrement
-
-:::warning Advanced
-
-:::
-
-Type: `number | undefined`
-
-When the `distributorTargetBufferSize` is exceeded, every time we get
-`distributorTargetBufferSizeIncrement` items further ahead, we'll
-pause again.
-
-Must be at least 1. Recommend you set this fairly large.
+Deprecated. These options have no effect.
 
 <!-- END:OPTIONS:postgraphile_grafast -->
 

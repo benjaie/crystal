@@ -1,4 +1,4 @@
-import { $$deepDepSkip } from "../constants.ts";
+import { $$deepDepSkip, $$streamMore } from "../constants.ts";
 import type {
   ExecutionDetails,
   GrafastResultsList,
@@ -6,6 +6,7 @@ import type {
   UnbatchedExecutionExtra,
 } from "../interfaces.ts";
 import { Step } from "../step.ts";
+import { MaterializedList, observedLastItem } from "../streamItems.ts";
 import type { StepRepresentingList } from "./connection.ts";
 import { itemsOrStep } from "./connection.ts";
 import { ListStep } from "./list.ts";
@@ -54,7 +55,17 @@ export class LastStep<TData> extends Step<Maybe<TData>> {
     return indexMap((i) => {
       const val = values0.at(i);
       if (val == null) return val;
-      if (Array.isArray(val)) return val[val.length - 1];
+      if (val instanceof MaterializedList) {
+        return val.read().then((items) => items.at(-1) as TData);
+      }
+      if (Array.isArray(val)) {
+        const continuation = (
+          val as import("../interfaces.ts").StreamMaybeMoreableArray
+        )[$$streamMore];
+        return continuation == null
+          ? val[val.length - 1]
+          : (observedLastItem(continuation) as Promise<TData>);
+      }
       // Iterable? Return the last entry
       return (async () => {
         let last: any = undefined;

@@ -1,3 +1,5 @@
+import { isAsyncIterable } from "iterall";
+
 import type {
   __ItemStep,
   ConnectionOptimizedStep,
@@ -7,6 +9,7 @@ import { currentFieldStreamDetails } from "../index.ts";
 import type {
   BatchKeysetEquality,
   ExecutionDetailsStream,
+  ExecutionResultValue,
   GrafastResultsList,
   Maybe,
   PromiseOrDirect,
@@ -15,7 +18,8 @@ import type {
 import type { Multistep, UnwrapMultistep } from "../multistep.ts";
 import { multistep } from "../multistep.ts";
 import { Step } from "../step.ts";
-import { recordsMatch } from "../utils.ts";
+import { readCachedList } from "../streamItems.ts";
+import { isPromiseLike, recordsMatch } from "../utils.ts";
 import {
   executeLoad,
   getLoadKeysetEquality,
@@ -283,19 +287,26 @@ export class LoadManyStep<
     return this;
   }
 
+  private canReuseKeys = false;
+
   finalize() {
     // Find all steps of this type that use the same callback and have
     // equivalent params and then match their list of attributes together.
     const paramSig = this.getParamSignature();
-    const kin = this.operationPlan
+    const sharedLoaders = this.operationPlan
       .getStepsByStepClass(LoadManyStep)
-      .filter((step) => {
-        if (step.id === this.id) return false;
-        if (step.load !== this.load) return false;
-        if (step.getParamSignature() !== paramSig) return false;
-        return true;
-      });
-    for (const otherStep of kin) {
+      .filter((step) => step !== this && step.load === this.load);
+    this.canReuseKeys =
+      sharedLoaders.length > 0 ||
+      this.layerPlan.ancestry.some(
+        (layer) =>
+          layer.reason.type !== "root" &&
+          layer.reason.type !== "nullableBoundary",
+      );
+    for (const otherStep of sharedLoaders) {
+      if (otherStep.getParamSignature() !== paramSig) {
+        continue;
+      }
       for (const attr of otherStep.attributes) {
         this.attributes.add(attr as any);
       }
@@ -311,7 +322,7 @@ export class LoadManyStep<
   execute(
     details: ExecutionDetails<readonly [UnwrapMultistep<TLookup>, ...any[]]>,
   ): PromiseOrDirect<GrafastResultsList<TData>> {
-    return executeLoad<
+    const loaded = executeLoad<
       UnwrapMultistep<TLookup>,
       TItem,
       TData,
@@ -325,6 +336,21 @@ export class LoadManyStep<
       this.load,
       this.keysetEquality,
     );
+    if (!this.canReuseKeys && details.count === 1) {
+      return loaded;
+    }
+    const replay = (value: ExecutionResultValue<TData>) =>
+      isAsyncIterable(value)
+        ? (readCachedList(
+            value,
+            details.extra._requestContext,
+          ) as unknown as Promise<TData>)
+        : value;
+    const replayAll = (values: Awaited<typeof loaded>) =>
+      values.map((value) =>
+        isPromiseLike(value) ? value.then(replay) : replay(value),
+      );
+    return isPromiseLike(loaded) ? loaded.then(replayAll) : replayAll(loaded);
   }
 
   applyPagination?($params: Step<PaginationParams<any>>): void {

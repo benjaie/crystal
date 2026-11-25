@@ -20,7 +20,6 @@ import type {
 import type { Step, UnbatchedStep } from "../step.ts";
 import type { __ValueStep } from "../steps/index.ts";
 import { arrayOfLength, arraysMatch, setsMatch } from "../utils.ts";
-import { isDistributor } from "./distributor.ts";
 import { batchExecutionValue, newBucket } from "./executeBucket.ts";
 import type { OperationPlan } from "./OperationPlan.ts";
 
@@ -335,11 +334,6 @@ export class LayerPlan<TReason extends LayerPlanReason = LayerPlanReason> {
   /** @internal */
   public children: LayerPlan[] = [];
 
-  public distributorDependencies: null | {
-    // Map of all the dependent stepIds for a given distributor step
-    [distributorStepId: number]: number[];
-  } = null;
-
   /** @internal */
   steps: Step[] = [];
   /** @internal */
@@ -649,13 +643,6 @@ export class LayerPlan<TReason extends LayerPlanReason = LayerPlanReason> {
       parentSideEffectValue = null;
     }
 
-    const skippedIndicies =
-      this.distributorDependencies === null ? null : ([] as number[]);
-    const skipIndex =
-      skippedIndicies === null
-        ? null
-        : skippedIndicies.push.bind(skippedIndicies);
-
     let size = 0;
     switch (this.reason.type) {
       case "nullableBoundary": {
@@ -711,8 +698,6 @@ export class LayerPlan<TReason extends LayerPlanReason = LayerPlanReason> {
                 for (const { orig, ev } of batchCopy) {
                   ev._copyResult(newIndex, orig, originalIndex);
                 }
-              } else {
-                skipIndex?.(originalIndex);
               }
             }
           }
@@ -791,8 +776,6 @@ export class LayerPlan<TReason extends LayerPlanReason = LayerPlanReason> {
               for (const { orig, ev } of batchCopy) {
                 ev._copyResult(newIndex, orig, originalIndex);
               }
-            } else {
-              skipIndex?.(originalIndex);
             }
           }
         }
@@ -877,8 +860,6 @@ export class LayerPlan<TReason extends LayerPlanReason = LayerPlanReason> {
                 ev._copyResult(newIndex, orig, originalIndex);
               }
             }
-          } else {
-            skipIndex?.(originalIndex);
           }
         }
 
@@ -935,21 +916,18 @@ export class LayerPlan<TReason extends LayerPlanReason = LayerPlanReason> {
         ) {
           const flags = typenameEV._flagsAt(originalIndex);
           if ((flags & NO_TYPENAME_FLAGS) !== 0) {
-            skipIndex?.(originalIndex);
             continue;
           }
           if (
             parentSideEffectValue !== null &&
             parentSideEffectValue._flagsAt(originalIndex) & FLAG_ERROR
           ) {
-            skipIndex?.(originalIndex);
             continue;
           }
           const polymorphicPath =
             parentBucket.polymorphicPathList.at(originalIndex);
           const typeName = typenameEV.at(originalIndex);
           if (!this.reason.typeNames.includes(typeName)) {
-            skipIndex?.(originalIndex);
             // Search: InvalidConcreteTypeName
             // TODO: should we throw an error?
 
@@ -1001,12 +979,10 @@ export class LayerPlan<TReason extends LayerPlanReason = LayerPlanReason> {
             parentSideEffectValue !== null &&
             parentSideEffectValue._flagsAt(originalIndex) & FLAG_ERROR
           ) {
-            skipIndex?.(originalIndex);
             continue;
           }
           const typeName = parentBucket.polymorphicType!.at(originalIndex)!;
           if (!this.reason.typeNames.includes(typeName)) {
-            skipIndex?.(originalIndex);
             continue;
           }
           const newIndex = size++;
@@ -1050,38 +1026,6 @@ export class LayerPlan<TReason extends LayerPlanReason = LayerPlanReason> {
     }
 
     if (size > 0) {
-      if (this.distributorDependencies !== null) {
-        if (isDev) {
-          if (this.reason.type === "listItem") {
-            throw new Error(
-              `distributorDependencies should not be set on ${this}`,
-            );
-          }
-          assert.strictEqual(
-            skippedIndicies?.length,
-            parentBucket.size - size,
-            "Incorrectly populated skippedIndicies",
-          );
-        }
-        if (skippedIndicies !== null && skippedIndicies.length > 0) {
-          for (const [distributorStepId, consumerStepIds] of Object.entries(
-            this.distributorDependencies,
-          )) {
-            const distribEV = parentBucket.store.get(
-              Number(distributorStepId),
-            )!;
-            for (const originalIndex of skippedIndicies) {
-              const v = distribEV.at(originalIndex);
-              if (isDistributor(v)) {
-                for (const consumerStepId of consumerStepIds) {
-                  v.releaseIfUnused(consumerStepId);
-                }
-              }
-            }
-          }
-        }
-      }
-
       // Reference
       const childBucket = newBucket(parentBucket, {
         layerPlan: this,
@@ -1100,27 +1044,6 @@ export class LayerPlan<TReason extends LayerPlanReason = LayerPlanReason> {
 
       return childBucket;
     } else {
-      if (this.distributorDependencies !== null) {
-        const parentBucketSize = parentBucket.size;
-        for (const [distributorStepId, consumerStepIds] of Object.entries(
-          this.distributorDependencies!,
-        )) {
-          const distribEV = parentBucket.store.get(Number(distributorStepId))!;
-          for (
-            let originalIndex = 0;
-            originalIndex < parentBucketSize;
-            originalIndex++
-          ) {
-            const v = distribEV.at(originalIndex);
-            if (isDistributor(v)) {
-              for (const consumerStepId of consumerStepIds) {
-                v.releaseIfUnused(consumerStepId);
-              }
-            }
-          }
-        }
-      }
-
       return null;
     }
   }

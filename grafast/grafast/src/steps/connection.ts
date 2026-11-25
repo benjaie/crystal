@@ -1,7 +1,12 @@
 import { isAsyncIterable, isIterable } from "iterall";
 
 import * as assert from "../assert.ts";
-import { currentFieldStreamDetails } from "../engine/lib/withGlobalLayerPlan.ts";
+import type { RequestTools } from "../bucket.ts";
+import type { LayerPlan } from "../engine/LayerPlan.ts";
+import {
+  currentFieldStreamDetails,
+  currentLayerPlan,
+} from "../engine/lib/withGlobalLayerPlan.ts";
 import type {
   BaseGraphQLArguments,
   ExecutionDetails,
@@ -17,6 +22,7 @@ import { promiseWithResolve } from "../promiseWithResolve.ts";
 import { Step, UnbatchedStep } from "../step.ts";
 import {
   asyncIteratorWithCleanup,
+  isPromiseLike,
   maybeArraysMatch,
   terminateIterable,
 } from "../utils.ts";
@@ -316,7 +322,7 @@ export interface ConnectionHandlingStep<
   /**
    * Called when `hasNextPage`/`hasPreviousPage` are requested.
    */
-  setNeedsHasMore(): void;
+  setNeedsHasMore(forwardLookahead?: "initial" | "deferred" | "unused"): void;
 
   // TODO: would be better to expose this as
   // `setInitialCount(Step<number | null>): void` and only call it once.
@@ -428,6 +434,8 @@ export class ConnectionStep<
   /** If the user asks for details of `hasNextPage`/`hasPreviousPage`, then fetch one extra */
   private needsHasMore = false;
   private needsCursor = false;
+  private upfrontNextPage = false;
+  private upfrontPreviousPage = false;
 
   private paramsDepId: number | null;
 
@@ -521,7 +529,20 @@ export class ConnectionStep<
     return String(this.getDepOptions(this.collectionDepId).step.id);
   }
 
-  public setNeedsHasMore() {
+  /** @internal */
+  public requireItems() {
+    this.setupSubplanWithPagination(true);
+  }
+
+  public setNeedsHasMore(field?: "hasNextPage" | "hasPreviousPage") {
+    const layer = currentLayerPlan();
+    const group = layer.ancestry[layer.deferBoundaryDepth];
+    if (field !== "hasPreviousPage") {
+      this.nextPageGroups.add(group);
+    }
+    if (field !== "hasNextPage") {
+      this.previousPageGroups.add(group);
+    }
     this.needsHasMore = true;
     this.setupSubplanWithPagination(true);
   }
@@ -708,7 +729,28 @@ export class ConnectionStep<
     }
   };
 
+  private readonly listGroups = new Set<LayerPlan>();
+  private readonly nextPageGroups = new Set<LayerPlan>();
+  private readonly previousPageGroups = new Set<LayerPlan>();
+
+  /** @internal Whether the executor can drive this connection in one pass. */
+  public canStreamItems() {
+    const items = this.dependents.filter(
+      ({ step }) => step instanceof ConnectionItemsStep,
+    );
+    return (
+      items.length === 1 &&
+      !items[0].step._materializeIterable &&
+      this.listGroups.size === 1 &&
+      this.listGroups.has(
+        this.layerPlan.ancestry[this.layerPlan.deferBoundaryDepth],
+      )
+    );
+  }
+
   private captureStream() {
+    const layer = currentLayerPlan();
+    this.listGroups.add(layer.ancestry[layer.deferBoundaryDepth]);
     const $streamDetails = currentFieldStreamDetails();
     if ($streamDetails === null || $streamDetails === true) {
       this.getHandler(true).addStreamDetails?.(null);
@@ -783,7 +825,25 @@ export class ConnectionStep<
       return constant(EMPTY_CONNECTION_RESULT);
     }
     if (this.needsHasMore) {
-      this.getHandler(true).setNeedsHasMore();
+      const [listGroup] = this.listGroups;
+      const neededUpfront = (groups: Set<LayerPlan>) =>
+        groups.size > 0 &&
+        (this.listGroups.size !== 1 ||
+          Array.from(groups).some(
+            (group) =>
+              group.reason.type !== "defer" ||
+              group === listGroup ||
+              !group.ancestry.includes(listGroup),
+          ));
+      this.upfrontNextPage = neededUpfront(this.nextPageGroups);
+      this.upfrontPreviousPage = neededUpfront(this.previousPageGroups);
+      this.getHandler(true).setNeedsHasMore(
+        this.nextPageGroups.size === 0
+          ? "unused"
+          : this.upfrontNextPage
+            ? "initial"
+            : "deferred",
+      );
     }
     /*
      * **IMPORTANT**: no matter the arguments, we cannot optimize ourself away
@@ -793,6 +853,15 @@ export class ConnectionStep<
     return this;
   }
   deduplicatedWith(replacement: ConnectionStep<any, any, any, any, any>) {
+    for (const group of this.listGroups) {
+      replacement.listGroups.add(group);
+    }
+    for (const group of this.nextPageGroups) {
+      replacement.nextPageGroups.add(group);
+    }
+    for (const group of this.previousPageGroups) {
+      replacement.previousPageGroups.add(group);
+    }
     if (this.neededCollection) {
       replacement.neededCollection = true;
     }
@@ -807,6 +876,7 @@ export class ConnectionStep<
   public execute({
     values,
     indexMap,
+    extra,
   }: ExecutionDetails): GrafastResultsList<ConnectionResult<TItem> | null> {
     if (!this.neededCollection) {
       // The main collection is not actually fetched, so we don't need to do
@@ -827,16 +897,31 @@ export class ConnectionStep<
       if (params === null) {
         // collection handles everything
         const result = collectionValue as ConnectionHandlingResult<any>;
+        if (result == null) {
+          return null;
+        }
+        const awaitFlags =
+          (isPromiseLike(result.hasNextPage) &&
+            (this.upfrontNextPage || !this.canStreamItems())) ||
+          (isPromiseLike(result.hasPreviousPage) &&
+            (this.upfrontPreviousPage || !this.canStreamItems()));
         if (
-          !this._mightStream &&
-          result.items != null &&
-          !Array.isArray(result.items)
+          awaitFlags ||
+          (!this._mightStream &&
+            result.items != null &&
+            !Array.isArray(result.items))
         ) {
-          // Except it might return a stream which we should turn into an array.
-          return (async () => ({
-            ...result,
-            items: await iterableToArray(result.items),
-          }))();
+          return (async () => {
+            const items = Array.isArray(result.items)
+              ? result.items
+              : await iterableToArray(result.items, extra._requestContext);
+            return {
+              ...result,
+              items,
+              hasNextPage: await result.hasNextPage,
+              hasPreviousPage: await result.hasPreviousPage,
+            };
+          })();
         } else {
           return result;
         }
@@ -890,17 +975,19 @@ export class ConnectionStep<
       }
 
       if (
-        this._mightStream !== true &&
+        (params.stream == null ||
+          (this.needsHasMore && typeof params.__hasMore !== "boolean")) &&
         (mode === MODE_ITERABLE || mode === MODE_ASYNC_ITERABLE)
       ) {
         // Convert to array, then process
-        return iterableToArray(collection).then((array) =>
-          makeProcessedCollection(
-            MODE_ARRAY,
-            array,
-            params,
-            !this.collectionPaginationSupport?.cursor,
-          ),
+        return iterableToArray(collection, extra._requestContext).then(
+          (array) =>
+            makeProcessedCollection(
+              MODE_ARRAY,
+              array,
+              params,
+              !this.collectionPaginationSupport?.cursor,
+            ),
         );
       } else {
         return makeProcessedCollection(
@@ -939,7 +1026,7 @@ function makeProcessedCollection<TItem>(
     (!wrapIndicies || Array.isArray(collection))
   ) {
     const hasNextPage = __isForwardPagination ? __hasMore : false;
-    const hasPreviousPage = __isForwardPagination ? __hasMore : false;
+    const hasPreviousPage = __isForwardPagination ? false : __hasMore;
     const items = wrapIndicies
       ? (collection as ReadonlyArray<TItem>).map(indexedItem)
       : collection;
@@ -1363,7 +1450,10 @@ export class ConnectionParamsStep<TCursorValue> extends UnbatchedStep<
     if (this.streamDetailsDepIds != null) {
       for (const depId of this.streamDetailsDepIds) {
         const v = values[depId] as ExecutionDetailsStream | null;
-        if (v != null) {
+        if (v == null) {
+          initialCount = null;
+          break;
+        } else {
           const c = v.initialCount ?? 0;
           if (initialCount === null || c > initialCount) {
             initialCount = c;
@@ -1555,6 +1645,14 @@ export class ConnectionParamsStep<TCursorValue> extends UnbatchedStep<
   }
 }
 
+function nextPage(result: ConnectionResult<unknown> | null) {
+  return result?.hasNextPage;
+}
+
+function previousPage(result: ConnectionResult<unknown> | null) {
+  return result?.hasPreviousPage;
+}
+
 class PageInfoStep extends UnbatchedStep<ConnectionResult<any>> {
   static $$export = {
     moduleName: "grafast",
@@ -1575,25 +1673,38 @@ class PageInfoStep extends UnbatchedStep<ConnectionResult<any>> {
       any,
       any
     >;
+    const deferred =
+      currentLayerPlan().deferBoundaryDepth >
+      $connection.layerPlan.deferBoundaryDepth;
     switch (key) {
       case "hasNextPage": {
-        $connection.setNeedsHasMore();
-        return access($connection, "hasNextPage");
+        $connection.setNeedsHasMore(key);
+        return deferred
+          ? lambda($connection, nextPage)
+          : access($connection, "hasNextPage");
       }
       case "hasPreviousPage": {
-        $connection.setNeedsHasMore();
-        return access($connection, "hasPreviousPage");
+        $connection.setNeedsHasMore(key);
+        return deferred
+          ? lambda($connection, previousPage)
+          : access($connection, "hasPreviousPage");
       }
       case "startCursor": {
         // Get first node, get cursor for it
-        const isArray = !$connection.mightStream();
-        const $first = first($connection._items(), isArray);
+        $connection.requireItems();
+        const $first = first(
+          $connection._items(),
+          !deferred && !$connection.mightStream(),
+        );
         return $connection.cursorPlan($first);
       }
       case "endCursor": {
         // Get last node, get cursor for it
-        const isArray = !$connection.mightStream();
-        const $last = last($connection._items(), isArray);
+        $connection.requireItems();
+        const $last = last(
+          $connection._items(),
+          !deferred && !$connection.mightStream(),
+        );
         return $connection.cursorPlan($last);
       }
       default: {
@@ -1653,9 +1764,11 @@ export class ConnectionItemsStep extends Step {
 
 async function iterableToArray<T>(
   input: Iterable<T> | AsyncIterable<T>,
+  request: RequestTools,
 ): Promise<ReadonlyArray<T>> {
   const items: T[] = [];
   for await (const item of input) {
+    request.retainStreamRows(1);
     items.push(item);
   }
   return items;
