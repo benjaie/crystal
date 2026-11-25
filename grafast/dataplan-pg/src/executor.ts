@@ -58,6 +58,13 @@ type ExecuteFunction = <TData>(
   values: ReadonlyArray<SQLRawValue>,
 ) => Promise<PgClientResult<TData>>;
 
+interface CursorSession {
+  execute: ExecuteFunction;
+  read: GraphileConfig.DataplanPgClient["withTransaction"];
+  holders: number;
+  release: (failed: boolean, error?: unknown) => Promise<void>;
+}
+
 export interface PgClientQuery {
   /** The query string */
   text: string;
@@ -312,10 +319,7 @@ export class PgExecutor<const TName extends string = string, TSettings = any> {
   // client already leased by its parent cursor, including with a pool of one.
   private readonly cursorClients = new WeakMap<
     object,
-    WeakMap<
-      PgExecutorContext,
-      GraphileConfig.DataplanPgClient["withTransaction"]
-    >
+    WeakMap<PgExecutorContext, CursorSession>
   >();
   private readonly batchCacheTokens = new WeakMap<PgExecutorContext, object>();
 
@@ -857,7 +861,8 @@ ${duration}
               const readOnCursor =
                 common.cursorScope === undefined
                   ? undefined
-                  : this.cursorClients.get(common.cursorScope)?.get(context);
+                  : this.cursorClients.get(common.cursorScope)?.get(context)
+                      ?.read;
               const queryResult = common.useTransaction
                 ? await this.executeMutation<PgClientResult<TOutput>>(
                     { context, store, useTransaction: common.useTransaction },
@@ -966,21 +971,21 @@ ${duration}
     const valuesCount = values.length;
     const streams: Array<AsyncIterable<TOutput> | Promise<never> | null> = [];
 
-    if (valuesCount === 1) {
-      const { context, queryValues } = values[0];
-      const sqlValues =
-        identifierIndex == null
-          ? rawSqlValues
-          : [...rawSqlValues, JSON.stringify([queryValues])];
+    if (valuesCount === 1 || common.cursorScope !== undefined) {
+      // Each parent pulls its own prefix and continuation. Its portal shares a
+      // transaction and client with the other portals in this request/context.
+      const scope = common.cursorScope ?? {};
       return {
-        streams: [
+        streams: values.map(({ context, queryValues }) =>
           this.singleCursor<TOutput>(
             context,
             text,
-            sqlValues,
-            common.cursorScope,
+            identifierIndex == null
+              ? rawSqlValues
+              : [...rawSqlValues, JSON.stringify([queryValues])],
+            scope,
           ),
-        ],
+        ),
       };
     }
 
@@ -1290,62 +1295,97 @@ ${duration}
     };
   }
 
-  private async *singleCursor<T>(
-    context: PgExecutorContext,
-    text: string,
-    values: ReadonlyArray<SQLRawValue>,
-    store: object | undefined,
-  ): AsyncGenerator<T> {
-    const name = `__cursor_${cursorCount++}__`;
-    const client = Promise.withResolvers<ExecuteFunction>();
+  private acquireCursorSession(context: PgExecutorContext, scope: object) {
+    let sessions = this.cursorClients.get(scope);
+    if (sessions === undefined) {
+      sessions = new WeakMap();
+      this.cursorClients.set(scope, sessions);
+    }
+    const existing = sessions.get(context);
+    if (existing !== undefined) {
+      existing.holders++;
+      return existing;
+    }
+
+    const ready = Promise.withResolvers<GraphileConfig.DataplanPgClient>();
     const finished = Promise.withResolvers<void>();
+    const pendingReads = new Set<Promise<unknown>>();
     const transaction = context.withPgClient(context.pgSettings, (base) =>
       base.withTransaction(async (tx) => {
-        let clients = store == null ? undefined : this.cursorClients.get(store);
-        if (store != null && clients === undefined) {
-          clients = new WeakMap();
-          this.cursorClients.set(store, clients);
+        ready.resolve(tx);
+        try {
+          await finished.promise;
+        } finally {
+          await Promise.allSettled(pendingReads);
         }
-        const pendingReads = new Set<Promise<unknown>>();
-        const readOnCursor: typeof tx.withTransaction = (callback) => {
-          const read = tx.withTransaction(callback);
-          pendingReads.add(read);
-          const release = () => pendingReads.delete(read);
-          read.then(release, release);
-          return read;
-        };
-        clients?.set(context, readOnCursor);
-        client.resolve((text, values) =>
-          this._executeWithClient(
-            tx,
+      }),
+    );
+    transaction.catch(ready.reject);
+    let queue = Promise.resolve();
+    let failed = false;
+    let failure: unknown;
+    const session: CursorSession = {
+      execute: <T>(text: string, values: ReadonlyArray<SQLRawValue>) => {
+        const result = queue.then(async () => {
+          if (failed) throw failure;
+          return this._executeWithClient<T>(
+            await ready.promise,
             text,
             values,
             undefined,
             undefined,
             false,
-          ),
-        );
-        try {
-          await finished.promise;
-        } finally {
-          // No more reads may join this transaction, but a savepoint that
-          // started before the final fetch must finish before we commit.
-          if (clients?.get(context) === readOnCursor) {
-            clients.delete(context);
-          }
-          await Promise.allSettled(pendingReads);
+          );
+        });
+        queue = result.then(noop, noop);
+        return result;
+      },
+      read: (callback) => {
+        const read = ready.promise.then((tx) => tx.withTransaction(callback));
+        pendingReads.add(read);
+        const release = () => pendingReads.delete(read);
+        read.then(release, release);
+        return read;
+      },
+      holders: 1,
+      release: async (didFail, error) => {
+        if (didFail && !failed) {
+          failed = true;
+          failure = error;
         }
-      }),
-    );
-    transaction.catch(client.reject);
+        if (--session.holders === 0) {
+          sessions.delete(context);
+          if (failed) {
+            finished.promise.catch(noop);
+            finished.reject(failure);
+          } else {
+            finished.resolve();
+          }
+          await transaction;
+        }
+      },
+    };
+    sessions.set(context, session);
+    return session;
+  }
+
+  private async *singleCursor<T>(
+    context: PgExecutorContext,
+    text: string,
+    values: ReadonlyArray<SQLRawValue>,
+    scope: object,
+  ): AsyncGenerator<T> {
+    const name = `__cursor_${cursorCount++}__`;
+    const { execute, release } = this.acquireCursorSession(context, scope);
+    let failed = false;
+    let failure: unknown;
     try {
-      const execute = await client.promise;
       await execute(
         `declare ${name} insensitive no scroll cursor without hold for
 ${text}`,
         values,
       );
-      let failed = false;
+      let fetchFailed = false;
       try {
         for (;;) {
           const { rows } = await execute<T>(
@@ -1358,21 +1398,20 @@ ${text}`,
           }
         }
       } catch (e) {
-        failed = true;
+        fetchFailed = true;
         throw e;
       } finally {
         // A failed fetch aborts the transaction. Rollback closes the cursor.
-        if (!failed) {
+        if (!fetchFailed) {
           await execute(`close ${name}`, []);
         }
       }
     } catch (e) {
-      finished.promise.catch(noop);
-      finished.reject(e);
+      failed = true;
+      failure = e;
       throw e;
     } finally {
-      finished.resolve();
-      await transaction;
+      await release(failed, failure);
     }
   }
 

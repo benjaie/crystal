@@ -4537,7 +4537,11 @@ But ${p} is not in ${winner.layerPlan}'s expected polymorphic paths:
       } else if ($step instanceof __CloneStreamStep) {
         const $clone = sudo($step);
         const $dep = $clone.dependencies[0];
-        if ($dep.dependents.length === 1) {
+        if (
+          $dep.dependents.length === 1 &&
+          $dep.layerPlan.ancestry[$dep.layerPlan.deferBoundaryDepth] ===
+            $clone.layerPlan.ancestry[$clone.layerPlan.deferBoundaryDepth]
+        ) {
           $dep.cloneStreams = false;
           $dep._stepOptions.walkIterable ||= $clone._stepOptions.walkIterable;
           $dep._stepOptions.stream ||= $clone._stepOptions.stream;

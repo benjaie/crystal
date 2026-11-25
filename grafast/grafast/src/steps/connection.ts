@@ -434,6 +434,9 @@ export class ConnectionStep<
   /** If the user asks for details of `hasNextPage`/`hasPreviousPage`, then fetch one extra */
   private needsHasMore = false;
   private needsCursor = false;
+  private needsStart = false;
+  private needsEnd = false;
+  private needsAllItems = false;
   private upfrontNextPage = false;
   private upfrontPreviousPage = false;
 
@@ -530,8 +533,25 @@ export class ConnectionStep<
   }
 
   /** @internal */
-  public requireItems() {
+  public requireItems(boundary?: "startCursor" | "endCursor") {
+    if (boundary === "startCursor") {
+      this.needsStart = true;
+    } else if (boundary === "endCursor") {
+      this.needsEnd = true;
+    } else {
+      this.needsAllItems = true;
+    }
     this.setupSubplanWithPagination(true);
+  }
+
+  /** @internal Rows required when serving just the metadata of a forward page. */
+  public forwardPageRequirements() {
+    if (this.needsAllItems || this.listGroups.size > 0) return null;
+    return {
+      start: this.needsStart,
+      end: this.needsEnd,
+      next: this.nextPageGroups.size > 0,
+    };
   }
 
   public setNeedsHasMore(field?: "hasNextPage" | "hasPreviousPage") {
@@ -741,11 +761,13 @@ export class ConnectionStep<
     return (
       items.length === 1 &&
       !items[0].step._materializeIterable &&
-      this.listGroups.size === 1 &&
-      this.listGroups.has(
-        this.layerPlan.ancestry[this.layerPlan.deferBoundaryDepth],
-      )
+      this.listGroups.size === 1
     );
+  }
+
+  /** @internal Whether an unclaimed list belongs to this delivery group. */
+  public itemsInSamePayload(layer: LayerPlan) {
+    return this.listGroups.has(layer.ancestry[layer.deferBoundaryDepth]);
   }
 
   private captureStream() {
@@ -853,6 +875,9 @@ export class ConnectionStep<
     return this;
   }
   deduplicatedWith(replacement: ConnectionStep<any, any, any, any, any>) {
+    replacement.needsStart ||= this.needsStart;
+    replacement.needsEnd ||= this.needsEnd;
+    replacement.needsAllItems ||= this.needsAllItems;
     for (const group of this.listGroups) {
       replacement.listGroups.add(group);
     }
@@ -1691,7 +1716,7 @@ class PageInfoStep extends UnbatchedStep<ConnectionResult<any>> {
       }
       case "startCursor": {
         // Get first node, get cursor for it
-        $connection.requireItems();
+        $connection.requireItems(key);
         const $first = first(
           $connection._items(),
           !deferred && !$connection.mightStream(),
@@ -1700,7 +1725,7 @@ class PageInfoStep extends UnbatchedStep<ConnectionResult<any>> {
       }
       case "endCursor": {
         // Get last node, get cursor for it
-        $connection.requireItems();
+        $connection.requireItems(key);
         const $last = last(
           $connection._items(),
           !deferred && !$connection.mightStream(),

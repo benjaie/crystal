@@ -354,14 +354,21 @@ export interface PgSelectOptions<
 interface QueryBuildResult {
   meta: Record<string, unknown>;
 
-  // The SQL query text
-  text: string;
+  // Null when pagination metadata alone fully determines the result.
+  text: string | null;
 
   // The values to feed into the query
   rawSqlValues: SQLRawValue[];
 
   /** A single forward cursor supplies both the prefix and the continuation. */
   stream: boolean;
+  buildLookahead: (first: number) => {
+    text: string;
+    rawSqlValues: SQLRawValue[];
+    identifierIndex: number | null;
+  };
+  streamRequested: boolean;
+  visibleBoundaryCount: number | null;
 
   // The column on the result that indicates which group the result belongs to
   identifierIndex: number | null;
@@ -1202,6 +1209,9 @@ export class PgSelectStep<
       text,
       rawSqlValues,
       stream,
+      buildLookahead,
+      streamRequested,
+      visibleBoundaryCount,
       identifierIndex,
       name,
       queryValues: rawQueryValues,
@@ -1234,6 +1244,22 @@ export class PgSelectStep<
     if (first === 0 || last === 0) {
       return arrayOfLength(count, NO_ROWS);
     }
+    if (text === null) {
+      return arrayOfLength(
+        count,
+        createSelectResult(EMPTY_ARRAY, {
+          first,
+          last,
+          offset,
+          fetchOneExtra: false,
+          visibleBoundaryCount,
+          shouldReverseOrder,
+          meta,
+          cursorDetails,
+          groupDetails,
+        }),
+      );
+    }
     const context = values[this.contextId].unaryValue();
 
     const isMutation = this.mode === "mutation" || this.hasSideEffects;
@@ -1246,9 +1272,18 @@ export class PgSelectStep<
      */
     const isSkippable = this.mode === "normal" && !this.hasSideEffects;
 
+    const request = executionDetails.extra._requestContext;
+    // One batch of small sibling pages fits in a single fetch. Avoid opening
+    // a separate portal per parent when the entire result already fits.
+    const batchSmallPages =
+      count > 1 &&
+      first != null &&
+      first * count <= Math.min(100, request.remainingStreamRows) &&
+      this.connectionOwner?.itemsInSamePayload(this.layerPlan) === true;
     if (
       !stream ||
-      executionDetails.extra._bucket.size !== 1 ||
+      batchSmallPages ||
+      (this._isUnary && executionDetails.extra._bucket.size > 1) ||
       !this.canStreamRows ||
       this.connectionOwner?.canStreamItems() === false
     ) {
@@ -1316,10 +1351,9 @@ export class PgSelectStep<
           return keysetIndex;
         });
       }
-      const request = executionDetails.extra._requestContext;
       const bounded =
         request.remainingStreamRows !== Infinity &&
-        this.mightHaveStream() &&
+        streamRequested &&
         !isMutation;
       // At most one lookahead row per parent is hidden from the result.
       const pageSize = first ?? last;
@@ -1387,6 +1421,7 @@ ${text.slice(0, -1)}
           last,
           offset,
           fetchOneExtra: this.fetchOneExtra,
+          visibleBoundaryCount,
           shouldReverseOrder,
           meta,
           cursorDetails,
@@ -1398,69 +1433,78 @@ ${text.slice(0, -1)}
         return result;
       });
     } else {
-      // Streaming is restricted to one parent so rows for a later parent
-      // cannot be blocked behind buffered rows for an earlier parent.
-      const queryValues = rawQueryValues.map(({ dependencyIndex, codec }) => {
-        const value = values[dependencyIndex].at(0);
-        return value == null ? null : codec.toPg(value);
+      const specs: Array<{ context: typeof context; queryValues: unknown[] }> =
+        [];
+      const indexes = indexMap((i) => {
+        if (
+          isSkippable &&
+          this.identifierDepIds.some((id) => values[id].at(i) == null)
+        ) {
+          return null;
+        }
+        const queryValues = rawQueryValues.map(({ dependencyIndex, codec }) => {
+          const value = values[dependencyIndex].at(i);
+          return value == null ? null : codec.toPg(value);
+        });
+        return specs.push({ context, queryValues }) - 1;
       });
-      if (
-        isSkippable &&
-        this.identifierDepIds.some((id) => values[id].at(0) == null)
-      ) {
-        return [NO_ROWS];
+      if (specs.length === 0) {
+        return arrayOfLength(count, NO_ROWS);
       }
-      const specs = [{ context, queryValues }];
-      let hasMore = false;
-      let cursorText = text;
+      const bucket = executionDetails.extra._bucket;
+      // An unclaimed lookahead needs an iterator cleanup slot for its exact
+      // entry. Filtered executions and later delivery groups use the probe.
       const checkAtEnd =
-        this.needsForwardLookahead && first != null && !this.upfrontHasMore;
+        this.needsForwardLookahead &&
+        first != null &&
+        !this.upfrontHasMore &&
+        bucket.size === count &&
+        (this.connectionOwner?.itemsInSamePayload(this.layerPlan) ?? true);
+      let probeRows:
+        | ReadonlyArray<readonly unknown[] | PromiseLike<never>>
+        | undefined;
+      let cursorText = text;
       if (this.fetchOneExtra && first != null && !checkAtEnd) {
-        // Use exactly the paginated relation, including authorization, cursor
-        // bounds and offset. Query values can include a lateral parent key.
         const relation = text.slice(0, -1);
         const pageLimit = sql.compile(sql.literal(first)).text;
-        if (this.upfrontHasMore) {
+        if (this.needsForwardLookahead) {
+          // Probe inside the paginated relation for each parent. The database
+          // returns at most one identifier per page and no row projections.
           const probe = await this.resource.executeWithoutCache(specs, {
-            text: `select 1 from (
-${relation}
-) as page offset ${pageLimit} limit 1`,
-            rawSqlValues:
-              identifierIndex == null
-                ? rawSqlValues
-                : [...rawSqlValues, JSON.stringify([queryValues])],
-            identifierIndex: null,
+            ...buildLookahead(first),
             eventEmitter,
+            cursorScope: request,
             store,
           });
-          hasMore = probe.values[0].length > 0;
+          probeRows = probe.values;
         }
+        // executeStream binds just one parent to each portal.
         cursorText = `select * from (
 ${relation}
 ) as page limit ${pageLimit}`;
       }
       const { streams } = await this.resource.executeStream(specs, {
-        cursorScope: executionDetails.extra._requestContext,
+        cursorScope: request,
         text: cursorText,
         rawSqlValues,
         identifierIndex,
         eventEmitter,
       });
-      const source = streams[0];
-      if (!isAsyncIterable(source)) {
-        return [source as never];
-      }
-      const signal = executionDetails.extra._requestContext.abortSignal;
-      const iterators = (executionDetails.extra._bucket.iterators[0] ??=
-        new Set());
-      const rows = pageRows(
-        source,
-        signal,
-        checkAtEnd ? first : null,
-        iterators,
-      );
-      return [
-        {
+      return indexMap((i) => {
+        const index = indexes[i];
+        if (index === null) return NO_ROWS;
+        const source = streams[index];
+        if (!isAsyncIterable(source)) return source as never;
+        const probe = probeRows?.[index];
+        if (isPromiseLike(probe)) return probe as never;
+        const hasMore = probe !== undefined && probe.length > 0;
+        const rows = pageRows(
+          source,
+          request.abortSignal,
+          checkAtEnd ? first : null,
+          checkAtEnd ? (bucket.iterators[i] ??= new Set()) : null,
+        );
+        return {
           hasNextPage: checkAtEnd
             ? rows.hasExtra
             : hasNextPageCb(first, last, hasMore),
@@ -1469,8 +1513,8 @@ ${relation}
           cursorDetails,
           groupDetails,
           m: meta,
-        },
-      ];
+        };
+      });
     }
   }
 
@@ -1493,8 +1537,7 @@ ${relation}
       this.mode === "normal" &&
       !this.hasSideEffects &&
       !this.forceIdentity &&
-      this.operationPlan.operation.operation === "query" &&
-      this.layerPlan.deferBoundaryDepth === 0
+      this.operationPlan.operation.operation === "query"
     ) {
       // Metadata access is replayable. Only one path may extract the items.
       const owners = this.dependents.filter(
@@ -1510,12 +1553,23 @@ ${relation}
             ].includes(String(step.path[0]))
           ),
       );
+      const owner = owners.length === 1 ? owners[0].step : null;
+      // Copying the opaque result into another list can multiply its readers
+      // even if only one step in the plan extracts the rows.
       this.canStreamRows =
-        owners.length === 1 &&
-        (owners[0].step instanceof ConnectionStep ||
-          owners[0].step instanceof PgSelectRowsStep);
-      if (this.canStreamRows && owners[0].step instanceof ConnectionStep) {
-        this.connectionOwner = owners[0].step;
+        (owner instanceof ConnectionStep ||
+          owner instanceof PgSelectRowsStep) &&
+        (owner.layerPlan === this.layerPlan ||
+          (owner.layerPlan.ancestry.includes(this.layerPlan) &&
+            owner.layerPlan.ancestry
+              .slice(this.layerPlan.depth + 1)
+              .every(
+                (layer) =>
+                  layer.reason.type === "nullableBoundary" ||
+                  layer.reason.type === "defer",
+              )));
+      if (this.canStreamRows && owner instanceof ConnectionStep) {
+        this.connectionOwner = owner;
       }
       // A cursor pins a client. A query that needs another statement to
       // produce its payload must make progress even with a one-client pool.
@@ -2066,7 +2120,7 @@ ${relation}
     }
   }
 
-  private streamDetailsDepIds: number[] | null = [];
+  private readonly streamDetailsDepIds: Array<number | null> = [];
   addStreamDetails(
     $details: Step<ExecutionDetailsStream | null> | false | null,
   ) {
@@ -2074,18 +2128,14 @@ ${relation}
       // An unstreamed sibling can require the full page even when a different
       // projection requested streaming. Keep that fallback subject to the cap.
       this._fieldMightStream = true;
-      this.streamDetailsDepIds?.push(this.addUnaryDependency($details));
-    } else {
-      // Explicitly disable streaming
-      this.streamDetailsDepIds = null;
+      this.streamDetailsDepIds.push(this.addUnaryDependency($details));
+    } else if (!this.streamDetailsDepIds.includes(null)) {
+      this.streamDetailsDepIds.push(null);
     }
   }
 
   mightHaveStream() {
-    if (this._fieldMightStream) return true;
-    if (this.streamDetailsDepIds != null && this.streamDetailsDepIds.length > 0)
-      return true;
-    return false;
+    return this._fieldMightStream;
   }
 
   optimize(options: StepOptimizeOptions): Step {
@@ -2407,6 +2457,21 @@ ${relation}
   static getStaticInfo<
     TResource extends PgResource<any, any, any, any, any, any, any>,
   >($source: PgSelectStep<TResource>): StaticInfo<TResource> {
+    const owner =
+      $source.mode === "normal" &&
+      !$source.hasSideEffects &&
+      $source.dependents.find(({ step }) => step instanceof ConnectionStep)
+        ?.step;
+    const pageRequirements =
+      owner instanceof ConnectionStep &&
+      $source.dependents.every(
+        ({ step }) =>
+          step === owner ||
+          (step instanceof AccessStep &&
+            ["cursorDetails", "m"].includes(String(step.path[0]))),
+      )
+        ? owner.forwardPageRequirements()
+        : null;
     return {
       sourceStepDescription: `PgSelectStep[${$source.id}]`,
       forceIdentity: $source.forceIdentity,
@@ -2421,6 +2486,7 @@ ${relation}
       orders: $source.orders,
       selects: $source.selects,
       fetchOneExtra: $source.fetchOneExtra,
+      pageRequirements,
       isOrderUnique: $source.isOrderUnique,
       isUnique: $source.isUnique,
       isSimpleUnique:
@@ -3095,7 +3161,10 @@ interface PgSelectQueryInfo<
   >;
   readonly meta: { readonly [key: string]: any };
 
-  readonly streamDetailsDepIds: null | readonly number[];
+  readonly pageRequirements: ReturnType<
+    ConnectionStep<any>["forwardPageRequirements"]
+  >;
+  readonly streamDetailsDepIds: ReadonlyArray<number | null> | null;
 }
 
 type CoreInfo<TResource extends PgResource<any, any, any, any, any, any, any>> =
@@ -3294,27 +3363,26 @@ function buildTheQueryCore<
   };
 
   const { count, values } = info.executionDetails;
-  let stream: ExecutionDetailsStream | null = null;
-  if (info.executionDetails.stream != null) {
-    stream = info.executionDetails.stream;
-  } else if (
-    rawInfo.streamDetailsDepIds != null &&
-    rawInfo.streamDetailsDepIds.length > 0
-  ) {
+  let stream = info.executionDetails.stream;
+  let streamRequested = stream != null;
+  if (rawInfo.streamDetailsDepIds != null) {
+    let allStream = true;
     for (const depId of rawInfo.streamDetailsDepIds) {
-      const deets = values[depId].unaryValue() as ExecutionDetailsStream | null;
-      if (deets == null) {
-        // Null wins
-        stream = null;
-        break;
+      const details =
+        depId === null
+          ? null
+          : (values[depId].unaryValue() as ExecutionDetailsStream | null);
+      if (details == null) {
+        allStream = false;
       } else {
-        if (stream == null) {
-          stream = { ...deets };
-        } else if (deets.initialCount > stream.initialCount) {
-          // Higher initial count wins
-          stream.initialCount = deets.initialCount;
+        streamRequested = true;
+        if (stream == null || stream.initialCount < details.initialCount) {
+          stream = details;
         }
       }
+    }
+    if (!allStream) {
+      stream = null;
     }
   }
 
@@ -3403,6 +3471,7 @@ function buildTheQueryCore<
     count,
     info,
     stream,
+    streamRequested,
     meta,
   };
 }
@@ -3416,7 +3485,7 @@ function buildTheQuery<
     fixedPlaceholderValues,
     _symbolSubstitutes,
   } = rawInfo;
-  const { count, info, stream, meta } = runtimeScopedSQL(() =>
+  const { count, info, stream, streamRequested, meta } = runtimeScopedSQL(() =>
     buildTheQueryCore(rawInfo),
   );
 
@@ -3454,7 +3523,9 @@ function buildTheQuery<
   for (const [key, value] of fixedPlaceholderValues) {
     placeholderValues.set(key, value);
   }
-  const makeQuery = (): {
+  const makeQuery = (
+    lookaheadOffset?: number,
+  ): {
     text: string;
     rawSqlValues: SQLRawValue[];
     identifierIndex: number | null;
@@ -3471,7 +3542,13 @@ function buildTheQuery<
       const { sql: baseQuery, extraSelectIndexes } = buildQuery(info, {
         extraSelects,
       });
-      const identifierIndex = extraSelectIndexes[identifierIndexOffset];
+      const rowIdentifierIndex = extraSelectIndexes[identifierIndexOffset];
+      const identifierIndex =
+        lookaheadOffset === undefined ? rowIdentifierIndex : 0;
+      const query =
+        lookaheadOffset === undefined
+          ? baseQuery
+          : sql`select page.${sql.identifier(String(rowIdentifierIndex))} from (${baseQuery}) as page offset ${sql.literal(lookaheadOffset)} limit 1`;
 
       // PERF: if the query does not have a limit/offset; should we use an
       // `inner join` in a flattened query instead of a wrapped query with
@@ -3485,7 +3562,7 @@ function buildTheQuery<
         values: rawSqlValues,
         [$$symbolToIdentifier]: symbolToIdentifier,
       } = sql.compile(
-        sql`lateral (${sql.indent(baseQuery)}) as ${wrapperAlias}`,
+        sql`lateral (${sql.indent(query)}) as ${wrapperAlias}`,
         options,
       );
 
@@ -3520,7 +3597,11 @@ ${lateralText};`;
 
       return { text, rawSqlValues, identifierIndex };
     } else {
-      const { sql: query } = buildQuery(info, {});
+      const { sql: baseQuery } = buildQuery(info, {});
+      const query =
+        lookaheadOffset === undefined
+          ? baseQuery
+          : sql`select 1 from (${baseQuery}) as page offset ${sql.literal(lookaheadOffset)} limit 1`;
       const { text, values: rawSqlValues } = sql.compile(
         sql`${query};`,
         options,
@@ -3537,16 +3618,20 @@ ${lateralText};`;
     ? { indicies: groupIndicies }
     : undefined;
 
-  const { text, rawSqlValues, identifierIndex } = makeQuery();
+  const { text, rawSqlValues, identifierIndex } = needsNoPageRows(info)
+    ? { text: null, rawSqlValues: [], identifierIndex: null }
+    : makeQuery();
   return {
-    stream:
-      stream !== null && count === 1 && last == null && !shouldReverseOrder,
+    stream: stream != null && last == null && !shouldReverseOrder,
+    buildLookahead: makeQuery,
+    streamRequested,
+    visibleBoundaryCount: visibleBoundaryCount(info),
     meta,
     text,
     rawSqlValues,
     identifierIndex,
     shouldReverseOrder,
-    name: hash(text),
+    name: text === null ? undefined : hash(text),
     queryValues,
     first,
     last,
@@ -3570,6 +3655,7 @@ type StaticKeys =
   | "orders"
   | "selects"
   | "fetchOneExtra"
+  | "pageRequirements"
   | "isOrderUnique"
   | "isUnique"
   | "isSimpleUnique"
@@ -3691,15 +3777,17 @@ class PgSelectInlineApplyStep<
             shouldReverseOrder,
             isSimpleUnique,
           } = info;
-          const { sql: baseQuery } = buildQueryFromParts(parts, {
-            asArray: true,
-          });
-          const selectIndex = queryBuilder.selectAndReturnIndex(
-            // 's' for 'subquery'
-            isSimpleUnique
-              ? sql`(${sql.indent(baseQuery)})::text`
-              : sql`array(${sql.indent(baseQuery)})::text`,
-          );
+          let selectIndex: number | null = null;
+          if (!needsNoPageRows(info)) {
+            const { sql: baseQuery } = buildQueryFromParts(parts, {
+              asArray: true,
+            });
+            selectIndex = queryBuilder.selectAndReturnIndex(
+              isSimpleUnique
+                ? sql`(${sql.indent(baseQuery)})::text`
+                : sql`array(${sql.indent(baseQuery)})::text`,
+            );
+          }
 
           const details: PgSelectInlineViaSubqueryDetails = {
             cursorDetails,
@@ -3707,6 +3795,7 @@ class PgSelectInlineApplyStep<
             shouldReverseOrder,
             fetchOneExtra,
             selectIndex,
+            visibleBoundaryCount: visibleBoundaryCount(info),
             first,
             last,
             offset,
@@ -3759,11 +3848,12 @@ interface PgSelectInlineViaJoinDetails {
   meta: Record<string, any>;
 }
 interface PgSelectInlineViaSubqueryDetails {
-  selectIndex: number;
+  selectIndex: number | null;
   cursorDetails: PgCursorDetails | undefined;
   groupDetails: PgGroupDetails | undefined;
   meta: Record<string, any>;
   fetchOneExtra: boolean;
+  visibleBoundaryCount: number | null;
   first: Maybe<number>;
   last: Maybe<number>;
   offset: Maybe<number>;
@@ -3977,6 +4067,30 @@ function getOrderByDigest<
   return digest;
 }
 
+function needsNoPageRows(info: ResolvedPgSelectQueryInfo<any>): boolean {
+  const page = info.pageRequirements;
+  return (
+    page !== null &&
+    info.last == null &&
+    (info.first === 0 ||
+      (!page.start && !page.end && (!page.next || info.first == null)))
+  );
+}
+
+// Keep the ordinary cursor/offset/ordering logic for the page itself. Only
+// its first and last visible rows (and the possible lookahead) are needed by
+// a connection whose lists were omitted.
+function visibleBoundaryCount(
+  info: ResolvedPgSelectQueryInfo<any>,
+): number | null {
+  const requirements = info.pageRequirements;
+  if (requirements === null || info.last != null) return null;
+  return Math.min(
+    info.first ?? Infinity,
+    Number(requirements.start) + Number(requirements.end),
+  );
+}
+
 function buildQueryParts<
   TResource extends PgResource<any, any, any, any, any, any, any>,
 >(
@@ -4051,6 +4165,8 @@ function buildQueryParts<
     orderBy,
     limitAndOffset,
     extraSelectIndexes,
+    pageRequirements: info.last == null ? info.pageRequirements : null,
+    first: info.first,
     _symbolSubstitutes,
   };
 }
@@ -4094,7 +4210,39 @@ function buildQueryFromParts(
   const having = buildWhereOrHaving(sql`having`, havingConditions);
 
   const baseQuery = sql`${comment}${aliases}${select}${from}${join}${where}${groupBy}${having}${orderBy}${limitAndOffset}`;
-  return { sql: baseQuery, extraSelectIndexes };
+  const { pageRequirements, first } = parts;
+  if (pageRequirements === null) return { sql: baseQuery, extraSelectIndexes };
+  const { start, end, next } = pageRequirements;
+  const lookahead = next && first != null && first > 0;
+  let query: SQL;
+  if (!end && !start) {
+    query = sql`select * from (${baseQuery}) as page limit 1 offset ${sql.literal(first!)}`;
+  } else if (!end && !lookahead) {
+    query = sql`select * from (${baseQuery}) as page limit 1`;
+  } else {
+    // lead only needs the following row, including when the page is short.
+    // Project the original tuple back out so cursor column indexes stay valid.
+    const positions: SQL[] = [];
+    if (start) {
+      positions.push(sql`pos = 1`);
+    }
+    if (end) {
+      positions.push(
+        first == null
+          ? sql`at_end`
+          : sql`(pos = ${sql.literal(first)} or (at_end and pos < ${sql.literal(first)}))`,
+      );
+    }
+    if (lookahead) {
+      positions.push(sql`pos = ${sql.literal(first + 1)}`);
+    }
+    query = sql`select (bounds.row_data).* from (
+      select page as row_data, row_number() over () as pos,
+        not lead(true, 1, false) over () as at_end
+      from (${baseQuery}) as page
+    ) as bounds where ${sql.join(positions, " or ")} order by pos`;
+  }
+  return { sql: query, extraSelectIndexes };
 }
 
 function buildOrderBy<
@@ -4258,12 +4406,13 @@ function pageRows(
   source: AsyncIterable<unknown[]>,
   signal: AbortSignal,
   limit: number | null,
-  unclaimed: Set<AsyncIterator<any> | Iterator<any>>,
+  unclaimed: Set<AsyncIterator<any> | Iterator<any>> | null,
 ) {
   const cursor = source[Symbol.asyncIterator]();
   const extra = limit == null ? null : Promise.withResolvers<boolean>();
   extra?.promise.catch(() => {});
   let index = 0;
+  let listening = false;
   let closing: Promise<void> | null = null;
   function cancel() {
     extra?.reject(signal.reason);
@@ -4278,13 +4427,18 @@ function pageRows(
   }
   const items: AsyncIterableIterator<unknown[]> = {
     [Symbol.asyncIterator]() {
-      unclaimed.delete(this);
+      unclaimed?.delete(this);
       return this;
     },
     async next() {
       try {
         if (closing !== null) {
           return { done: true, value: undefined };
+        }
+        if (!listening) {
+          signal.throwIfAborted();
+          signal.addEventListener("abort", cancel, { once: true });
+          listening = true;
         }
         const row = await cursor.next();
         if (row.done || (limit != null && index === limit)) {
@@ -4313,10 +4467,11 @@ function pageRows(
   };
   if (signal.aborted) {
     cancel();
-  } else {
+  } else if (extra !== null) {
     signal.addEventListener("abort", cancel, { once: true });
+    listening = true;
   }
-  unclaimed.add(items);
+  unclaimed?.add(items);
   return { items, hasExtra: extra?.promise ?? false };
 }
 
@@ -4326,6 +4481,7 @@ function createSelectResult(
     first,
     last,
     fetchOneExtra,
+    visibleBoundaryCount,
     shouldReverseOrder,
     meta,
     cursorDetails,
@@ -4336,6 +4492,7 @@ function createSelectResult(
     last: Maybe<number> | null;
     offset: Maybe<number> | null;
     fetchOneExtra: boolean;
+    visibleBoundaryCount: number | null;
     shouldReverseOrder: boolean;
     meta: Record<string, any>;
     cursorDetails: PgCursorDetails | undefined;
@@ -4345,7 +4502,7 @@ function createSelectResult(
   if (allVals == null || !Array.isArray(allVals)) {
     return allVals as never;
   }
-  const limit = first ?? last;
+  const limit = visibleBoundaryCount ?? first ?? last;
   const firstAndLast = first != null && last != null && last < first;
   const hasMore = fetchOneExtra && limit != null && allVals.length > limit;
   const trimFromStart = !shouldReverseOrder && last != null && first == null;
@@ -4404,7 +4561,7 @@ function pgInlineViaSubqueryTransform([details, item]: readonly [
   PgSelectInlineViaSubqueryDetails,
   Maybe<readonly string[]>,
 ]) {
-  if (item == null) {
+  if (item == null || details.selectIndex === null) {
     return createSelectResult([], details);
   }
   const result = item[details.selectIndex];
