@@ -813,6 +813,9 @@ async function processStream(
   outputDataAsString: boolean,
 ): Promise<void> {
   type ResultTuple = [value: any, index: number, flags: number];
+  const failDescendants = (error: unknown) => {
+    consume(iterator.throw(error));
+  };
   const entryFor = (
     result: IteratorResult<any>,
     index: number,
@@ -832,6 +835,7 @@ async function processStream(
     spec: SubsequentStreamSpec,
     entries: ResultTuple[],
     metaByMetaKey: ReturnType<OperationPlan["makeMetaByMetaKey"]>,
+    descendants: PromiseLike<void>[],
   ) => {
     const size = entries.length;
     const store: Bucket["store"] = new Map();
@@ -913,7 +917,6 @@ async function processStream(
     const bucketPromise = executeBucket(rootBucket, requestContext);
 
     const output = () => {
-      const promises: PromiseLike<any>[] = [];
       for (let bucketIndex = 0; bucketIndex < size; bucketIndex++) {
         const actualIndex = entries[bucketIndex][1];
         // NOTE: this is a stream, so rootBucket.reason.type === 'listItem'
@@ -943,11 +946,8 @@ async function processStream(
         iterator.push(iteratorPayload);
         const promise = processRoot(ctx, iterator, outputDataAsString);
         if (isPromiseLike(promise)) {
-          promises.push(promise);
+          descendants.push(promise.then(undefined, failDescendants));
         }
-      }
-      if (promises.length !== 0) {
-        return Promise.all(promises).then(noop);
       }
     };
 
@@ -961,6 +961,8 @@ async function processStream(
   const { stream, startIndex } = specs[0];
   let index = startIndex;
   let next: Promise<IteratorResult<any>> | null = null;
+  const pendingBatches = new Set<Promise<void>>();
+  let batchFinished: PromiseWithResolvers<void> | null = null;
   try {
     while (await iterator.ready()) {
       const first = await (next ?? stream.next());
@@ -996,14 +998,45 @@ async function processStream(
         // response advances. Sibling projections still share their batch.
         const meta =
           specs[0].bucket.layerPlan.operationPlan.makeMetaByMetaKey();
-        await Promise.all(specs.map((spec) => project(spec, entries, meta)));
+        const descendants: PromiseLike<void>[] = [];
+        await Promise.all(
+          specs.map((spec) => project(spec, entries, meta, descendants)),
+        );
+        if (descendants.length > 0) {
+          const completion = Promise.all(descendants).then(() => {
+            pendingBatches.delete(completion);
+            batchFinished?.resolve();
+          });
+          pendingBatches.add(completion);
+        }
       }
       if (done) {
         break;
       }
+      // Let the next batch advance while the previous batch runs its defers
+      // and streams. Bound the number of batches retained by slow descendants.
+      if (pendingBatches.size >= 2) {
+        batchFinished = Promise.withResolvers<void>();
+        await abortable(
+          requestContext.abortSignal,
+          undefined,
+          batchFinished.promise,
+        );
+        batchFinished = null;
+        if (requestContext.abortSignal.aborted) {
+          break;
+        }
+      }
     }
   } finally {
     await stream.return?.();
+  }
+  if (pendingBatches.size > 0) {
+    await abortable(
+      requestContext.abortSignal,
+      undefined,
+      Promise.all(pendingBatches),
+    );
   }
 }
 
