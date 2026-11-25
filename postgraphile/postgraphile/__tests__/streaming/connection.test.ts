@@ -104,7 +104,12 @@ function executedSql() {
   );
 }
 
-async function run(doc: DocumentNode, variableValues: Variables, cap?: number) {
+async function run(
+  doc: DocumentNode,
+  variableValues: Variables,
+  cap?: number,
+  onInitial?: (data: any) => void,
+) {
   const result = await start(doc, variableValues, cap);
   let data: any;
   if (isAsyncIterable(result)) {
@@ -114,6 +119,7 @@ async function run(doc: DocumentNode, variableValues: Variables, cap?: number) {
       if (complete) throw new Error("Unexpected payload after hasNext: false");
       if (data === undefined) {
         data = payload.data;
+        onInitial?.(data);
       } else if (payload.path != null) {
         const parent = payload.path
           .slice(0, -1)
@@ -134,6 +140,7 @@ async function run(doc: DocumentNode, variableValues: Variables, cap?: number) {
   } else {
     if (result.errors) throw result.errors[0];
     data = result.data;
+    onInitial?.(data);
   }
   return { data, sql: executedSql() };
 }
@@ -147,6 +154,10 @@ const exportVariables = {
 
 it.each([
   ["nodes", exportVariables],
+  [
+    "nodes and edges with both streams enabled",
+    { first: 100000, skip4: true, stream1: true, stream2: true },
+  ],
   ["deferred nodes", { ...exportVariables, defer2: true }],
   ["deferred outer fragment", { ...exportVariables, defer1: true }],
   [
@@ -171,11 +182,45 @@ it.each([
     const { data, sql } = await run(document, vars, 0);
     expect(data.myOrganizations).toHaveLength(25);
     expect(data).toEqual(expected.data);
-    expect(sql.filter((q) => q.startsWith("declare "))).toHaveLength(25);
+    const cursors = sql.filter((q) => q.startsWith("declare "));
+    expect(cursors).toHaveLength(25);
+    if (vars.stream1 && vars.stream2) {
+      const rowQueries = sql.filter(
+        (q) => q.includes('"headline"') || q.includes('"body"'),
+      );
+      expect(rowQueries).toEqual(cursors);
+      for (const query of cursors) {
+        expect(query).toContain('"headline"');
+        expect(query).toContain('"body"');
+      }
+    }
     expect(sql.filter((q) => q.startsWith("close "))).toHaveLength(25);
     expect(sql.some((q) => q.startsWith("fetch forward 100 "))).toBe(true);
   },
 );
+
+it("fetches the shared page once when edges are required upfront", async () => {
+  const vars = { stream1: true, skip4: true, first: 100000 };
+  const expected = await run(ordinary, vars);
+  const { data, sql } = await run(document, vars, undefined, (initial) => {
+    for (const [i, { members }] of initial.myOrganizations.entries()) {
+      expect(members.edges).toEqual(
+        expected.data.myOrganizations[i].members.edges,
+      );
+    }
+  });
+  expect(data).toEqual(expected.data);
+  const rowQueries = sql.filter(
+    (q) => q.includes('"headline"') || q.includes('"body"'),
+  );
+  expect(rowQueries).toHaveLength(1);
+  expect(rowQueries[0]).toContain('"headline"');
+  expect(rowQueries[0]).toContain('"body"');
+  expect(sql.some((q) => q.startsWith("declare "))).toBe(false);
+  await expect(run(document, vars, 0)).rejects.toThrow(
+    "Materialized stream row limit exceeded",
+  );
+});
 
 it("cancels an export and releases the only client with unread pages", async () => {
   const result = await start(

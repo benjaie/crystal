@@ -52,6 +52,19 @@ from PostgreSQL. The tests check that the client can cancel with unread pages
 and immediately reuse the only pool connection. Small sibling pages whose
 combined upper bound fits a single fetch can use one batched query.
 
+With `{"stream1":true,"skip4":true,"first":100000}`, both lists are selected and
+`stream2` defaults to false. The initial payload includes every edge. PostgreSQL
+fetches the node and edge columns together in one batched page query, and the
+materialized rows supply the later node patches. The request-wide row budget can
+therefore be exceeded even when each individual page fits.
+
+Adding `"stream2":true` lets one consumer read each parent's cursor and use each
+row for both lists. On an export with 100,056 rows across 25 parents, the 25
+cursors returned exactly 100,056 rows for both lists combined. The assembled
+response matched ordinary execution with a zero-row materialization budget. To
+run the two sibling-list regression cases, add
+`-t 'shared page once|both streams enabled'` to the Jest command above.
+
 For forward metadata-only selections, the previous-page flag needs no page rows,
 the start cursor needs one, and the next-page flag needs at most the lookahead
 row. The end cursor comes from the ordered page itself. Both the ordinary and
