@@ -104,6 +104,7 @@ import {
   applyCommonPaginationStuff,
   calculateLimitAndOffsetSQLFromInfo,
   getUnary,
+  limitSQL,
   makeValues,
   PgStmtBaseStep,
 } from "./pgStmt.ts";
@@ -350,37 +351,29 @@ export interface PgSelectOptions<
   _internalCloneAlias?: SQL;
 }
 
-/**
- * When finalized, we build the SQL query, queryValues, and note where to feed in
- * the relevant queryValues. This saves repeating this work at execution time.
- */
+type MakeSelectQuery = (options: {
+  maxRows?: number;
+  lookaheadOffset?: number;
+}) => {
+  text: string;
+  rawSqlValues: SQLRawValue[];
+  identifierIndex: number | null;
+};
+
 interface QueryBuildResult {
   meta: Record<string, unknown>;
 
+  // Compile once the execution mode and the batch's row limit are known.
   // Null when pagination metadata alone fully determines the result.
-  text: string | null;
-
-  // The values to feed into the query
-  rawSqlValues: SQLRawValue[];
-
+  makeQuery: MakeSelectQuery | null;
+  usesIdentifiers: boolean;
   /** A single forward cursor supplies both the prefix and the continuation. */
   stream: boolean;
-  buildLookahead: (first: number) => {
-    text: string;
-    rawSqlValues: SQLRawValue[];
-    identifierIndex: number | null;
-  };
   streamRequested: boolean;
   visibleBoundaryCount: number | null;
 
-  // The column on the result that indicates which group the result belongs to
-  identifierIndex: number | null;
-
   // If last but not first, reverse order.
   shouldReverseOrder: boolean;
-
-  // For prepared queries
-  name?: string;
 
   queryValues: Array<QueryValue>;
 
@@ -1209,14 +1202,11 @@ export class PgSelectStep<
     } = executionDetails;
     const {
       meta,
-      text,
-      rawSqlValues,
+      makeQuery,
+      usesIdentifiers,
       stream,
-      buildLookahead,
       streamRequested,
       visibleBoundaryCount,
-      identifierIndex,
-      name,
       queryValues: rawQueryValues,
       shouldReverseOrder,
       first,
@@ -1247,7 +1237,7 @@ export class PgSelectStep<
     if (first === 0 || last === 0) {
       return arrayOfLength(count, NO_ROWS);
     }
-    if (text === null) {
+    if (makeQuery === null) {
       return arrayOfLength(
         count,
         createSelectResult(EMPTY_ARRAY, {
@@ -1292,7 +1282,7 @@ export class PgSelectStep<
     ) {
       const keysets: (readonly unknown[])[] = [];
       let resultIndexes: ReadonlyArray<number | null>;
-      if (identifierIndex === null) {
+      if (!usesIdentifiers) {
         if (isMutation) {
           // Run them all
           resultIndexes = indexMap((_i) => keysets.push(EMPTY_ARRAY) - 1);
@@ -1358,29 +1348,28 @@ export class PgSelectStep<
         request.remainingStreamRows !== Infinity &&
         streamRequested &&
         !isMutation;
-      // At most one lookahead row per parent is hidden from the result.
       const pageSize = first ?? last;
       const limitQuery =
         bounded &&
         (pageSize == null ||
           pageSize * keysets.length > request.remainingStreamRows);
-      const maxFetched = limitQuery
-        ? Math.max(0, request.remainingStreamRows) + keysets.length + 1
-        : Infinity;
-      const fetchText = limitQuery
-        ? `select * from (
-${text.slice(0, -1)}
-) as page limit ${maxFetched}`
-        : text;
+      // One overflow row distinguishes a full budget from a truncated page.
+      // Only a paginated fetch can also return a hidden lookahead per keyset.
+      const maxRows = limitQuery
+        ? Math.max(0, request.remainingStreamRows) +
+          (pageSize != null && this.fetchOneExtra ? keysets.length : 0) +
+          1
+        : undefined;
+      const { text, rawSqlValues, identifierIndex } = makeQuery({ maxRows });
       const common = {
         store,
         cursorScope: plansWithPgCursors.has(this.operationPlan)
           ? request
           : undefined,
-        text: fetchText,
+        text,
         rawSqlValues,
         identifierIndex,
-        name: limitQuery ? hash(fetchText) : name,
+        name: hash(text),
         affinity: this.executionAffinity,
         eventEmitter,
         useTransaction: isMutation,
@@ -1401,12 +1390,12 @@ ${text.slice(0, -1)}
                 ),
               };
       if (
-        limitQuery &&
+        maxRows !== undefined &&
         executionResult != null &&
         executionResult.values.reduce(
           (count, rows) => count + (Array.isArray(rows) ? rows.length : 0),
           0,
-        ) >= maxFetched
+        ) >= maxRows
       ) {
         throw new SafeError("Materialized stream row limit exceeded");
       }
@@ -1468,31 +1457,22 @@ ${text.slice(0, -1)}
       let probeRows:
         | ReadonlyArray<readonly unknown[] | PromiseLike<never>>
         | undefined;
-      let cursorText = text;
-      if (this.fetchOneExtra && first != null && !checkAtEnd) {
-        const relation = text.slice(0, -1);
-        const pageLimit = sql.compile(sql.literal(first)).text;
-        if (this.needsForwardLookahead) {
-          // Probe inside the paginated relation for each parent. The database
-          // returns at most one identifier per page and no row projections.
-          const probe = await this.resource.executeWithoutCache(specs, {
-            ...buildLookahead(first),
-            eventEmitter,
-            cursorScope: request,
-            store,
-          });
-          probeRows = probe.values;
-        }
-        // executeStream binds just one parent to each portal.
-        cursorText = `select * from (
-${relation}
-) as page limit ${pageLimit}`;
+      const maxRows =
+        this.fetchOneExtra && first != null && !checkAtEnd ? first : undefined;
+      if (maxRows !== undefined && this.needsForwardLookahead) {
+        // Probe inside the paginated relation for each parent. The database
+        // returns at most one identifier per page and no row projections.
+        const probe = await this.resource.executeWithoutCache(specs, {
+          ...makeQuery({ lookaheadOffset: maxRows }),
+          eventEmitter,
+          cursorScope: request,
+          store,
+        });
+        probeRows = probe.values;
       }
       const { streams } = await this.resource.executeStream(specs, {
+        ...makeQuery({ maxRows }),
         cursorScope: request,
-        text: cursorText,
-        rawSqlValues,
-        identifierIndex,
         eventEmitter,
       });
       return indexMap((i) => {
@@ -3531,18 +3511,12 @@ function buildTheQuery<
   for (const [key, value] of fixedPlaceholderValues) {
     placeholderValues.set(key, value);
   }
-  const makeQuery = (
-    lookaheadOffset?: number,
-  ): {
-    text: string;
-    rawSqlValues: SQLRawValue[];
-    identifierIndex: number | null;
-  } => {
+  const usesIdentifiers =
+    queryValues.length > 0 ||
+    (count !== 1 && (forceIdentity || hasSideEffects));
+  const makeQuery: MakeSelectQuery = ({ maxRows, lookaheadOffset }) => {
     const options = { placeholderValues };
-    if (
-      queryValues.length > 0 ||
-      (count !== 1 && (forceIdentity || hasSideEffects))
-    ) {
+    if (usesIdentifiers) {
       const extraSelects: SQL[] = [];
 
       const identifierIndexOffset =
@@ -3570,7 +3544,9 @@ function buildTheQuery<
         values: rawSqlValues,
         [$$symbolToIdentifier]: symbolToIdentifier,
       } = sql.compile(
-        sql`lateral (${sql.indent(query)}) as ${wrapperAlias}`,
+        // The lateral query paginates each keyset. The outer limit caps the
+        // total rows returned by this statement across all keysets.
+        sql`lateral (${sql.indent(query)}) as ${wrapperAlias}${limitSQL(maxRows)}`,
         options,
       );
 
@@ -3605,7 +3581,7 @@ ${lateralText};`;
 
       return { text, rawSqlValues, identifierIndex };
     } else {
-      const { sql: baseQuery } = buildQuery(info, {});
+      const { sql: baseQuery } = buildQuery(info, { maxRows });
       const query =
         lookaheadOffset === undefined
           ? baseQuery
@@ -3626,20 +3602,14 @@ ${lateralText};`;
     ? { indicies: groupIndicies }
     : undefined;
 
-  const { text, rawSqlValues, identifierIndex } = needsNoPageRows(info)
-    ? { text: null, rawSqlValues: [], identifierIndex: null }
-    : makeQuery();
   return {
+    meta,
+    makeQuery: needsNoPageRows(info) ? null : makeQuery,
+    usesIdentifiers,
     stream: stream != null && last == null && !shouldReverseOrder,
-    buildLookahead: makeQuery,
     streamRequested,
     visibleBoundaryCount: visibleBoundaryCount(info),
-    meta,
-    text,
-    rawSqlValues,
-    identifierIndex,
     shouldReverseOrder,
-    name: text === null ? undefined : hash(text),
     queryValues,
     first,
     last,
@@ -4107,6 +4077,7 @@ function buildQueryParts<
     withIdentifiers?: boolean;
     extraSelects?: SQL[];
     forceOrder?: boolean;
+    maxRows?: number;
   } = Object.create(null),
 ) {
   const { alias, resource, selects: baseSelects, _symbolSubstitutes } = info;
@@ -4138,13 +4109,13 @@ function buildQueryParts<
   // then we do the last artificially later.
   // https://relay.dev/graphql/connections.htm#EdgesToReturn()
 
-  const [limitAndOffsetSQL] = calculateLimitAndOffsetSQLFromInfo(info);
-
-  function buildLimitAndOffset() {
-    return {
-      sql: limitAndOffsetSQL,
-    };
-  }
+  const pageRequirements = info.last == null ? info.pageRequirements : null;
+  // Boundary queries need the whole page to locate its end. Cap their
+  // projected rows after boundary selection instead.
+  const [limitAndOffset] = calculateLimitAndOffsetSQLFromInfo(
+    info,
+    pageRequirements === null ? options.maxRows : undefined,
+  );
 
   const { sql: from } = buildFrom();
   const { sql: groupBy } = buildGroupBy();
@@ -4152,7 +4123,6 @@ function buildQueryParts<
     info,
     options.forceOrder ? false : info.shouldReverseOrder,
   );
-  const { sql: limitAndOffset } = buildLimitAndOffset();
 
   const { extraSelects = EMPTY_ARRAY } = options;
   const selects = [...baseSelects, ...extraSelects];
@@ -4173,7 +4143,7 @@ function buildQueryParts<
     orderBy,
     limitAndOffset,
     extraSelectIndexes,
-    pageRequirements: info.last == null ? info.pageRequirements : null,
+    pageRequirements,
     first: info.first,
     _symbolSubstitutes,
   };
@@ -4187,17 +4157,18 @@ function buildQuery<
     withIdentifiers?: boolean;
     extraSelects?: SQL[];
     forceOrder?: boolean;
+    maxRows?: number;
   } = Object.create(null),
 ): {
   sql: SQL;
   extraSelectIndexes: number[];
 } {
-  return buildQueryFromParts(buildQueryParts(info, options));
+  return buildQueryFromParts(buildQueryParts(info, options), options);
 }
 
 function buildQueryFromParts(
   parts: ReturnType<typeof buildQueryParts>,
-  options: { asArray?: boolean } = {},
+  options: { asArray?: boolean; maxRows?: number } = {},
 ) {
   const {
     comment,
@@ -4248,7 +4219,7 @@ function buildQueryFromParts(
       select page as row_data, row_number() over () as pos,
         not lead(true, 1, false) over () as at_end
       from (${baseQuery}) as page
-    ) as bounds where ${sql.join(positions, " or ")} order by pos`;
+    ) as bounds where ${sql.join(positions, " or ")} order by pos${limitSQL(options.maxRows)}`;
   }
   return { sql: query, extraSelectIndexes };
 }

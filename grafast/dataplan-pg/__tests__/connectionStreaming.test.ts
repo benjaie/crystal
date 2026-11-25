@@ -96,6 +96,65 @@ it("enforces the fallback row budget for upfront endCursor", async () => {
   );
 });
 
+it("uses one overflow row for an unbounded materialized page", async () => {
+  const query = `{ allMessagesConnection {
+    nodes @stream { id }
+    edges { cursor }
+    pageInfo { hasNextPage }
+  } }`;
+  const ordinary = await runTestQuery(query.replace("@stream", ""), {});
+  const budget = ordinary.data!.allMessagesConnection.nodes.length;
+  const result = await runTestQuery(query, {
+    maxMaterializedStreamRows: budget,
+  });
+  expect(result.errors).toBeUndefined();
+  expect(assemble(result)).toEqual(ordinary.data);
+  const page = result.queries.find((q) =>
+    q.text.includes("from app_public.messages"),
+  );
+  expect(page?.text).toContain(
+    `order by __messages__."id" asc\nlimit ${budget + 1};`,
+  );
+
+  const overflow = await runTestQuery(query, {
+    maxMaterializedStreamRows: budget - 1,
+    checkErrorSnapshots: true,
+  });
+  expect(overflow.errors?.[0].message).toBe(
+    "Materialized stream row limit exceeded",
+  );
+});
+
+it("applies the batch budget after each forum's paginated lookahead", async () => {
+  const query = `{ forums(includeArchived: YES) {
+    name
+    messagesConnection(first: 1, condition: { featured: true }) {
+      nodes @stream { id }
+      edges { cursor }
+      pageInfo { hasNextPage }
+    }
+  } }`;
+  const ordinary = await runTestQuery(query.replace("@stream", ""), {});
+  const result = await runTestQuery(query, { maxMaterializedStreamRows: 2 });
+  expect(result.errors).toBeUndefined();
+  expect(assemble(result)).toEqual(ordinary.data);
+  const page = result.queries.find((q) =>
+    q.text.includes("from app_public.messages"),
+  );
+  // Two forums contribute a visible row, and one also has a lookahead.
+  expect(page?.text).toMatch(
+    /limit 2\s*\) as __messages_result__\nlimit \d+;$/,
+  );
+
+  const overflow = await runTestQuery(query, {
+    maxMaterializedStreamRows: 1,
+    checkErrorSnapshots: true,
+  });
+  expect(overflow.errors?.[0].message).toBe(
+    "Materialized stream row limit exceeded",
+  );
+});
+
 it("uses the streamed lookahead when only hasPreviousPage is needed upfront", async () => {
   const query = `{ allMessagesConnection(first: 2) {
     nodes @stream { id }

@@ -11,7 +11,6 @@ where
   )
 order by __forums__."id" asc;
 
-select * from (
 select
   __messages__."body" as "0",
   __messages__."author_id" as "1",
@@ -24,7 +23,7 @@ where
     (__messages__.archived_at is null) = ($2::"timestamptz" is null)
   )
 order by __messages__."id" asc
-) as page limit 100002
+limit 100001;
 
 with __users_identifiers__ as materialized (
   select ids.ordinality - 1 as idx, (ids.value->>0)::"uuid" as "id0" from json_array_elements($1::json) with ordinality as ids

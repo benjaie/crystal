@@ -315,6 +315,10 @@ export function getUnary<T>(
   return stepId == null ? undefined : (values[stepId].unaryValue() as T);
 }
 
+export function limitSQL(limit: Maybe<number>): SQL {
+  return limit == null ? sql.blank : sql`\nlimit ${sql.literal(limit)}`;
+}
+
 export function calculateLimitAndOffsetSQL(params: {
   cursorLower: Maybe<number>;
   cursorUpper: Maybe<number>;
@@ -322,12 +326,12 @@ export function calculateLimitAndOffsetSQL(params: {
   last: Maybe<number>;
   offset: Maybe<number>;
   fetchOneExtra: boolean;
+  maxRows?: number;
 }) {
   const { cursorLower, cursorUpper, first, last, offset, fetchOneExtra } =
     params;
   let limitValue: Maybe<number>;
   let offsetValue: Maybe<number>;
-  let innerLimitValue: Maybe<number>;
   if (cursorLower != null || cursorUpper != null) {
     /*
      * When using cursor-base pagination with 'natural' cursors, we are actually
@@ -432,8 +436,6 @@ export function calculateLimitAndOffsetSQL(params: {
     // Calculate the final limit/offset
     limitValue = isFinite(upper0) ? Math.max(0, upper0 - lower0 + 1) : null;
     offsetValue = lower0;
-
-    innerLimitValue = limitValue != null ? limitValue + offsetValue : null;
   } else {
     limitValue =
       first != null
@@ -442,26 +444,23 @@ export function calculateLimitAndOffsetSQL(params: {
           ? last + (fetchOneExtra ? 1 : 0)
           : null;
     offsetValue = offset;
-
-    innerLimitValue =
-      first != null || last != null
-        ? (first ?? last ?? 0) + (offset ?? 0) + (fetchOneExtra ? 1 : 0)
-        : null;
+  }
+  const { maxRows } = params;
+  if (maxRows !== undefined && (limitValue == null || maxRows < limitValue)) {
+    limitValue = maxRows;
   }
   // PERF: consider changing from `${sql.literal(v)}` to
   // `${sql.value(v)}::"int4"`. (The advantage being that fewer SQL queries are
   // generated, and thus chances of reusing a query are greater.)
-  const limitSql =
-    limitValue == null ? sql.blank : sql`\nlimit ${sql.literal(limitValue)}`;
+  const limitSql = limitSQL(limitValue);
   const offsetSql =
     offsetValue == null || offsetValue === 0
       ? sql.blank
       : sql`\noffset ${sql.literal(offsetValue)}`;
   const limitAndOffset = sql`${limitSql}${offsetSql}`;
-  const innerLimitSQL: SQL =
-    innerLimitValue != null
-      ? sql`\nlimit ${sql.literal(innerLimitValue)}`
-      : sql.blank;
+  const innerLimitSQL = limitSQL(
+    limitValue == null ? null : limitValue + (offsetValue ?? 0),
+  );
   return [limitAndOffset, innerLimitSQL];
 }
 
@@ -531,6 +530,7 @@ export function calculateLimitAndOffsetSQLFromInfo(
     readonly cursorLower: Maybe<number>;
     readonly cursorUpper: Maybe<number>;
   },
+  maxRows?: number,
 ) {
   const {
     executionDetails: { values },
@@ -545,6 +545,7 @@ export function calculateLimitAndOffsetSQLFromInfo(
     cursorLower,
     cursorUpper,
     fetchOneExtra,
+    maxRows,
   });
 }
 
