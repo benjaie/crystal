@@ -945,17 +945,7 @@ function processSingleDeferred(
   const polymorphicPathList: (string | null)[] = [];
   const iterators: Array<Set<AsyncIterator<any> | Iterator<any>>> = [];
 
-  // HACK: when we re-write stream/defer this needs fixing.
   const firstBucket = specs[0][1].bucket;
-  if (isDev) {
-    for (const spec of specs) {
-      if (spec[1].bucket !== firstBucket) {
-        throw new Error(
-          `GrafastInternalError<c277422e-adb7-4b07-861e-acab931fc01a>: sorry, it seems the unary dependencies feature broke our incremental delivery support. This incremental delivery is going to be fully rewritten at some point anyway, so we recommend you avoid using it for now (the spec itself has changed since we implemented it).`,
-        );
-      }
-    }
-  }
 
   for (const copyStepId of outputPlan.layerPlan.copyStepIds) {
     const executionValue = firstBucket.store.get(copyStepId)!;
@@ -963,7 +953,13 @@ function processSingleDeferred(
       const values = specs.map(([, spec]) =>
         executionValue.at(spec.bucketIndex),
       );
-      store.set(copyStepId, batchExecutionValue(values));
+      store.set(
+        copyStepId,
+        batchExecutionValue(
+          values,
+          specs.map(([, spec]) => executionValue._flagsAt(spec.bucketIndex)),
+        ),
+      );
     } else {
       store.set(copyStepId, executionValue);
     }
@@ -983,7 +979,7 @@ function processSingleDeferred(
     layerPlan: outputPlan.layerPlan,
     size,
     store,
-    flagUnion: NO_FLAGS,
+    flagUnion: firstBucket.flagUnion,
     polymorphicPathList,
     polymorphicType: null,
     iterators,
@@ -1037,69 +1033,13 @@ function processSingleDeferred(
   }
 }
 
-function processBatches(
-  batchesByRequestTools: Map<
-    RequestTools,
-    Map<OutputPlan, Array<[ResultIterator, SubsequentPayloadSpec]>>
-  >,
-  whenDone: PromiseWithResolvers<void>,
-  asString: boolean,
-) {
-  try {
-    // Key is only used for batching
-    const promises: PromiseLike<void>[] = [];
-    for (const [requestContext, batches] of batchesByRequestTools.entries()) {
-      for (const [outputPlan, specs] of batches.entries()) {
-        const promise = processSingleDeferred(
-          requestContext,
-          outputPlan,
-          specs,
-          asString,
-        );
-        if (isPromiseLike(promise)) {
-          promises.push(promise);
-        }
-      }
-    }
-    if (promises.length > 0) {
-      Promise.all(promises).then(
-        () => whenDone.resolve(),
-        (e) => whenDone.reject(e),
-      );
-    } else {
-      whenDone.resolve();
-    }
-  } catch (e) {
-    whenDone.reject(e);
-  }
+interface DeferredBatch {
+  entries: Array<[ResultIterator, SubsequentPayloadSpec]>;
+  done: PromiseWithResolvers<void>;
 }
 
-function processBatchAsString() {
-  const batchesByRequestContext = deferredBatchesByRequestToolsAsString;
-  deferredBatchesByRequestToolsAsString = new Map();
-  const whenDone = nextBatchAsString!;
-  nextBatchAsString = null;
-
-  processBatches(batchesByRequestContext, whenDone, true);
-}
-
-function processBatchNotAsString() {
-  const batchesByRequestContext = deferredBatchesByRequestToolsNotAsString;
-  deferredBatchesByRequestToolsNotAsString = new Map();
-  const whenDone = nextBatchNotAsString!;
-  nextBatchNotAsString = null;
-
-  processBatches(batchesByRequestContext, whenDone, false);
-}
-
-type DBBRC = Map<
-  RequestTools,
-  Map<OutputPlan, Array<[ResultIterator, SubsequentPayloadSpec]>>
->;
-let deferredBatchesByRequestToolsAsString: DBBRC = new Map();
-let deferredBatchesByRequestToolsNotAsString: DBBRC = new Map();
-let nextBatchAsString: PromiseWithResolvers<void> | null = null;
-let nextBatchNotAsString: PromiseWithResolvers<void> | null = null;
+// Unary values and shared execution state belong to the originating bucket.
+const deferredBatches = new WeakMap<Bucket, Map<OutputPlan, DeferredBatch>>();
 
 function processDeferred(
   requestContext: RequestTools,
@@ -1107,35 +1047,41 @@ function processDeferred(
   spec: SubsequentPayloadSpec,
   outputDataAsString: boolean,
 ): PromiseLike<void> {
-  const deferredBatchesByRequestTools = outputDataAsString
-    ? deferredBatchesByRequestToolsAsString
-    : deferredBatchesByRequestToolsNotAsString;
-  let deferredBatches = deferredBatchesByRequestTools.get(requestContext);
-  if (!deferredBatches) {
-    deferredBatches = new Map();
-    deferredBatchesByRequestTools.set(requestContext, deferredBatches);
+  let batches = deferredBatches.get(spec.bucket);
+  if (batches === undefined) {
+    batches = new Map();
+    deferredBatches.set(spec.bucket, batches);
   }
-  const list = deferredBatches.get(spec.outputPlan);
-  if (list !== undefined) {
-    list.push([iterator, spec]);
-  } else {
-    deferredBatches.set(spec.outputPlan, [[iterator, spec]]);
+  const existing = batches.get(spec.outputPlan);
+  if (existing !== undefined) {
+    existing.entries.push([iterator, spec]);
+    return existing.done.promise;
   }
-  if (outputDataAsString) {
-    if (!nextBatchAsString) {
-      nextBatchAsString = Promise.withResolvers();
-      nextBatchAsString.promise.catch(noop); // Guard against unhandledPromiseRejection
-      setTimeout(processBatchAsString, 1);
+  const batch: DeferredBatch = {
+    entries: [[iterator, spec]],
+    done: Promise.withResolvers<void>(),
+  };
+  batches.set(spec.outputPlan, batch);
+  setTimeout(() => {
+    batches.delete(spec.outputPlan);
+    if (requestContext.abortSignal.aborted) {
+      batch.done.resolve();
+      return;
     }
-    return nextBatchAsString.promise;
-  } else {
-    if (!nextBatchNotAsString) {
-      nextBatchNotAsString = Promise.withResolvers();
-      nextBatchNotAsString.promise.catch(noop); // Guard against unhandledPromiseRejection
-      setTimeout(processBatchNotAsString, 1);
+    try {
+      batch.done.resolve(
+        processSingleDeferred(
+          requestContext,
+          spec.outputPlan,
+          batch.entries,
+          outputDataAsString,
+        ),
+      );
+    } catch (e) {
+      batch.done.reject(e);
     }
-    return nextBatchNotAsString.promise;
-  }
+  }, 1);
+  return batch.done.promise;
 }
 
 /**
