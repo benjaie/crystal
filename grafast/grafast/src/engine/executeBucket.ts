@@ -282,9 +282,6 @@ export function executeBucket(
       // **DO NOT THROW, DO NOT ALLOW AN ERROR TO BE RAISED!**
       // **USE DEFENSIVE PROGRAMMING HERE!**
 
-      /** PROMISES ADDED HERE MUST NOT REJECT */
-      let promises: PromiseLike<void>[] | undefined = undefined;
-
       // TODO: it seems that if this throws an error it results in a permanent
       // hang of defers? In the mean time... Don't throw any errors here!
       const success = (
@@ -404,11 +401,10 @@ export function executeBucket(
             }
           };
           if (pending === undefined) {
-            storeArray();
+            return storeArray();
           } else {
-            (promises ??= []).push(Promise.all(pending).then(storeArray));
+            return Promise.all(pending).then(storeArray);
           }
-          return;
         }
 
         if (
@@ -477,7 +473,7 @@ export function executeBucket(
             bucket.setResult(finishedStep, resultIndex, arr, flags);
           } else {
             // Evaluate the first initialCount entries, rest is streamed.
-            const promise = (async () => {
+            return (async () => {
               try {
                 let valuesSeen = 0;
                 const arr: StreamMaybeMoreableArray<any> = [];
@@ -525,16 +521,14 @@ export function executeBucket(
                 );
               }
             })();
-            if (promises === undefined) {
-              promises = [promise];
-            } else {
-              promises.push(promise);
-            }
           }
         } else {
           bucket.setResult(finishedStep, resultIndex, rawValue, flags);
         }
       };
+
+      /** PROMISES ADDED HERE MUST NOT REJECT */
+      let promises: PromiseLike<void>[] | undefined = undefined;
 
       for (const allStepsIndex of indexesToProcess) {
         const step = _allSteps[allStepsIndex];
@@ -556,38 +550,21 @@ export function executeBucket(
               )})`,
             );
           }
-          if (step.isSyncAndSafe || !isPromiseLike(val)) {
-            success(step, bucket, dataIndex, val, valFlags);
-          } else {
-            // Must not reject!
-            const valSuccess = val.then(
-              (val) => success(step, bucket, dataIndex, val, valFlags),
-              (error) => bucket.setResult(step, dataIndex, error, FLAG_ERROR),
-            );
-
-            if (promises === undefined) {
-              promises = [valSuccess];
-            } else {
-              promises.push(valSuccess);
-            }
+          const completion =
+            step.isSyncAndSafe || !isPromiseLike(val)
+              ? success(step, bucket, dataIndex, val, valFlags)
+              : val.then(
+                  (value) => success(step, bucket, dataIndex, value, valFlags),
+                  (error) =>
+                    bucket.setResult(step, dataIndex, error, FLAG_ERROR),
+                );
+          if (completion !== undefined) {
+            (promises ??= []).push(completion);
           }
         }
       }
 
-      if (promises === undefined) {
-        return;
-      }
-      // Resolving a promised step result can enqueue further work, e.g. reading
-      // the prefix of an iterator. Finish that work before running dependents.
-      const waitForResults = async () => {
-        let from = 0;
-        while (from < promises!.length) {
-          const pending = promises!.slice(from);
-          from += pending.length;
-          await Promise.all(pending);
-        }
-      };
-      return waitForResults();
+      return promises === undefined ? undefined : Promise.all(promises);
     };
 
     const runSyncSteps = () => {
