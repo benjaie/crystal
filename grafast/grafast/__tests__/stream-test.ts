@@ -10,6 +10,7 @@ import type {
   PromiseOrDirect,
 } from "../dist/index.js";
 import {
+  connection,
   constant,
   flagError,
   grafast,
@@ -271,6 +272,89 @@ it("preserves null entries and errors in the streamed tail", async () => {
   }
   expect(data).to.deep.equal([1, null, null, 4]);
   expect(errors).to.deep.equal([[["rows", 2], "row failed"]]);
+});
+
+it("only pulls the skipped rows, page and requested lookahead from a connection", async () => {
+  let pulls = 0;
+  let closed = 0;
+  async function* rows() {
+    try {
+      for (;;) {
+        if (++pulls > 4) throw new Error("Read beyond the requested page");
+        yield pulls;
+      }
+    } finally {
+      closed++;
+    }
+  }
+  const schema = makeGrafastSchema({
+    typeDefs:
+      "type Query { page(first: Int, offset: Int): Page } type Page { nodes: [Int!]!, pageInfo: PageInfo! } type PageInfo { hasNextPage: Boolean! }",
+    enableDeferStream: true,
+    objects: {
+      Query: {
+        plans: {
+          page: (_, fieldArgs) =>
+            connection(lambda(constant(0), rows) as unknown as Step<number[]>, {
+              fieldArgs,
+            }),
+        },
+      },
+    },
+  });
+  for (const query of [
+    "{ page(first: 1, offset: 2) { nodes } }",
+    "{ page(first: 1, offset: 2) { nodes @stream ... @defer { pageInfo { hasNextPage } } } }",
+  ]) {
+    pulls = closed = 0;
+    const result = await grafast({
+      schema,
+      source: query,
+    });
+    if (Symbol.asyncIterator in result) {
+      const patches = [];
+      for await (const patch of result) patches.push(patch);
+      expect(patches.map((patch) => patch.data)).to.deep.include(3);
+      expect(patches.map((patch) => patch.data)).to.deep.include({
+        pageInfo: { hasNextPage: true },
+      });
+      expect(pulls).to.equal(4);
+    } else {
+      expect(result).to.deep.equal({ data: { page: { nodes: [3] } } });
+      expect(pulls).to.equal(3);
+    }
+    expect(closed).to.equal(1);
+  }
+});
+
+it("retains the final page of a forward-only source in input order", async () => {
+  const schema = makeGrafastSchema({
+    typeDefs:
+      "type Query { page(last: Int): Page } type Page { nodes: [Int!]!, pageInfo: PageInfo! } type PageInfo { hasPreviousPage: Boolean! }",
+    enableDeferStream: true,
+    objects: {
+      Query: {
+        plans: {
+          page: (_, fieldArgs) => {
+            const $rows = lambda(null, async function* () {
+              yield* [1, 2, 3, 4, 5];
+            });
+            return connection($rows as unknown as Step<number[]>, {
+              fieldArgs,
+            });
+          },
+        },
+      },
+    },
+  });
+  const result = await grafast({
+    schema,
+    source:
+      "{ page(last: 2) { nodes @stream(initialCount: 3) pageInfo { hasPreviousPage } } }",
+  });
+  expect(result).to.deep.equal({
+    data: { page: { nodes: [4, 5], pageInfo: { hasPreviousPage: true } } },
+  });
 });
 
 async function streamRowsWithDeferredDetail(

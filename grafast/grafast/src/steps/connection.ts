@@ -889,27 +889,26 @@ export class ConnectionStep<
         return null;
       }
 
+      const result = makeProcessedCollection(
+        mode,
+        collection,
+        params,
+        !this.collectionPaginationSupport?.cursor,
+      );
       if (
-        this._mightStream !== true &&
-        (mode === MODE_ITERABLE || mode === MODE_ASYNC_ITERABLE)
+        !Array.isArray(result.items) &&
+        (params.stream == null ||
+          (this.needsHasMore && typeof params.__hasMore !== "boolean"))
       ) {
-        // Convert to array, then process
-        return iterableToArray(collection).then((array) =>
-          makeProcessedCollection(
-            MODE_ARRAY,
-            array,
-            params,
-            !this.collectionPaginationSupport?.cursor,
-          ),
-        );
-      } else {
-        return makeProcessedCollection(
-          mode,
-          collection,
-          params,
-          !this.collectionPaginationSupport?.cursor,
-        );
+        // Consume the paginated iterator, so skipped rows and lookahead are
+        // never retained and a forward page can close an unbounded source.
+        return iterableToArray(result.items).then(async (items) => ({
+          items,
+          hasNextPage: await result.hasNextPage,
+          hasPreviousPage: await result.hasPreviousPage,
+        }));
       }
+      return result;
     });
   }
 }
@@ -939,7 +938,7 @@ function makeProcessedCollection<TItem>(
     (!wrapIndicies || Array.isArray(collection))
   ) {
     const hasNextPage = __isForwardPagination ? __hasMore : false;
-    const hasPreviousPage = __isForwardPagination ? __hasMore : false;
+    const hasPreviousPage = __isForwardPagination ? false : __hasMore;
     const items = wrapIndicies
       ? (collection as ReadonlyArray<TItem>).map(indexedItem)
       : collection;
@@ -952,34 +951,30 @@ function makeProcessedCollection<TItem>(
     | Iterable<MaybeIndexed<TItem>>
     | AsyncIterable<MaybeIndexed<TItem>>;
   if (mode === MODE_ARRAY) {
-    let array = collection as ReadonlyArray<TItem>;
-    if (__skipOver > 0) {
-      array = array.slice(__skipOver);
-    }
-    if (__limit != null) {
-      array = array.slice(0, __limit);
-    }
+    const array = collection as TItem[];
+    let start = Math.min(Math.max(__skipOver, 0), array.length);
+    let end =
+      __limit === null
+        ? array.length
+        : __limit < 0
+          ? Math.max(start, array.length + __limit)
+          : Math.min(start + __limit, array.length);
     if (typeof __hasMore === "boolean") {
       hasNext = __hasMore;
     } else {
       const [side, limit] = __hasMore;
-      if (side === "l") {
-        if (array.length > limit) {
-          hasNext = true;
-          array = array.slice(array.length - limit);
+      hasNext = end - start > limit;
+      if (hasNext) {
+        if (side === "l") {
+          start = end - limit;
         } else {
-          hasNext = false;
-        }
-      } else {
-        if (array.length > limit) {
-          hasNext = true;
-          array = array.slice(0, limit);
-        } else {
-          hasNext = false;
+          end = start + limit;
         }
       }
     }
-    items = wrapIndicies ? array.map(indexedItem) : array;
+    const page =
+      start === 0 && end === array.length ? array : array.slice(start, end);
+    items = wrapIndicies ? page.map(indexedItem) : page;
   } else {
     let resolveHasNext: ((hasNext: boolean) => void) | undefined;
     if (typeof __hasMore === "boolean") {
@@ -994,8 +989,10 @@ function makeProcessedCollection<TItem>(
       (async function* () {
         let skip = __skipOver;
         let index = 0;
+        let oldest = 0;
         const accumulator: TItem[] | null =
           typeof __hasMore !== "boolean" && __hasMore[0] === "l" ? [] : null;
+        if (__limit === 0) return;
         started = true;
         for await (const item of collection) {
           if (skip > 0) {
@@ -1006,18 +1003,16 @@ function makeProcessedCollection<TItem>(
             } else {
               const limit = __hasMore[1];
               if (accumulator /* same as __hasMore[0] === "l" */) {
-                // DO NOT USE `index` IN THIS BRANCH
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                const index = null;
-
-                if (accumulator.length < limit) {
-                  // All good
+                if (limit === 0) {
+                  didHaveNext = true;
+                  break;
+                } else if (accumulator.length < limit) {
+                  accumulator.push(item);
                 } else {
-                  // Drop one!
-                  accumulator.shift();
+                  accumulator[oldest] = item;
+                  oldest = (oldest + 1) % limit;
                   didHaveNext = true;
                 }
-                accumulator.push(item);
               } else {
                 if (index < limit) {
                   yield wrapIndicies ? { index, item } : item;
@@ -1028,15 +1023,15 @@ function makeProcessedCollection<TItem>(
               }
             }
             index++;
+            if (index === __limit) break;
           } else {
             break;
           }
         }
         if (accumulator) {
-          index = 0;
-          for (const item of accumulator) {
-            yield wrapIndicies ? { index, item } : item;
-            ++index;
+          for (let i = 0; i < accumulator.length; i++) {
+            const item = accumulator[(oldest + i) % accumulator.length];
+            yield wrapIndicies ? { index: i, item } : item;
           }
         }
       })(),
@@ -1483,8 +1478,8 @@ export class ConnectionParamsStep<TCursorValue> extends UnbatchedStep<
             params.limit = params.__skipOver + max + (needsHasMore ? 1 : 0);
             params.__hasMore = needsHasMore ? ["r", max] : false;
           } else {
-            // We're using __hasMore as a hack to apply our limit
-            params.__hasMore = ["r", max];
+            params.__limit = max + (needsHasMore ? 1 : 0);
+            params.__hasMore = needsHasMore ? ["r", max] : false;
           }
         } else {
           // There is no limit
