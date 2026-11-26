@@ -13,6 +13,7 @@ import {
   $$extensions,
   $$streamMore,
   FLAG_ERROR,
+  FLAG_NULL,
   NO_FLAGS,
 } from "./constants.ts";
 import { isDev } from "./dev.ts";
@@ -37,6 +38,7 @@ import {
   getChildBucketAndIndex,
   getDirectLayerPlanChild,
 } from "./engine/OutputPlan.ts";
+import { isFlaggedValue } from "./error.ts";
 import type {
   ErrorBehavior,
   GrafastInternalExecutionArgs,
@@ -113,9 +115,21 @@ function processRoot(
   }
 
   const promises: PromiseLike<void>[] = [];
-  for (const stream of streams) {
+  const groups = new Map<
+    SubsequentStreamSpec["stream"],
+    SubsequentStreamSpec[]
+  >();
+  for (const spec of streams) {
+    const group = groups.get(spec.stream);
+    if (group === undefined) {
+      groups.set(spec.stream, [spec]);
+    } else {
+      group.push(spec);
+    }
+  }
+  for (const group of groups.values()) {
     promises.push(
-      processStream(ctx.requestContext, iterator, stream, outputDataAsString),
+      processStream(ctx.requestContext, iterator, group, outputDataAsString),
     );
   }
   for (const deferred of queue) {
@@ -150,8 +164,7 @@ function releaseUnusedIterators(
     return;
   }
   if (streams) {
-    for (const streamSpec of streams) {
-      const { stream } = streamSpec;
+    for (const stream of new Set(streams.map((spec) => spec.stream))) {
       if (!allStreams.delete(stream)) {
         console.error(
           `GrafastInternalError<1e43efdf-f901-43dd-8a82-768246e61478>: Stream was returned from an output plan, but that stream wasn't tracked via the bucket.`,
@@ -161,6 +174,7 @@ function releaseUnusedIterators(
   }
   if (allStreams.size > 0) {
     for (const stream of allStreams) {
+      allStreams.delete(stream);
       if (stream.return) {
         try {
           consume(stream.return());
@@ -192,10 +206,9 @@ const finalize = (
 ): ExecutionResult | AsyncGenerator<AsyncExecutionResult, void, void> => {
   if (ctx.root.streams.length > 0 || ctx.root.queue.length > 0) {
     // Return an async iterator
-    let _alive = true;
+    let alive = true;
     const iterator: ResultIterator = newIterator(() => {
-      // ENHANCE: AbortSignal or similar, feed into `processRoot`?
-      _alive = false;
+      alive = false;
     });
     const payload = Object.create(null);
     if (data !== undefined) {
@@ -215,8 +228,11 @@ const finalize = (
     if (isPromiseLike(promise)) {
       promise.then(
         () => {
+          if (!alive) {
+            return;
+          }
           iterator.push({ hasNext: false });
-          iterator.return(undefined).then(null, noop);
+          iterator.finish();
         },
         (e) => {
           iterator.throw(e).then(null, noop);
@@ -224,7 +240,7 @@ const finalize = (
       );
     } else {
       iterator.push({ hasNext: false });
-      iterator.return(undefined).then(null, noop);
+      iterator.finish();
     }
 
     return iterator;
@@ -504,8 +520,7 @@ function executePreemptive(
       });
       (async () => {
         let i = 0;
-        // eslint-disable-next-line no-constant-condition
-        while (true) {
+        while (await iterator.ready()) {
           const next = await abortable(
             iteratorAbortSignal,
             undefined,
@@ -519,45 +534,44 @@ function executePreemptive(
             // Stream already exited
             break;
           }
-          try {
-            const payload = await abortable(
-              iteratorAbortSignal,
-              undefined,
-              executeStreamPayload(next.value, i),
-            );
-            if (payload === undefined) {
-              break;
-            }
-            if (isAsyncIterable(payload)) {
-              const payloadIterator = payload[Symbol.asyncIterator]();
-              while (true) {
-                const next = await abortable(
-                  iteratorAbortSignal,
-                  undefined,
-                  payloadIterator.next(),
-                );
-                if (next === undefined) {
-                  consume(payloadIterator.return?.(undefined));
-                  break;
-                }
-                if (next.done) {
-                  // Iterator already exited
-                  break;
-                }
-                iterator.push(next.value);
-              }
-            } else {
-              iterator.push(payload);
-            }
-            i++;
-          } catch (error) {
-            consume(iterator.return?.());
-            throw error;
+          const payload = await abortable(
+            iteratorAbortSignal,
+            undefined,
+            executeStreamPayload(next.value, i),
+          );
+          if (payload === undefined) {
+            break;
           }
+          if (isAsyncIterable(payload)) {
+            const payloadIterator = payload[Symbol.asyncIterator]();
+            while (true) {
+              if (!(await iterator.ready())) {
+                await payloadIterator.return?.(undefined);
+                break;
+              }
+              const next = await abortable(
+                iteratorAbortSignal,
+                undefined,
+                payloadIterator.next(),
+              );
+              if (next === undefined) {
+                consume(payloadIterator.return?.(undefined));
+                break;
+              }
+              if (next.done) {
+                // Iterator already exited
+                break;
+              }
+              iterator.push(next.value);
+            }
+          } else {
+            iterator.push(payload);
+          }
+          i++;
         }
       })()
         .then(
-          () => iterator.return(),
+          () => iterator.finish(),
           (e) => iterator.throw(e),
         )
         .then(null, noop);
@@ -645,6 +659,8 @@ export function grafastPrepare(
 
 interface PushableAsyncGenerator<T> extends AsyncGenerator<T, void, undefined> {
   push(v: T): void;
+  ready(): PromiseOrDirect<boolean>;
+  finish(): void;
 }
 
 type ResultIterator = PushableAsyncGenerator<AsyncExecutionResult>;
@@ -662,7 +678,19 @@ function newIterator<T = any>(
     ]
   > = [];
   let done = false;
+  let drained: PromiseWithResolvers<boolean> | null = null;
+  let failure: { error: unknown } | null = null;
   return {
+    ready() {
+      if (done) {
+        return false;
+      }
+      if (valueQueue.length === 0) {
+        return true;
+      }
+      drained ??= Promise.withResolvers<boolean>();
+      return drained.promise;
+    },
     [Symbol.asyncIterator]() {
       return this;
     },
@@ -671,10 +699,8 @@ function newIterator<T = any>(
     },
     push(v: T | PromiseLike<T>) {
       if (done) {
-        // LOGGING: should we raise this as a bigger issue?
-        console.warn(
-          "GrafastWarning<85e02385-d3d2-48a1-b791-b4cf87817899>: value pushed into iterable after done; ignoring",
-        );
+        // A projection already in flight can finish after the client returns.
+        consume(v);
         return;
       }
       const cbs = pullQueue.shift();
@@ -700,10 +726,17 @@ function newIterator<T = any>(
     },
     next() {
       if (valueQueue.length > 0) {
-        return Promise.resolve(valueQueue.shift()).then((value) => ({
+        const next = valueQueue.shift();
+        if (valueQueue.length === 0) {
+          drained?.resolve(true);
+          drained = null;
+        }
+        return Promise.resolve(next).then((value) => ({
           done: false,
           value,
         }));
+      } else if (failure !== null) {
+        return Promise.reject(failure.error);
       } else if (done) {
         return Promise.resolve({
           done: true,
@@ -715,9 +748,10 @@ function newIterator<T = any>(
         });
       }
     },
-    return() {
+    finish() {
       if (!done) {
         done = true;
+        drained?.resolve(false);
         abort();
         for (const entry of pullQueue) {
           try {
@@ -726,12 +760,20 @@ function newIterator<T = any>(
             // ignore
           }
         }
+        pullQueue.length = 0;
       }
+    },
+    return() {
+      valueQueue.length = 0;
+      failure = null;
+      this.finish();
       return Promise.resolve({ done: true, value: undefined });
     },
     throw(e) {
       if (!done) {
         done = true;
+        drained?.resolve(false);
+        failure = { error: e };
         abort(e);
         for (const entry of pullQueue) {
           try {
@@ -749,20 +791,34 @@ function newIterator<T = any>(
 async function processStream(
   requestContext: RequestTools,
   iterator: ResultIterator,
-  spec: SubsequentStreamSpec,
+  specs: SubsequentStreamSpec[],
   outputDataAsString: boolean,
 ): Promise<void> {
-  /** Resolve this when finished */
-  const whenDone = Promise.withResolvers<void>();
-  whenDone.promise.catch(noop); // Guard against unhandledPromiseRejection
-
-  type ResultTuple = [any, number];
-
-  let queue: null | ResultTuple[] = null;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  let timeout: NodeJS.Timer | null = null;
-
-  const _processQueue = (entries: ResultTuple[]) => {
+  type ResultTuple = [value: any, index: number, flags: number];
+  const failDescendants = (error: unknown) => {
+    consume(iterator.throw(error));
+  };
+  const entryFor = (
+    result: IteratorResult<any>,
+    index: number,
+  ): ResultTuple => {
+    let value = result.value;
+    let flags = NO_FLAGS;
+    if (value !== null && typeof value === "object" && isFlaggedValue(value)) {
+      flags = value.flags;
+      value = value.value;
+    }
+    if (value == null) {
+      flags |= FLAG_NULL;
+    }
+    return [value, index, flags];
+  };
+  const project = (
+    spec: SubsequentStreamSpec,
+    entries: ResultTuple[],
+    metaByMetaKey: ReturnType<OperationPlan["makeMetaByMetaKey"]>,
+    descendants: PromiseLike<void>[],
+  ) => {
     const size = entries.length;
     const store: Bucket["store"] = new Map();
     const polymorphicPathList: (string | null)[] = [];
@@ -787,18 +843,33 @@ async function processStream(
           size,
           executionValue.at(spec.bucketIndex),
         );
-        store.set(copyStepId, batchExecutionValue(values));
+        store.set(
+          copyStepId,
+          batchExecutionValue(
+            values,
+            arrayOfLength(size, executionValue._flagsAt(spec.bucketIndex)),
+          ),
+        );
       } else {
         store.set(copyStepId, executionValue);
       }
     }
 
     if (isUnary) {
-      assert.ok(entries.length === 0, "Unary step should only have one index");
-      store.set(listItemStepId, unaryExecutionValue(entries[0][0]));
+      assert.ok(entries.length === 1, "Unary step should only have one index");
+      store.set(
+        listItemStepId,
+        unaryExecutionValue(entries[0][0], entries[0][2]),
+      );
     } else {
       const listItemStepIdList = entries.map((e) => e[0]);
-      store.set(listItemStepId, batchExecutionValue(listItemStepIdList));
+      store.set(
+        listItemStepId,
+        batchExecutionValue(
+          listItemStepIdList,
+          entries.map((entry) => entry[2]),
+        ),
+      );
     }
 
     for (let bucketIndex = 0; bucketIndex < size; bucketIndex++) {
@@ -809,20 +880,25 @@ async function processStream(
 
     // const childBucket = newBucket(directLayerPlanChild, noDepsList, store);
     // const childBucketIndex = 0;
-    const rootBucket = newBucket(spec.bucket, {
-      layerPlan: directLayerPlanChild,
-      size,
-      store,
-      flagUnion: NO_FLAGS,
-      polymorphicPathList,
-      polymorphicType: null,
-      iterators,
-    });
+    const rootBucket = newBucket(
+      { sharedState: spec.bucket.sharedState, metaByMetaKey },
+      {
+        layerPlan: directLayerPlanChild,
+        size,
+        store,
+        flagUnion: entries.reduce(
+          (union, entry) => union | entry[2],
+          spec.bucket.flagUnion,
+        ),
+        polymorphicPathList,
+        polymorphicType: null,
+        iterators,
+      },
+    );
 
     const bucketPromise = executeBucket(rootBucket, requestContext);
 
     const output = () => {
-      const promises: PromiseLike<any>[] = [];
       for (let bucketIndex = 0; bucketIndex < size; bucketIndex++) {
         const actualIndex = entries[bucketIndex][1];
         // NOTE: this is a stream, so rootBucket.reason.type === 'listItem'
@@ -852,11 +928,8 @@ async function processStream(
         iterator.push(iteratorPayload);
         const promise = processRoot(ctx, iterator, outputDataAsString);
         if (isPromiseLike(promise)) {
-          promises.push(promise);
+          descendants.push(promise.then(undefined, failDescendants));
         }
-      }
-      if (promises.length !== 0) {
-        return Promise.all(promises).then(noop);
       }
     };
 
@@ -867,70 +940,86 @@ async function processStream(
     }
   };
 
-  let pendingQueues = 0;
-  const queueComplete = () => {
-    pendingQueues--;
-    if (loopComplete && pendingQueues <= 0) {
-      whenDone.resolve();
-    }
-  };
-  const processQueue = () => {
-    timeout = null;
-    assert.ok(
-      queue,
-      "GrafastInternalError<bcf5cef8-2c60-419e-b942-14fd34b8caa7>: processQueue called with no queue",
-    );
-
-    // This is guaranteed to have at least one entry in it
-    const entries = queue;
-    queue = null;
-
-    try {
-      const result = _processQueue(entries);
-      if (isPromiseLike(result)) {
-        result.then(queueComplete, (e) => {
-          whenDone.reject(e);
-        });
-      } else {
-        queueComplete();
-      }
-    } catch (e) {
-      whenDone.reject(e);
-    }
-  };
-
-  const processResult = (result: any, payloadIndex: number) => {
-    if (queue !== null) {
-      queue.push([result, payloadIndex]);
-    } else {
-      pendingQueues++;
-      queue = [[result, payloadIndex]];
-      // OPTIMIZE: tune this delay
-      timeout = setTimeout(processQueue, 1);
-    }
-  };
-
-  let loopComplete = false;
+  const { stream, startIndex } = specs[0];
+  let index = startIndex;
+  let next: Promise<IteratorResult<any>> | null = null;
+  const pendingBatches = new Set<Promise<void>>();
+  let batchFinished: PromiseWithResolvers<void> | null = null;
   try {
-    let payloadIndex = spec.startIndex;
-    let nextValuePromise: PromiseOrDirect<IteratorResult<any, any>>;
-    while ((nextValuePromise = spec.stream.next())) {
-      const iteratorResult = await nextValuePromise;
-      if (iteratorResult.done) {
+    while (await iterator.ready()) {
+      const first = await (next ?? stream.next());
+      next = null;
+      if (first.done) {
         break;
       }
-      const result = iteratorResult.value;
-      processResult(result, payloadIndex);
-      payloadIndex++;
+      const entries: ResultTuple[] = [entryFor(first, index++)];
+      let done = false;
+      let timer: ReturnType<typeof setTimeout>;
+      const deadline = new Promise<null>((resolve) => {
+        timer = setTimeout(resolve, 1, null);
+      });
+      try {
+        while (entries.length < 100) {
+          next = Promise.resolve(stream.next());
+          const result = await Promise.race([next, deadline]);
+          if (result === null) {
+            break;
+          }
+          next = null;
+          if (result.done) {
+            done = true;
+            break;
+          }
+          entries.push(entryFor(result, index++));
+        }
+      } finally {
+        clearTimeout(timer!);
+      }
+      if (entries.length > 0) {
+        // Batch caches for projected rows must become collectible as the
+        // response advances. Sibling projections still share their batch.
+        const meta =
+          specs[0].bucket.layerPlan.operationPlan.makeMetaByMetaKey();
+        const descendants: PromiseLike<void>[] = [];
+        await Promise.all(
+          specs.map((spec) => project(spec, entries, meta, descendants)),
+        );
+        if (descendants.length > 0) {
+          const completion = Promise.all(descendants).then(() => {
+            pendingBatches.delete(completion);
+            batchFinished?.resolve();
+          });
+          pendingBatches.add(completion);
+        }
+      }
+      if (done) {
+        break;
+      }
+      // Let the next batch advance while the previous batch runs its defers
+      // and streams. Bound the number of batches retained by slow descendants.
+      if (pendingBatches.size >= 2) {
+        batchFinished = Promise.withResolvers<void>();
+        await abortable(
+          requestContext.abortSignal,
+          undefined,
+          batchFinished.promise,
+        );
+        batchFinished = null;
+        if (requestContext.abortSignal.aborted) {
+          break;
+        }
+      }
     }
   } finally {
-    loopComplete = true;
-    if (pendingQueues === 0) {
-      whenDone.resolve();
-    }
-    // TODO: cleanup
+    await stream.return?.();
   }
-  return whenDone.promise;
+  if (pendingBatches.size > 0) {
+    await abortable(
+      requestContext.abortSignal,
+      undefined,
+      Promise.all(pendingBatches),
+    );
+  }
 }
 
 function processSingleDeferred(

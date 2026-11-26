@@ -11,8 +11,10 @@ import type {
 } from "../dist/index.js";
 import {
   constant,
+  flagError,
   grafast,
   lambda,
+  loadOne,
   makeGrafastSchema,
   Step,
 } from "../dist/index.js";
@@ -189,4 +191,232 @@ it("streams with non-streamable step", async () => {
   expect(payloads[3]).to.deep.equal({
     hasNext: false,
   });
+});
+
+it("bounds source pulls while the client is paused and closes on return", async () => {
+  let pulls = 0;
+  const closed = Promise.withResolvers<void>();
+  const started = Promise.withResolvers<void>();
+  async function* source() {
+    try {
+      for (let i = 0; i < 1000; i++) {
+        pulls++;
+        started.resolve();
+        yield i;
+      }
+    } finally {
+      closed.resolve();
+    }
+  }
+  const schema = makeGrafastSchema({
+    typeDefs: "type Query { rows: [Int!]! }",
+    objects: { Query: { plans: { rows: () => lambda(constant(0), source) } } },
+    enableDeferStream: true,
+  });
+  const stream = await grafast({
+    schema,
+    source: "{ rows @stream }",
+    resolvedPreset,
+    requestContext,
+  });
+  if (!(Symbol.asyncIterator in stream)) {
+    throw new Error("Expected streamed rows");
+  }
+  const iterator = stream[Symbol.asyncIterator]();
+  expect((await iterator.next()).value?.data).to.deep.equal({ rows: [] });
+  await started.promise;
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  expect(pulls).to.be.within(1, 101);
+  await iterator.return?.();
+  await closed.promise;
+  expect(pulls).to.be.lessThan(1000);
+});
+
+it("preserves null entries and errors in the streamed tail", async () => {
+  const schema = makeGrafastSchema({
+    typeDefs: "type Query { rows: [Int]! }",
+    enableDeferStream: true,
+    objects: {
+      Query: {
+        plans: {
+          rows: () =>
+            lambda(constant(0), () => [
+              1,
+              null,
+              flagError(new Error("row failed")),
+              4,
+            ]),
+        },
+      },
+    },
+  });
+  const stream = await grafast({
+    schema,
+    source: "{ rows @stream(initialCount: 1) }",
+  });
+  if (!(Symbol.asyncIterator in stream)) {
+    throw new Error("Expected streamed rows");
+  }
+  const data: unknown[] = [];
+  const errors: unknown[] = [];
+  for await (const payload of stream) {
+    if ("path" in payload && payload.path != null) {
+      data[Number(payload.path[1])] = payload.data;
+    } else if (payload.data != null) {
+      data.push(...(payload.data as { rows: unknown[] }).rows);
+    }
+    for (const error of payload.errors ?? []) {
+      errors.push([error.path, error.message]);
+    }
+  }
+  expect(data).to.deep.equal([1, null, null, 4]);
+  expect(errors).to.deep.equal([[["rows", 2], "row failed"]]);
+});
+
+async function streamRowsWithDeferredDetail(
+  rows: () => AsyncGenerator<number>,
+  loadDetail: (ids: readonly number[]) => Promise<readonly number[]>,
+) {
+  const schema = makeGrafastSchema({
+    typeDefs:
+      "type Query { rows: [Row!]! } type Row { id: Int!, detail: Int! }",
+    enableDeferStream: true,
+    objects: {
+      Query: { plans: { rows: () => lambda(constant(0), rows) } },
+      Row: {
+        plans: {
+          id: ($id: Step<number>) => $id,
+          detail: ($id: Step<number>) => loadOne($id, loadDetail),
+        },
+      },
+    },
+  });
+  const result = await grafast({
+    schema,
+    source: "{ rows @stream { id ... @defer { detail } } }",
+  });
+  if (!(Symbol.asyncIterator in result)) {
+    throw new Error("Expected streamed rows");
+  }
+  return result[Symbol.asyncIterator]();
+}
+
+it("advances a parent stream while batching and bounding its nested defers", async () => {
+  const first = Promise.withResolvers<void>();
+  const second = Promise.withResolvers<void>();
+  const secondStarted = Promise.withResolvers<void>();
+  const sizes: number[] = [];
+  let pulled = 0;
+  async function* rows() {
+    while (pulled < 201) {
+      yield pulled++;
+    }
+  }
+  const iterator = await streamRowsWithDeferredDetail(rows, async (ids) => {
+    sizes.push(ids.length);
+    if (ids[0] === 0) {
+      await first.promise;
+    } else if (ids[0] === 100) {
+      secondStarted.resolve();
+      await second.promise;
+    }
+    return ids;
+  });
+  try {
+    expect((await iterator.next()).value?.data).to.deep.equal({ rows: [] });
+    for (let id = 0; id < 200; id++) {
+      expect((await iterator.next()).value).to.deep.equal({
+        path: ["rows", id],
+        data: { id },
+        hasNext: true,
+      });
+    }
+    await secondStarted.promise;
+    expect(pulled).to.equal(200);
+    expect(sizes).to.deep.equal([100, 100]);
+
+    second.resolve();
+    const details: number[] = [];
+    let lastParentDelivered = false;
+    while (details.length < 101) {
+      const { value } = await iterator.next();
+      if (value == null || !("path" in value)) {
+        throw new Error(
+          "Expected a row or a deferred detail before completion",
+        );
+      }
+      const id = value.path?.[1] as number;
+      if (id === 200 && !lastParentDelivered) {
+        expect(value).to.deep.equal({
+          path: ["rows", id],
+          data: { id },
+          hasNext: true,
+        });
+        lastParentDelivered = true;
+      } else {
+        expect(value).to.deep.equal({
+          path: ["rows", id],
+          data: { detail: id },
+          hasNext: true,
+        });
+        details.push(id);
+      }
+    }
+    expect(details).to.have.members(
+      Array.from({ length: 101 }, (_, i) => i + 100),
+    );
+    expect(sizes).to.deep.equal([100, 100, 1]);
+
+    first.resolve();
+    for (let id = 0; id < 100; id++) {
+      expect((await iterator.next()).value).to.deep.equal({
+        path: ["rows", id],
+        data: { detail: id },
+        hasNext: true,
+      });
+    }
+    expect((await iterator.next()).value).to.deep.equal({ hasNext: false });
+    expect((await iterator.next()).done).to.equal(true);
+  } finally {
+    first.resolve();
+    second.resolve();
+    await iterator.return?.();
+  }
+});
+
+it("closes the parent source when cancelled with two deferred batches pending", async () => {
+  const release = Promise.withResolvers<void>();
+  const closed = Promise.withResolvers<void>();
+  const started = Promise.withResolvers<void>();
+  let pulled = 0;
+  let batches = 0;
+  async function* rows() {
+    try {
+      while (true) {
+        yield pulled++;
+      }
+    } finally {
+      closed.resolve();
+    }
+  }
+  const iterator = await streamRowsWithDeferredDetail(rows, async (ids) => {
+    if (++batches === 2) {
+      started.resolve();
+    }
+    await release.promise;
+    return ids;
+  });
+  try {
+    await iterator.next(); // Initial payload
+    for (let i = 0; i < 200; i++) {
+      await iterator.next();
+    }
+    await started.promise;
+    await iterator.return?.();
+    await closed.promise;
+    expect(pulled).to.equal(200);
+  } finally {
+    release.resolve();
+    await iterator.return?.();
+  }
 });
