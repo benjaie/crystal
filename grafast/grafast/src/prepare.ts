@@ -99,6 +99,10 @@ export interface GrafastOperationOptions {
 
 function noop() {}
 
+function streamForSpec(spec: SubsequentStreamSpec) {
+  return spec.stream;
+}
+
 function processRoot(
   // errors should already have been handled, and this ctx isn't suitable to be reused.
   ctx: Omit<OutputPlanContext, "errors">,
@@ -115,22 +119,12 @@ function processRoot(
   }
 
   const promises: PromiseLike<void>[] = [];
-  const groups = new Map<
-    SubsequentStreamSpec["stream"],
-    SubsequentStreamSpec[]
-  >();
-  for (const spec of streams) {
-    const group = groups.get(spec.stream);
-    if (group === undefined) {
-      groups.set(spec.stream, [spec]);
-    } else {
-      group.push(spec);
+  if (streams.length > 0) {
+    for (const group of Map.groupBy(streams, streamForSpec).values()) {
+      promises.push(
+        processStream(ctx.requestContext, iterator, group, outputDataAsString),
+      );
     }
-  }
-  for (const group of groups.values()) {
-    promises.push(
-      processStream(ctx.requestContext, iterator, group, outputDataAsString),
-    );
   }
   for (const deferred of queue) {
     promises.push(

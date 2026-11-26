@@ -1115,14 +1115,13 @@ export function executeBucket(
             `GrafastInternalError<58bc38e2-8722-4c19-ba38-fd01a020654b>: unary step ${step} cannot be made dependent on non-unary step ${$dep}!`,
           );
         }
-        const rawExecutionValue = store.get($dep.id);
-        if (rawExecutionValue === undefined) {
+        const executionValue = store.get($dep.id);
+        if (executionValue === undefined) {
           throw new Error(
             `GrafastInternalError<d9e9eb37-4251-4659-a545-4730826ecf0e>: ${$dep} data couldn't be found, but required by ${step} (with side effect ${step.implicitSideEffectStep})!`,
           );
         }
 
-        const executionValue = rawExecutionValue;
         _rawDependencies.push(executionValue);
         _rawForbiddenFlags.push(forbiddenFlags);
         _rawOnReject.push(onReject);

@@ -5160,13 +5160,7 @@ But ${p} is not in ${winner.layerPlan}'s expected polymorphic paths:
         return true;
       }
       for (const output of outputs) {
-        if (
-          output.layerPlan !== step.layerPlan &&
-          (!output.layerPlan.ancestry.includes(step.layerPlan) ||
-            output.layerPlan.ancestry
-              .slice(step.layerPlan.depth + 1)
-              .some((layer) => layer.reason.type !== "nullableBoundary"))
-        ) {
+        if (!output.layerPlan.canShareListWith(step.layerPlan)) {
           return false;
         }
       }
@@ -5201,15 +5195,12 @@ But ${p} is not in ${winner.layerPlan}'s expected polymorphic paths:
       for (const { step: consumer } of step.dependents) {
         if (
           consumer instanceof __CloneStreamStep &&
-          consumer.layerPlan.ancestry.includes(step.layerPlan) &&
-          consumer.layerPlan.ancestry
-            .slice(step.layerPlan.depth + 1)
-            .every((layer) => layer.reason.type === "nullableBoundary") &&
           (projections.length === 0 ||
             consumer.layerPlan === projections[0].layerPlan) &&
           consumer.implicitSideEffectStep === step.implicitSideEffectStep &&
           consumer._stepOptions.walkIterable &&
           consumer._stepOptions.stream != null &&
+          consumer.layerPlan.canShareListWith(step.layerPlan) &&
           consumer.dependents.every(({ step }) => step instanceof __ItemStep) &&
           canShareOutput(consumer)
         ) {
@@ -5221,14 +5212,7 @@ But ${p} is not in ${winner.layerPlan}'s expected polymorphic paths:
           !consumer.isSyncAndSafe &&
           consumer.layerPlan.deferBoundaryDepth >
             step.layerPlan.deferBoundaryDepth &&
-          consumer.layerPlan.ancestry.includes(step.layerPlan) &&
-          consumer.layerPlan.ancestry
-            .slice(step.layerPlan.depth + 1)
-            .every(
-              (layer) =>
-                layer.reason.type === "nullableBoundary" ||
-                layer.reason.type === "defer",
-            )
+          consumer.layerPlan.canShareListWith(step.layerPlan, true)
         ) {
           step._needsLastItem = true;
         } else {
