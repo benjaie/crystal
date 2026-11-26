@@ -418,8 +418,10 @@ it(
   process.env.POSTGRAPHILE_STREAM_SWEEP === "all" ? 1800000 : 30000,
 );
 
-(process.env.POSTGRAPHILE_STREAM_LARGE === "1" ? it : it.skip)(
-  "streams 100,001 rows through a zero-row fallback budget",
+(process.env.CI === "true" || process.env.POSTGRAPHILE_STREAM_LARGE === "1"
+  ? it
+  : it.skip)(
+  "streams 100,001 rows through a zero-row fallback budget (POSTGRAPHILE_STREAM_LARGE=1 yarn workspace postgraphile test:jest --runInBand streaming/connection -t 100,001)",
   async () => {
     await getTestDb().pgPool.query(`
       insert into a.post(id, author_id, headline, body)

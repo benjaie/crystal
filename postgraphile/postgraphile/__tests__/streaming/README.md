@@ -25,10 +25,10 @@ assembled data with the same query with its incremental directives removed.
 
 Set `POSTGRAPHILE_STREAM_SWEEP=all` on the same command to exercise all 65,536
 boolean combinations at `first: 2`, varying the initial counts. Each combination
-has a six-second deadline. A failure reports the variables and mask. Set
-`POSTGRAPHILE_STREAM_LARGE=1` to also seed an export of 100,001 rows and compare
-it to ordinary execution with a zero-row budget for stream materialization. Use
-Jest's `-t '100,001'` to run just that export.
+has a six-second deadline. A failure reports the variables and mask. CI also
+runs the 100,001-row export and compares it to ordinary execution with a
+zero-row budget for stream materialization. To run just that export locally,
+set `POSTGRAPHILE_STREAM_LARGE=1` and add `-t '100,001'` to the Jest command.
 
 ## Regressions found on 6f5d067ad
 
