@@ -1,7 +1,6 @@
 import type { RequestTools } from "./bucket.ts";
-import { flagError } from "./error.ts";
 import type { Step } from "./step.ts";
-import { consume, isPromiseLike, terminateIterable } from "./utils.ts";
+import { consume, terminateIterable } from "./utils.ts";
 
 export function listStreamRequested(step: Step, request: RequestTools) {
   const conditions = step._listStreamConditions;
@@ -12,27 +11,10 @@ export function listStreamRequested(step: Step, request: RequestTools) {
   );
 }
 
-/** An array can contain rejected promises even in its unread tail. Observe
- * them immediately and expose each settled entry through next(). */
-export function arrayContinuation(items: any[], start: number) {
-  let tail: any[] | null = null;
+export function* arrayContinuation(items: any[], start: number) {
   for (let i = start; i < items.length; i++) {
-    const item = items[i];
-    if (isPromiseLike(item)) {
-      tail ??= items.slice(start);
-      tail[i - start] = Promise.resolve(item).catch(flagError);
-    }
+    yield items[i];
   }
-  if (tail !== null) {
-    return (async function* (values) {
-      yield* values;
-    })(tail);
-  }
-  return (function* () {
-    for (let i = start; i < items.length; i++) {
-      yield items[i];
-    }
-  })();
 }
 
 const lastItems = new WeakMap<object, Promise<unknown>>();

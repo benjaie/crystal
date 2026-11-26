@@ -363,53 +363,51 @@ export function executeBucket(
           const initialCount = materialize
             ? Infinity
             : (stream?.initialCount ?? Infinity);
-          const prefixLength = Math.max(
-            0,
-            Math.min(rawValue.length, initialCount),
-          );
-          const hasTail = initialCount <= rawValue.length;
-          const value = rawValue;
-
-          // Ordinary arrays without promises can pass through by reference.
-          let replacement: Array<any> | null = hasTail ? [] : null;
-          for (let i = 0; i < prefixLength; i++) {
-            const item = value[i];
+          let items = rawValue;
+          let pending: PromiseLike<void>[] | undefined;
+          for (let i = 0; i < rawValue.length; i++) {
+            const item = rawValue[i];
             if (isPromiseLike(item)) {
-              if (replacement === null) {
-                // Copy up to here!
-                replacement = value.slice(0, i);
+              if (pending === undefined) {
+                items = rawValue.slice();
+                pending = [];
               }
-              replacement[i] = null;
-              const index = i;
-              // Must not reject
-              const promise = item.then(
-                (v) => void (replacement![index] = v),
-                (e) => void (replacement![index] = flagError(e)),
-              );
-              if (promises === undefined) {
-                promises = [promise];
-              } else {
-                promises.push(promise);
-              }
-            } else if (replacement !== null) {
-              replacement[i] = item;
-            }
-          }
-          const list = replacement === null ? value : replacement;
-          if (hasTail) {
-            let continuation: Iterator<any> | AsyncIterator<any> =
-              arrayContinuation(value, prefixLength);
-            if (finishedStep._needsLastItem && projections !== null) {
-              continuation = trackLastItem(
-                continuation,
-                requestContext.abortSignal,
+              pending.push(
+                item.then(
+                  (v) => void (items[i] = v),
+                  (e) => void (items[i] = flagError(e)),
+                ),
               );
             }
-            (list as StreamMaybeMoreableArray<any>)[$$streamMore] =
-              continuation;
-            (bucket.iterators[resultIndex] ??= new Set()).add(continuation);
           }
-          bucket.setResult(finishedStep, resultIndex, list, flags);
+
+          const storeArray = () => {
+            if (initialCount > items.length) {
+              bucket.setResult(finishedStep, resultIndex, items, flags);
+            } else {
+              const prefixLength = Math.max(0, initialCount);
+              const prefix: StreamMaybeMoreableArray<any> = items.slice(
+                0,
+                prefixLength,
+              );
+              let continuation: Iterator<any> | AsyncIterator<any> =
+                arrayContinuation(items, prefixLength);
+              if (finishedStep._needsLastItem && projections !== null) {
+                continuation = trackLastItem(
+                  continuation,
+                  requestContext.abortSignal,
+                );
+              }
+              prefix[$$streamMore] = continuation;
+              (bucket.iterators[resultIndex] ??= new Set()).add(continuation);
+              bucket.setResult(finishedStep, resultIndex, prefix, flags);
+            }
+          };
+          if (pending === undefined) {
+            storeArray();
+          } else {
+            (promises ??= []).push(Promise.all(pending).then(storeArray));
+          }
           return;
         }
 
