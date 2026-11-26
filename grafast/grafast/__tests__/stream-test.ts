@@ -357,6 +357,81 @@ it("retains the final page of a forward-only source in input order", async () =>
   });
 });
 
+for (const initialCount of [0, 1]) {
+  it(`settles all array items before returning a stream with initialCount ${initialCount}`, async () => {
+    const started = Promise.withResolvers<void>();
+    const pending = Promise.withResolvers<number>();
+    const failed = Promise.withResolvers<number>();
+    const rows = Object.freeze([
+      Promise.resolve(1),
+      failed.promise,
+      pending.promise,
+    ]);
+    const schema = makeGrafastSchema({
+      typeDefs: "type Query { rows: [Int]! }",
+      enableDeferStream: true,
+      objects: {
+        Query: {
+          plans: {
+            rows: () =>
+              lambda(constant(0), async () => {
+                started.resolve();
+                return rows;
+              }),
+          },
+        },
+      },
+    });
+    let completed = false;
+    const execution = Promise.resolve(
+      grafast({
+        schema,
+        source: `{ rows @stream(initialCount: ${initialCount}) }`,
+      }),
+    ).then((result) => {
+      completed = true;
+      return result;
+    });
+    await started.promise;
+    failed.reject(new Error("bad row"));
+    try {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(completed).to.equal(false);
+    } finally {
+      pending.resolve(3);
+    }
+
+    const result = await execution;
+    if (!(Symbol.asyncIterator in result)) {
+      throw new Error("Expected streamed rows");
+    }
+    const payloads = [];
+    for await (const payload of result) {
+      payloads.push(payload);
+    }
+    expect(payloads.shift()).to.deep.equal({
+      data: { rows: initialCount === 0 ? [] : [1] },
+      hasNext: true,
+    });
+    if (initialCount === 0) {
+      expect(payloads.shift()).to.deep.equal({
+        path: ["rows", 0],
+        data: 1,
+        hasNext: true,
+      });
+    }
+    const failure = payloads.shift();
+    expect(failure?.data).to.equal(null);
+    expect(
+      failure?.errors?.map((error) => [error.message, error.path]),
+    ).to.deep.equal([["bad row", ["rows", 1]]]);
+    expect(payloads).to.deep.equal([
+      { path: ["rows", 2], data: 3, hasNext: true },
+      { hasNext: false },
+    ]);
+  });
+}
+
 async function streamRowsWithDeferredDetail(
   rows: () => AsyncGenerator<number>,
   loadDetail: (ids: readonly number[]) => Promise<readonly number[]>,

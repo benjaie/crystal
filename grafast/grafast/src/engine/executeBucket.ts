@@ -37,6 +37,7 @@ import type {
 import type { Step, UnbatchedStep } from "../step.ts";
 import { __ItemStep } from "../steps/__item.ts";
 import { __ValueStep } from "../steps/__value.ts";
+import { arrayContinuation } from "../streamItems.ts";
 import { timeSource } from "../timeSource.ts";
 import {
   arrayOfLength,
@@ -340,38 +341,46 @@ export function executeBucket(
           stream = evaluateStream(bucket, finishedStep, distributorOptions);
         }
 
-        if (!stream && !valueIsAsyncIterable && Array.isArray(rawValue)) {
-          // Fast mode
-          const value = rawValue;
-
-          const valueCount = value.length;
-          /** We only create a duplicate array if the source array contains promises */
-          let replacement: Array<any> | null = null;
-          for (let i = 0; i < valueCount; i++) {
-            const item = value[i];
+        if (Array.isArray(rawValue)) {
+          const initialCount = stream?.initialCount ?? Infinity;
+          let items = rawValue;
+          let pending: PromiseLike<void>[] | undefined;
+          for (let i = 0; i < rawValue.length; i++) {
+            const item = rawValue[i];
             if (isPromiseLike(item)) {
-              if (replacement === null) {
-                // Copy up to here!
-                replacement = value.slice(0, i);
+              if (pending === undefined) {
+                items = rawValue.slice();
+                pending = [];
               }
-              replacement[i] = null;
-              const index = i;
-              // Must not reject
-              const promise = item.then(
-                (v) => void (replacement![index] = v),
-                (e) => void (replacement![index] = flagError(e)),
+              pending.push(
+                item.then(
+                  (v) => void (items[i] = v),
+                  (e) => void (items[i] = flagError(e)),
+                ),
               );
-              if (promises === undefined) {
-                promises = [promise];
-              } else {
-                promises.push(promise);
-              }
-            } else if (replacement !== null) {
-              replacement[i] = item;
             }
           }
-          const list = replacement === null ? value : replacement;
-          bucket.setResult(finishedStep, resultIndex, list, flags);
+
+          const storeArray = () => {
+            if (initialCount > items.length) {
+              bucket.setResult(finishedStep, resultIndex, items, flags);
+            } else {
+              const prefixLength = Math.max(0, initialCount);
+              const prefix: StreamMaybeMoreableArray<any> = items.slice(
+                0,
+                prefixLength,
+              );
+              const continuation = arrayContinuation(items, prefixLength);
+              prefix[$$streamMore] = continuation;
+              (bucket.iterators[resultIndex] ??= new Set()).add(continuation);
+              bucket.setResult(finishedStep, resultIndex, prefix, flags);
+            }
+          };
+          if (pending === undefined) {
+            storeArray();
+          } else {
+            (promises ??= []).push(Promise.all(pending).then(storeArray));
+          }
           return;
         }
 
@@ -539,7 +548,20 @@ export function executeBucket(
         }
       }
 
-      return promises === undefined ? undefined : Promise.all(promises);
+      if (promises === undefined) {
+        return;
+      }
+      // Resolving a promised step result can enqueue further work, e.g. reading
+      // the prefix of an iterator. Finish that work before running dependents.
+      const waitForResults = async () => {
+        let from = 0;
+        while (from < promises!.length) {
+          const pending = promises!.slice(from);
+          from += pending.length;
+          await Promise.all(pending);
+        }
+      };
+      return waitForResults();
     };
 
     const runSyncSteps = () => {
