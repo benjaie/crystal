@@ -361,11 +361,13 @@ interface QueryBuildResult {
   meta: Record<string, unknown>;
 
   // Compile once the execution mode and the batch's row limit are known.
-  makeQuery: MakeSelectQuery;
+  // Null when pagination metadata alone fully determines the result.
+  makeQuery: MakeSelectQuery | null;
   usesIdentifiers: boolean;
   /** A single forward cursor supplies both the prefix and the continuation. */
   stream: boolean;
   streamRequested: boolean;
+  visibleBoundaryCount: number | null;
 
   // If last but not first, reverse order.
   shouldReverseOrder: boolean;
@@ -1201,6 +1203,7 @@ export class PgSelectStep<
       usesIdentifiers,
       stream,
       streamRequested,
+      visibleBoundaryCount,
       queryValues: rawQueryValues,
       shouldReverseOrder,
       first,
@@ -1230,6 +1233,22 @@ export class PgSelectStep<
     const queryValuesLength = rawQueryValues.length;
     if (first === 0 || last === 0) {
       return arrayOfLength(count, NO_ROWS);
+    }
+    if (makeQuery === null) {
+      return arrayOfLength(
+        count,
+        createSelectResult(EMPTY_ARRAY, {
+          first,
+          last,
+          offset,
+          fetchOneExtra: false,
+          visibleBoundaryCount,
+          shouldReverseOrder,
+          meta,
+          cursorDetails,
+          groupDetails,
+        }),
+      );
     }
     const context = values[this.contextId].unaryValue();
 
@@ -1394,6 +1413,7 @@ export class PgSelectStep<
           last,
           offset,
           fetchOneExtra: this.fetchOneExtra,
+          visibleBoundaryCount,
           shouldReverseOrder,
           meta,
           cursorDetails,
@@ -2382,6 +2402,21 @@ export class PgSelectStep<
   static getStaticInfo<
     TResource extends PgResource<any, any, any, any, any, any, any>,
   >($source: PgSelectStep<TResource>): StaticInfo<TResource> {
+    const owner =
+      $source.mode === "normal" &&
+      !$source.hasSideEffects &&
+      $source.dependents.find(({ step }) => step instanceof ConnectionStep)
+        ?.step;
+    const pageRequirements =
+      owner instanceof ConnectionStep &&
+      $source.dependents.every(
+        ({ step }) =>
+          step === owner ||
+          (step instanceof AccessStep &&
+            ["cursorDetails", "m"].includes(String(step.path[0]))),
+      )
+        ? owner.forwardPageRequirements()
+        : null;
     return {
       sourceStepDescription: `PgSelectStep[${$source.id}]`,
       forceIdentity: $source.forceIdentity,
@@ -2396,6 +2431,7 @@ export class PgSelectStep<
       orders: $source.orders,
       selects: $source.selects,
       fetchOneExtra: $source.fetchOneExtra,
+      pageRequirements,
       isOrderUnique: $source.isOrderUnique,
       isUnique: $source.isUnique,
       isSimpleUnique:
@@ -3070,6 +3106,9 @@ interface PgSelectQueryInfo<
   >;
   readonly meta: { readonly [key: string]: any };
 
+  readonly pageRequirements: ReturnType<
+    ConnectionStep<any>["forwardPageRequirements"]
+  >;
   readonly streamDetailsDepIds: ReadonlyArray<number | null> | null;
 }
 
@@ -3517,10 +3556,11 @@ ${lateralText};`;
 
   return {
     meta,
-    makeQuery,
+    makeQuery: needsNoPageRows(info) ? null : makeQuery,
     usesIdentifiers,
     stream: stream != null && last == null && !shouldReverseOrder,
     streamRequested,
+    visibleBoundaryCount: visibleBoundaryCount(info),
     shouldReverseOrder,
     queryValues,
     first,
@@ -3545,6 +3585,7 @@ type StaticKeys =
   | "orders"
   | "selects"
   | "fetchOneExtra"
+  | "pageRequirements"
   | "isOrderUnique"
   | "isUnique"
   | "isSimpleUnique"
@@ -3666,12 +3707,15 @@ class PgSelectInlineApplyStep<
             shouldReverseOrder,
             isSimpleUnique,
           } = info;
-          const baseQuery = buildQueryFromParts(parts, true);
-          const selectIndex = queryBuilder.selectAndReturnIndex(
-            isSimpleUnique
-              ? sql`(${sql.indent(baseQuery)})::text`
-              : sql`array(${sql.indent(baseQuery)})::text`,
-          );
+          let selectIndex: number | null = null;
+          if (!needsNoPageRows(info)) {
+            const baseQuery = buildQueryFromParts(parts, true);
+            selectIndex = queryBuilder.selectAndReturnIndex(
+              isSimpleUnique
+                ? sql`(${sql.indent(baseQuery)})::text`
+                : sql`array(${sql.indent(baseQuery)})::text`,
+            );
+          }
 
           const details: PgSelectInlineViaSubqueryDetails = {
             cursorDetails,
@@ -3679,6 +3723,7 @@ class PgSelectInlineApplyStep<
             shouldReverseOrder,
             fetchOneExtra,
             selectIndex,
+            visibleBoundaryCount: visibleBoundaryCount(info),
             first,
             last,
             offset,
@@ -3731,11 +3776,12 @@ interface PgSelectInlineViaJoinDetails {
   meta: Record<string, any>;
 }
 interface PgSelectInlineViaSubqueryDetails {
-  selectIndex: number;
+  selectIndex: number | null;
   cursorDetails: PgCursorDetails | undefined;
   groupDetails: PgGroupDetails | undefined;
   meta: Record<string, any>;
   fetchOneExtra: boolean;
+  visibleBoundaryCount: number | null;
   first: Maybe<number>;
   last: Maybe<number>;
   offset: Maybe<number>;
@@ -3949,6 +3995,30 @@ function getOrderByDigest<
   return digest;
 }
 
+function needsNoPageRows(info: ResolvedPgSelectQueryInfo<any>): boolean {
+  const page = info.pageRequirements;
+  return (
+    page !== null &&
+    info.last == null &&
+    (info.first === 0 ||
+      (!page.start && !page.end && (!page.next || info.first == null)))
+  );
+}
+
+// Keep the ordinary cursor/offset/ordering logic for the page itself. Only
+// its first and last visible rows (and the possible lookahead) are needed by
+// a connection whose lists were omitted.
+function visibleBoundaryCount(
+  info: ResolvedPgSelectQueryInfo<any>,
+): number | null {
+  const requirements = info.pageRequirements;
+  if (requirements === null || info.last != null) return null;
+  return Math.min(
+    info.first ?? Infinity,
+    Number(requirements.start) + Number(requirements.end),
+  );
+}
+
 function buildQueryParts<
   TResource extends PgResource<any, any, any, any, any, any, any>,
 >(
@@ -3984,7 +4054,13 @@ function buildQueryParts<
   // then we do the last artificially later.
   // https://relay.dev/graphql/connections.htm#EdgesToReturn()
 
-  const [limitAndOffset] = calculateLimitAndOffsetSQLFromInfo(info, maxRows);
+  const pageRequirements = info.last == null ? info.pageRequirements : null;
+  // Boundary queries need the whole page to locate its end. Cap their
+  // projected rows after boundary selection instead.
+  const [limitAndOffset] = calculateLimitAndOffsetSQLFromInfo(
+    info,
+    pageRequirements === null ? maxRows : undefined,
+  );
 
   const { sql: from } = buildFrom();
   const { sql: groupBy } = buildGroupBy();
@@ -4005,7 +4081,9 @@ function buildQueryParts<
     havingConditions: info.havingConditions,
     orderBy,
     limitAndOffset,
-
+    pageRequirements,
+    maxRows,
+    first: info.first,
     _symbolSubstitutes,
   };
 }
@@ -4031,7 +4109,40 @@ function buildQueryFromParts(
   const where = buildWhereOrHaving(sql`where`, whereConditions);
   const having = buildWhereOrHaving(sql`having`, havingConditions);
 
-  return sql`${comment}${aliases}${select}${from}${join}${where}${groupBy}${having}${orderBy}${limitAndOffset}`;
+  const baseQuery = sql`${comment}${aliases}${select}${from}${join}${where}${groupBy}${having}${orderBy}${limitAndOffset}`;
+  const { pageRequirements, first, maxRows } = parts;
+  if (pageRequirements === null) return baseQuery;
+  const { start, end, next } = pageRequirements;
+  const lookahead = next && first != null && first > 0;
+  let query: SQL;
+  if (!end && !start) {
+    query = sql`select * from (${baseQuery}) as page limit 1 offset ${sql.literal(first!)}`;
+  } else if (!end && !lookahead) {
+    query = sql`select * from (${baseQuery}) as page limit 1`;
+  } else {
+    // lead only needs the following row, including when the page is short.
+    // Project the original tuple back out so cursor column indexes stay valid.
+    const positions: SQL[] = [];
+    if (start) {
+      positions.push(sql`pos = 1`);
+    }
+    if (end) {
+      positions.push(
+        first == null
+          ? sql`at_end`
+          : sql`(pos = ${sql.literal(first)} or (at_end and pos < ${sql.literal(first)}))`,
+      );
+    }
+    if (lookahead) {
+      positions.push(sql`pos = ${sql.literal(first + 1)}`);
+    }
+    query = sql`select (bounds.row_data).* from (
+      select page as row_data, row_number() over () as pos,
+        not lead(true, 1, false) over () as at_end
+      from (${baseQuery}) as page
+    ) as bounds where ${sql.join(positions, " or ")} order by pos${limitSQL(maxRows)}`;
+  }
+  return query;
 }
 
 function buildOrderBy<
@@ -4270,6 +4381,7 @@ function createSelectResult(
     first,
     last,
     fetchOneExtra,
+    visibleBoundaryCount,
     shouldReverseOrder,
     meta,
     cursorDetails,
@@ -4280,6 +4392,7 @@ function createSelectResult(
     last: Maybe<number> | null;
     offset: Maybe<number> | null;
     fetchOneExtra: boolean;
+    visibleBoundaryCount: number | null;
     shouldReverseOrder: boolean;
     meta: Record<string, any>;
     cursorDetails: PgCursorDetails | undefined;
@@ -4289,7 +4402,7 @@ function createSelectResult(
   if (allVals == null || !Array.isArray(allVals)) {
     return allVals as never;
   }
-  const limit = first ?? last;
+  const limit = visibleBoundaryCount ?? first ?? last;
   const firstAndLast = first != null && last != null && last < first;
   const hasMore = fetchOneExtra && limit != null && allVals.length > limit;
   const trimFromStart = !shouldReverseOrder && last != null && first == null;
@@ -4348,7 +4461,7 @@ function pgInlineViaSubqueryTransform([details, item]: readonly [
   PgSelectInlineViaSubqueryDetails,
   Maybe<readonly string[]>,
 ]) {
-  if (item == null) {
+  if (item == null || details.selectIndex === null) {
     return createSelectResult([], details);
   }
   const result = item[details.selectIndex];
