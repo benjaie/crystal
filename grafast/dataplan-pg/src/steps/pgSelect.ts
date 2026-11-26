@@ -1548,15 +1548,7 @@ export class PgSelectStep<
       this.canStreamRows =
         (owner instanceof ConnectionStep ||
           owner instanceof PgSelectRowsStep) &&
-        (owner.layerPlan === this.layerPlan ||
-          (owner.layerPlan.ancestry.includes(this.layerPlan) &&
-            owner.layerPlan.ancestry
-              .slice(this.layerPlan.depth + 1)
-              .every(
-                (layer) =>
-                  layer.reason.type === "nullableBoundary" ||
-                  layer.reason.type === "defer",
-              )));
+        owner.layerPlan.canShareListWith(this.layerPlan, true);
       if (this.canStreamRows && owner instanceof ConnectionStep) {
         this.connectionOwner = owner;
       }
@@ -3359,7 +3351,6 @@ function buildTheQueryCore<
   if (info.needsCursor || after != null || before != null) {
     info.cursorDigest = getOrderByDigest(info);
   }
-  // PERF: only calculate this if needed
 
   if (info.cursorIndicies) {
     // PERF: calculate cursorDigest here instead?
@@ -3482,14 +3473,10 @@ function buildTheQuery<
   const makeQuery: MakeSelectQuery = ({ maxRows, lookaheadOffset }) => {
     const options = { placeholderValues };
     if (usesIdentifiers) {
-      const extraSelects: SQL[] = [];
-
-      const identifierIndexOffset =
-        extraSelects.push(sql`${identifiersAlias}.idx`) - 1;
-      const { sql: baseQuery, extraSelectIndexes } = buildQuery(info, {
-        extraSelects,
-      });
-      const rowIdentifierIndex = extraSelectIndexes[identifierIndexOffset];
+      const rowIdentifierIndex = info.selects.length;
+      const baseQuery = buildQueryFromParts(
+        buildQueryParts(info, { identifier: sql`${identifiersAlias}.idx` }),
+      );
       const identifierIndex =
         lookaheadOffset === undefined ? rowIdentifierIndex : 0;
       const query =
@@ -3546,7 +3533,7 @@ ${lateralText};`;
 
       return { text, rawSqlValues, identifierIndex };
     } else {
-      const { sql: baseQuery } = buildQuery(info, { maxRows });
+      const baseQuery = buildQueryFromParts(buildQueryParts(info, { maxRows }));
       const query =
         lookaheadOffset === undefined
           ? baseQuery
@@ -3722,9 +3709,7 @@ class PgSelectInlineApplyStep<
           } = info;
           let selectIndex: number | null = null;
           if (!needsNoPageRows(info)) {
-            const { sql: baseQuery } = buildQueryFromParts(parts, {
-              asArray: true,
-            });
+            const baseQuery = buildQueryFromParts(parts, true);
             selectIndex = queryBuilder.selectAndReturnIndex(
               isSimpleUnique
                 ? sql`(${sql.indent(baseQuery)})::text`
@@ -3810,7 +3795,7 @@ function buildPartsForInlining<
   const coreResult = buildTheQueryCore(rawInfo);
   return {
     ...coreResult,
-    parts: buildQueryParts(coreResult.info, {}),
+    parts: buildQueryParts(coreResult.info),
   };
 }
 
@@ -4038,12 +4023,7 @@ function buildQueryParts<
   TResource extends PgResource<any, any, any, any, any, any, any>,
 >(
   info: ResolvedPgSelectQueryInfo<TResource>,
-  options: {
-    withIdentifiers?: boolean;
-    extraSelects?: SQL[];
-    forceOrder?: boolean;
-    maxRows?: number;
-  } = Object.create(null),
+  { identifier, maxRows }: { identifier?: SQL; maxRows?: number } = {},
 ) {
   const { alias, resource, selects: baseSelects, _symbolSubstitutes } = info;
 
@@ -4079,20 +4059,14 @@ function buildQueryParts<
   // projected rows after boundary selection instead.
   const [limitAndOffset] = calculateLimitAndOffsetSQLFromInfo(
     info,
-    pageRequirements === null ? options.maxRows : undefined,
+    pageRequirements === null ? maxRows : undefined,
   );
 
   const { sql: from } = buildFrom();
   const { sql: groupBy } = buildGroupBy();
-  const { sql: orderBy } = buildOrderBy(
-    info,
-    options.forceOrder ? false : info.shouldReverseOrder,
-  );
-
-  const { extraSelects = EMPTY_ARRAY } = options;
-  const selects = [...baseSelects, ...extraSelects];
-  const l = baseSelects.length;
-  const extraSelectIndexes = extraSelects.map((_, i) => i + l);
+  const { sql: orderBy } = buildOrderBy(info, info.shouldReverseOrder);
+  const selects =
+    identifier === undefined ? baseSelects : [...baseSelects, identifier];
 
   return {
     comment: sql.comment(
@@ -4107,33 +4081,16 @@ function buildQueryParts<
     havingConditions: info.havingConditions,
     orderBy,
     limitAndOffset,
-    extraSelectIndexes,
     pageRequirements,
+    maxRows,
     first: info.first,
     _symbolSubstitutes,
   };
 }
 
-function buildQuery<
-  TResource extends PgResource<any, any, any, any, any, any, any>,
->(
-  info: MutablePgSelectQueryInfo<TResource>,
-  options: {
-    withIdentifiers?: boolean;
-    extraSelects?: SQL[];
-    forceOrder?: boolean;
-    maxRows?: number;
-  } = Object.create(null),
-): {
-  sql: SQL;
-  extraSelectIndexes: number[];
-} {
-  return buildQueryFromParts(buildQueryParts(info, options), options);
-}
-
 function buildQueryFromParts(
   parts: ReturnType<typeof buildQueryParts>,
-  options: { asArray?: boolean; maxRows?: number } = {},
+  asArray = false,
 ) {
   const {
     comment,
@@ -4145,17 +4102,16 @@ function buildQueryFromParts(
     havingConditions,
     orderBy,
     limitAndOffset,
-    extraSelectIndexes,
   } = parts;
-  const select = buildSelect(selects, options.asArray);
+  const select = buildSelect(selects, asArray);
   const aliases = buildAliases(parts._symbolSubstitutes);
   const join = buildJoin(joins);
   const where = buildWhereOrHaving(sql`where`, whereConditions);
   const having = buildWhereOrHaving(sql`having`, havingConditions);
 
   const baseQuery = sql`${comment}${aliases}${select}${from}${join}${where}${groupBy}${having}${orderBy}${limitAndOffset}`;
-  const { pageRequirements, first } = parts;
-  if (pageRequirements === null) return { sql: baseQuery, extraSelectIndexes };
+  const { pageRequirements, first, maxRows } = parts;
+  if (pageRequirements === null) return baseQuery;
   const { start, end, next } = pageRequirements;
   const lookahead = next && first != null && first > 0;
   let query: SQL;
@@ -4184,9 +4140,9 @@ function buildQueryFromParts(
       select page as row_data, row_number() over () as pos,
         not lead(true, 1, false) over () as at_end
       from (${baseQuery}) as page
-    ) as bounds where ${sql.join(positions, " or ")} order by pos${limitSQL(options.maxRows)}`;
+    ) as bounds where ${sql.join(positions, " or ")} order by pos${limitSQL(maxRows)}`;
   }
-  return { sql: query, extraSelectIndexes };
+  return query;
 }
 
 function buildOrderBy<

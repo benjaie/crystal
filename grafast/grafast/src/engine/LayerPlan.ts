@@ -540,6 +540,19 @@ export class LayerPlan<TReason extends LayerPlanReason = LayerPlanReason> {
     }
   }
 
+  /** @internal Can a list reader in the ancestor serve this layer without
+   * multiplying its entries or crossing an independent delivery boundary? */
+  canShareListWith(ancestor: LayerPlan, allowDefer = false): boolean {
+    if (this.ancestry[ancestor.depth] !== ancestor) return false;
+    for (let i = ancestor.depth + 1; i <= this.depth; i++) {
+      const type = this.ancestry[i].reason.type;
+      if (type !== "nullableBoundary" && !(allowDefer && type === "defer")) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   toString() {
     let chain = "";
     // eslint-disable-next-line @typescript-eslint/no-this-alias
