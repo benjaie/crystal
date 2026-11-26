@@ -13,6 +13,8 @@ order by __forums__."id" asc;
 
 begin; /*fake*/
 
+set transaction read only
+
 declare __SNAPSHOT_CURSOR_0__ insensitive no scroll cursor without hold for
 select
   __messages__."body" as "0",

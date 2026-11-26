@@ -1,6 +1,8 @@
-#> independentSqlPrefix: "select\n  (count(*))::text"
 ## expect(errors).toBeFalsy()
-## expect(queries).toHaveLength(8);
+#> maxMaterializedStreamRows: 0
+#> independentSqlPrefix: "select\n  (count(*))::text"
+## expect(queries.filter(q => q.text.startsWith("declare "))).toHaveLength(1);
+## expect(queries.filter(q => q.text.startsWith("fetch "))).toHaveLength(1);
 {
   forums(includeArchived: EXCLUSIVELY) {
     name

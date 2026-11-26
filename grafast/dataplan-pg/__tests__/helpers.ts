@@ -146,6 +146,7 @@ export async function runTestQuery(
   config: {
     variableValues?: { [key: string]: any };
     directPg?: boolean;
+    maxMaterializedStreamRows?: number;
     checkErrorSnapshots?: boolean;
     /**
      * To run a query multiple times, set this to the number of times. Useful
@@ -221,6 +222,7 @@ export async function runTestQuery(
         const resolvedPreset = resolvePreset({
           grafast: {
             explain: ["plan"],
+            maxMaterializedStreamRows: config.maxMaterializedStreamRows,
           },
         });
         let result!: Awaited<

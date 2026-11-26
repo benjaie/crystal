@@ -445,7 +445,6 @@ test("a paused cursor fetches one batch and releases its client on cancellation"
     [{ context, queryValues: [] }],
     {
       text: "select generate_series(0, 1000000)",
-      cursorScope: {},
       rawSqlValues: [],
       eventEmitter: undefined,
     },
@@ -515,12 +514,7 @@ test("a short fetch releases the cursor before its last rows are consumed", asyn
   });
   const { streams } = await executor.executeStream(
     [{ context, queryValues: [] }],
-    {
-      text: "select page",
-      cursorScope: {},
-      rawSqlValues: [],
-      eventEmitter: undefined,
-    },
+    { text: "select page", rawSqlValues: [], eventEmitter: undefined },
   );
   const cursor = (await streams[0])[Symbol.asyncIterator]();
   expect(await cursor.next()).toEqual({ value: [1], done: false });
@@ -591,7 +585,6 @@ test("a failed cursor fetch preserves the source error and ends the iterator", a
   const { streams } = await executor.executeStream(
     [{ context, queryValues: [] }],
     {
-      cursorScope: {},
       text: "select parent",
       rawSqlValues: [],
       eventEmitter: undefined,

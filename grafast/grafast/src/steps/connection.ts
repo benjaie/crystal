@@ -1689,6 +1689,14 @@ export class ConnectionParamsStep<TCursorValue> extends UnbatchedStep<
   }
 }
 
+function nextPage(result: ConnectionResult<unknown> | null) {
+  return result?.hasNextPage;
+}
+
+function previousPage(result: ConnectionResult<unknown> | null) {
+  return result?.hasPreviousPage;
+}
+
 class PageInfoStep extends UnbatchedStep<ConnectionResult<any>> {
   static $$export = {
     moduleName: "grafast",
@@ -1715,11 +1723,15 @@ class PageInfoStep extends UnbatchedStep<ConnectionResult<any>> {
     switch (key) {
       case "hasNextPage": {
         $connection.setNeedsHasMore(key);
-        return access($connection, "hasNextPage");
+        return deferred
+          ? lambda($connection, nextPage)
+          : access($connection, "hasNextPage");
       }
       case "hasPreviousPage": {
         $connection.setNeedsHasMore(key);
-        return access($connection, "hasPreviousPage");
+        return deferred
+          ? lambda($connection, previousPage)
+          : access($connection, "hasPreviousPage");
       }
       case "startCursor": {
         // Get first node, get cursor for it

@@ -1,6 +1,5 @@
-#> independentSqlPrefix: "select\n  (count(*))::text"
 ## expect(errors).toBeFalsy()
-## expect(queries).toHaveLength(3);
+## expect(queries).toHaveLength(4);
 {
   forums(includeArchived: EXCLUSIVELY) {
     name

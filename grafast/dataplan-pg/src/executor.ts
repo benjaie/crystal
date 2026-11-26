@@ -692,26 +692,6 @@ ${duration}
     }
   }
 
-  private withTransaction<T>(
-    context: PgExecutorContext,
-    callback: (execute: ExecuteFunction) => Promise<T>,
-  ): Promise<T> {
-    return context.withPgClient<T>(context.pgSettings, (baseClient) =>
-      baseClient.withTransaction((transactionClient) => {
-        const execute: ExecuteFunction = (text, values) =>
-          this._executeWithClient(
-            transactionClient,
-            text,
-            values,
-            undefined, // TODO: add 'name' to args?
-            undefined,
-            false,
-          );
-        return callback(execute);
-      }),
-    );
-  }
-
   private withCursorTransaction<T>(
     context: PgExecutorContext,
     callback: (
@@ -1021,10 +1001,10 @@ ${duration}
     const valuesCount = values.length;
     const streams: Array<AsyncIterable<TOutput> | Promise<never> | null> = [];
 
-    if (common.cursorScope !== undefined) {
+    if (valuesCount === 1 || common.cursorScope !== undefined) {
       // Each parent pulls its own prefix and continuation. Its portal shares a
       // transaction and client with the other portals in this request/context.
-      const scope = common.cursorScope;
+      const scope = common.cursorScope ?? {};
       return {
         streams: values.map(({ context, queryValues }) =>
           this.singleCursor<TOutput>(
@@ -1215,8 +1195,19 @@ ${duration}
           }
         };
 
-        this.withTransaction(context, (_execute) => {
-          resolveExecute(_execute);
+        let canPin = false;
+        this.withCursorTransaction(context, (client, reserved) => {
+          canPin = reserved;
+          resolveExecute((text, values) =>
+            this._executeWithClient(
+              client,
+              text,
+              values,
+              undefined,
+              undefined,
+              false,
+            ),
+          );
           return tx;
         }).then(null, handleFetchError);
         const execute = await executePromise;
@@ -1259,7 +1250,7 @@ ${duration}
               supplyValue(i, new Wrapped($$FINISHED));
             }
           } else {
-            if (valuesPending < batchFetchSize) {
+            if (!canPin || valuesPending < batchFetchSize) {
               fetchNextBatch().then(null, handleFetchError);
             }
           }
