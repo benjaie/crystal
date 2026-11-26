@@ -38,7 +38,7 @@ import {
   getChildBucketAndIndex,
   getDirectLayerPlanChild,
 } from "./engine/OutputPlan.ts";
-import { isFlaggedValue } from "./error.ts";
+import { isFlaggedValue, SafeError } from "./error.ts";
 import type {
   ErrorBehavior,
   GrafastInternalExecutionArgs,
@@ -370,9 +370,27 @@ function executePreemptive(
   const startTime = timeSource.now();
   const stopTime =
     executionTimeout !== null ? startTime + executionTimeout : null;
+  const rowLimit =
+    args.resolvedPreset?.grafast?.maxMaterializedStreamRows ?? 100_000;
+  if (
+    rowLimit !== Infinity &&
+    (!Number.isSafeInteger(rowLimit) || rowLimit < 0)
+  ) {
+    throw new Error(
+      "maxMaterializedStreamRows must be a non-negative safe integer or Infinity",
+    );
+  }
   const requestContext: RequestTools = {
     args,
     onError,
+    variableValues,
+    remainingStreamRows: rowLimit,
+    retainStreamRows(count) {
+      this.remainingStreamRows -= count;
+      if (this.remainingStreamRows < 0) {
+        throw new SafeError("Materialized stream row limit exceeded");
+      }
+    },
     startTime,
     stopTime,
     // toSerialize: [],

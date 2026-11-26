@@ -86,10 +86,12 @@ import type { __TrackedValueStepWithDollars } from "../steps/__trackedValue.ts";
 import { itemsOrStep } from "../steps/connection.ts";
 import { constant, ConstantStep } from "../steps/constant.ts";
 import { isSkippableEach } from "../steps/each.ts";
+import { FirstStep } from "../steps/first.ts";
 import {
   graphqlResolver,
   graphqlResolveType,
 } from "../steps/graphqlResolver.ts";
+import { LastStep } from "../steps/last.ts";
 import { timeSource } from "../timeSource.ts";
 import type { Sudo } from "../utils.ts";
 import {
@@ -986,8 +988,6 @@ export class OperationPlan {
         },
       );
       subscribeStep._stepOptions.stream = stepStreamOptions;
-      // Note this should only have one dependent, so it should not be a
-      // distributor
       subscribeStep._stepOptions.walkIterable = true;
 
       this.rootLayerPlan.setRootStep(subscribeStep);
@@ -1355,8 +1355,15 @@ export class OperationPlan {
               // Validation promises the values are the same
               continue;
             } else {
-              // Create streamDetails
+              const condition = streamDirective.arguments?.find(
+                (arg) => arg.name.value === "if",
+              )?.value;
               streamDetails = this.withRootLayerPlan(() => ({
+                condition:
+                  condition?.kind === graphql.Kind.VARIABLE
+                    ? condition.name.value
+                    : condition?.kind !== graphql.Kind.BOOLEAN ||
+                      condition.value,
                 initialCount: this.internalDependency(
                   directiveArgument<number>(
                     this,
@@ -3070,6 +3077,7 @@ export class OperationPlan {
       } else if (streamDetails != null) {
         // List with @stream
         stepStreamOptions = {
+          condition: streamDetails.condition,
           initialCountStepId: streamDetails.initialCount.id,
           ifStepId: streamDetails.if.id,
           labelStepId: streamDetails.label.id,
@@ -4537,7 +4545,11 @@ But ${p} is not in ${winner.layerPlan}'s expected polymorphic paths:
       } else if ($step instanceof __CloneStreamStep) {
         const $clone = sudo($step);
         const $dep = $clone.dependencies[0];
-        if ($dep.dependents.length === 1) {
+        if (
+          $dep.dependents.length === 1 &&
+          $dep.layerPlan.ancestry[$dep.layerPlan.deferBoundaryDepth] ===
+            $clone.layerPlan.ancestry[$clone.layerPlan.deferBoundaryDepth]
+        ) {
           $dep.cloneStreams = false;
           $dep._stepOptions.walkIterable ||= $clone._stepOptions.walkIterable;
           $dep._stepOptions.stream ||= $clone._stepOptions.stream;
@@ -4551,16 +4563,6 @@ But ${p} is not in ${winner.layerPlan}'s expected polymorphic paths:
   private finalizeSteps(): void {
     const initialStepCount = this.stepTracker.stepCount;
     for (const step of this.stepTracker.activeSteps) {
-      if (step.isSyncAndSafe && !(step instanceof __ItemStep)) {
-        const dependencies = sudo(step).dependencies;
-        for (const dep of dependencies) {
-          if (dep.cloneStreams) {
-            throw new Error(
-              `${step} has isSyncAndSafe=true, but depends on ${dep} which has cloneStreams=true - this is forbidden.`,
-            );
-          }
-        }
-      }
       const wasLocked = isDev && unlock(step);
       step.finalize();
       if (step._stepOptions.stream) {
@@ -5150,80 +5152,130 @@ But ${p} is not in ${winner.layerPlan}'s expected polymorphic paths:
   }
 
   private finalize(): void {
-    const stepDependsOnDistributorInLayerPlan = (
-      sstep: Sudo<Step>,
-      distrib: Step,
-      lp: LayerPlan,
-    ) => {
-      if (distrib.layerPlan === lp) {
-        // No need to handle dependencies in same layer plan; this only relates
-        // to handling buckets skipping indexes.
-        return;
+    // processRoot groups continuations within one payload. A list used
+    // below another list or a deferred fragment has a different owner.
+    const canShareOutput = (step: Step) => {
+      const outputs = this.stepTracker.outputPlansByRootStep.get(step);
+      if (outputs === undefined) {
+        return true;
       }
-
-      // Recurse first (throw error on bad assumption)
-      switch (lp.reason.type) {
-        case "defer":
-        case "nullableBoundary":
-        case "polymorphic":
-        case "mutationField": {
-          const parentLayerPlan = lp.reason.parentLayerPlan;
-          stepDependsOnDistributorInLayerPlan(sstep, distrib, parentLayerPlan);
-          break;
-        }
-        case "root": {
-          throw new Error(
-            `Planning error - could not find path from ${sstep} up to ${distrib}; this is likely a bug in your plan resolvers.`,
-          );
-        }
-        case "subroutine":
-        case "combined":
-        case "listItem":
-        case "subscription":
-        case "polymorphicPartition": {
-          throw new Error(
-            `${sstep} depends on ${distrib} which is marked with 'cloneStreams'; however this dependency crosses a forbidden layer plan boundary at ${lp}`,
-          );
-        }
-        default: {
-          const never: never = lp.reason;
-          throw new Error(
-            `Unhandled layer plan reason ${(never as any)?.type}`,
-          );
+      for (const output of outputs) {
+        if (
+          output.layerPlan !== step.layerPlan &&
+          (!output.layerPlan.ancestry.includes(step.layerPlan) ||
+            output.layerPlan.ancestry
+              .slice(step.layerPlan.depth + 1)
+              .some((layer) => layer.reason.type !== "nullableBoundary"))
+        ) {
+          return false;
         }
       }
-
-      // Indicate that this layerPlan must release the relevant distributors if
-      // it skips those indicies.
-      if (lp.distributorDependencies === null) {
-        lp.distributorDependencies = Object.create(null) as Exclude<
-          typeof lp.distributorDependencies,
-          null
-        >;
-      }
-      const list = (lp.distributorDependencies[distrib.id] ??= []);
-      list.push(sstep.id);
+      return true;
     };
-
     for (const step of this.stepTracker.activeSteps) {
-      const sstep = sudo(step);
-      const distribs = sstep.dependencies.filter((d) => d.cloneStreams);
-      sstep._dependsOnDistributor = distribs.length > 0;
-      if (distribs.length > 0) {
-        sstep._dependsOnDistributor = true;
-        if (step instanceof __ItemStep) {
-          // Ignore this special dependency type
-        } else {
-          for (const distrib of distribs) {
-            stepDependsOnDistributorInLayerPlan(
-              sstep,
-              distrib,
-              sstep.layerPlan,
-            );
-          }
+      const stream = step._stepOptions.stream;
+      if (stream !== null && stream !== true) {
+        step._recordListStream(stream.condition ?? true);
+        if (step instanceof __CloneStreamStep) {
+          sudo(step).dependencies[0]._recordListStream(
+            stream.condition ?? true,
+          );
         }
+      }
+      if (
+        !step.cloneStreams &&
+        !step._stepOptions.walkIterable &&
+        !step.dependents.some(({ step }) => step instanceof __CloneStreamStep)
+      ) {
+        continue;
+      }
+      const projections: Step[] = [];
+      let incompatible = false;
+      const outputs = this.stepTracker.outputPlansByRootStep.get(step);
+      const hasOutput = (outputs?.size ?? 0) > 0;
+      const layerUses = this.stepTracker.layerPlansByParentStep.get(step);
+      const hasLayerUse =
+        (layerUses?.size ?? 0) > 0 ||
+        (this.stepTracker.layerPlansByDependentStep.get(step)?.size ?? 0) > 0 ||
+        (this.stepTracker.layerPlansByRootStep.get(step)?.size ?? 0) > 0;
+      for (const { step: consumer } of step.dependents) {
+        if (
+          consumer instanceof __CloneStreamStep &&
+          consumer.layerPlan.ancestry.includes(step.layerPlan) &&
+          consumer.layerPlan.ancestry
+            .slice(step.layerPlan.depth + 1)
+            .every((layer) => layer.reason.type === "nullableBoundary") &&
+          (projections.length === 0 ||
+            consumer.layerPlan === projections[0].layerPlan) &&
+          consumer.implicitSideEffectStep === step.implicitSideEffectStep &&
+          consumer._stepOptions.walkIterable &&
+          consumer._stepOptions.stream != null &&
+          consumer.dependents.every(({ step }) => step instanceof __ItemStep) &&
+          canShareOutput(consumer)
+        ) {
+          projections.push(consumer);
+        } else if (consumer instanceof FirstStep) {
+          step._needsFirstItem = true;
+        } else if (
+          consumer instanceof LastStep &&
+          !consumer.isSyncAndSafe &&
+          consumer.layerPlan.deferBoundaryDepth >
+            step.layerPlan.deferBoundaryDepth &&
+          consumer.layerPlan.ancestry.includes(step.layerPlan) &&
+          consumer.layerPlan.ancestry
+            .slice(step.layerPlan.depth + 1)
+            .every(
+              (layer) =>
+                layer.reason.type === "nullableBoundary" ||
+                layer.reason.type === "defer",
+            )
+        ) {
+          step._needsLastItem = true;
+        } else {
+          incompatible = true;
+        }
+      }
+      if (
+        !incompatible &&
+        projections.length > 0 &&
+        !step._stepOptions.walkIterable &&
+        !hasOutput &&
+        !hasLayerUse
+      ) {
+        step._streamProjections = projections;
       } else {
-        sstep._dependsOnDistributor = false;
+        // A consumer in a descendant layer can run more than once for an entry.
+        const consumers = step.dependents.filter(
+          ({ step }) => !(step instanceof __ItemStep),
+        );
+        const walked = step._stepOptions.walkIterable;
+        step._materializeIterable =
+          consumers.length + (walked || hasOutput || hasLayerUse ? 1 : 0) > 1 ||
+          (walked && !canShareOutput(step)) ||
+          (!walked && hasLayerUse && !hasOutput && consumers.length === 0) ||
+          consumers.some(
+            ({ step: consumer }) =>
+              consumer.layerPlan !== step.layerPlan &&
+              consumer.layerPlan.ancestry
+                .slice(step.layerPlan.depth + 1)
+                .some(
+                  (layer) =>
+                    layer.reason.type !== "nullableBoundary" &&
+                    layer.reason.type !== "defer" &&
+                    layer.reason.type !== "polymorphic",
+                ),
+          );
+        step._lazyMaterialization =
+          step._materializeIterable &&
+          !walked &&
+          !hasOutput &&
+          !hasLayerUse &&
+          consumers.every(
+            ({ step }) =>
+              step instanceof __CloneStreamStep ||
+              (!step.isSyncAndSafe &&
+                (step instanceof FirstStep || step instanceof LastStep)),
+          );
       }
     }
   }

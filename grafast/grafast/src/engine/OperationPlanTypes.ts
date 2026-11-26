@@ -16,6 +16,7 @@ import type { LayerPlan, LayerPlanReasonListItemStream } from "./LayerPlan.ts";
 import type { OutputPlan } from "./OutputPlan.ts";
 
 export type StreamDetails = {
+  condition: string | boolean;
   if: Step<boolean>;
   initialCount: Step<number>;
   label: Step<Maybe<string>>;

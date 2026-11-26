@@ -151,6 +151,14 @@ loop yourself, the `details.indexMap` helper will call the given callback with
 each index in the batch in turn; this is commonly used when returning the result
 of the execute method.
 
+For a GraphQL list field, a step can yield an array containing promises for
+individual items. Gra*fast* waits for every promise in the array to settle
+before dependent steps run, even with `@stream(initialCount: 0)`. For a list in
+the initial payload, this means delivery waits for the whole array. Synchronous
+and asynchronous iterators must supply the item itself in `IteratorResult.value`.
+An asynchronous iterator can await the item inside `next()` before returning
+the result.
+
 #### details.batch
 
 (Experimental)

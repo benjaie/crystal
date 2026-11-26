@@ -18,6 +18,10 @@ export interface RequestTools {
   args: GrafastInternalExecutionArgs;
   /** @internal */
   onError: ErrorBehavior;
+  /** Coerced operation variables, including defaults. */
+  readonly variableValues: Readonly<Record<string, unknown>>;
+  remainingStreamRows: number;
+  retainStreamRows(count: number): void;
   /** The `timeSource.now()` at which the request started executing */
   startTime: number;
   /** The `timeSource.now()` at which the request should stop executing (if a timeout was configured) */

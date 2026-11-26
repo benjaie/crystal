@@ -82,6 +82,14 @@ export function currentPlanningPath(): string | undefined {
   return globalData_planningPath;
 }
 
+/** The condition controlling the current field's stream, independently of
+ * whether its siblings can use the same stream. */
+export function currentFieldStreamCondition(): boolean | string {
+  const stream = globalData_stepStreamOptions;
+  if (stream == null || stream === true) return false;
+  return stream.condition ?? true;
+}
+
 /**
  * Step - stream details.
  * true - Not a stream, but it is a subscription.

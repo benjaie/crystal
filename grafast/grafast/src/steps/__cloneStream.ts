@@ -2,6 +2,7 @@ import { $$deepDepSkip } from "../constants.ts";
 import type { ExecutionDetails } from "../interfaces.ts";
 import type { ListCapableStep } from "../step.ts";
 import { Step } from "../step.ts";
+import { MaterializedList } from "../streamItems.ts";
 import type { __ItemStep } from "./__item.ts";
 
 export class __CloneStreamStep extends Step {
@@ -27,13 +28,10 @@ export class __CloneStreamStep extends Step {
     return this;
   }
   execute({ values: [val], indexMap }: ExecutionDetails) {
-    // The stream has already been cloned, we're just a placeholder really
-    if (val.isBatch) {
-      return val.entries;
-    } else {
-      const v = val.value;
-      return indexMap(() => v);
-    }
+    return indexMap((i) => {
+      const value = val.at(i);
+      return value instanceof MaterializedList ? value.read() : value;
+    });
   }
 }
 

@@ -285,34 +285,37 @@ export /* abstract */ class Step<TData = any> {
 
   /**
    * Set this to `true` if this step might return an iterable or async iterable
-   * that cannot be consumed more than once. Grafast will wrap such values in a
-   * "distributor" to allow multiple downstream steps to independently[^1]
-   * consume clones of the stream. Grafast will not wrap arrays in this way as
-   * doing so is unnecessary.
-   *
-   * [^1]: To avoid excessive memory consumption, if a clone gets
-   * `distributorTargetBufferSize` items further ahead than another clone, it
-   * will be temporarily paused (for up to `distributorPauseDuration`
-   * milliseconds) to give the slowest clone a chance to catch up.
-   *
-   * WARNING: Cloning an async iterable only clones its iterable behavior;
-   * other methods and properties are not preserved. For example, if you return
-   * a `Map` with `cloneStreams: true`, downstream consumers will not have
-   * access to `.get(key)`, `.size`, or similar methods/properties.
-   *
-   * WARNING: This transform always produces _async_ iterables, even if the
-   * original was synchronous. This enables pausing of fast consumers whilst
-   * slower consumers catch up, minimizing memory pressure.
+   * that cannot be consumed more than once. Gra*fast* materializes it if
+   * independent consumers need to traverse it.
    */
   public cloneStreams: boolean;
 
-  /**
-   * True if one of our dependencies has cloneStreams set. Only populated
-   * during `operationPlan.finalize()`.
-   *
-   * @internal
-   **/
-  public _dependsOnDistributor = false;
+  /** @internal Conditions of streams consuming this list, including clones. */
+  public _listStreamConditions: true | string[] | null = null;
+  /** @internal */
+  public _recordListStream(condition: boolean | string) {
+    if (condition === false || this._listStreamConditions === true) {
+      return;
+    }
+    if (condition === true) {
+      this._listStreamConditions = true;
+    } else if (this._listStreamConditions === null) {
+      this._listStreamConditions = [condition];
+    } else if (!this._listStreamConditions.includes(condition)) {
+      this._listStreamConditions.push(condition);
+    }
+  }
+
+  /** @internal Consumers of a single list prefix in the same delivery group. */
+  public _streamProjections: readonly Step[] | null = null;
+  /** @internal */
+  public _materializeIterable = false;
+  /** @internal */
+  public _lazyMaterialization = false;
+  /** @internal */
+  public _needsFirstItem = false;
+  /** @internal */
+  public _needsLastItem = false;
 
   /**
    * DO NOT USE! (Specifically exists so that very VERY special steps could

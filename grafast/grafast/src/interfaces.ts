@@ -473,7 +473,10 @@ export type TrackedArguments<
 /**
  * `@stream` directive meta.
  */
-export interface StepStreamOptions extends LayerPlanReasonListItemStream {}
+export interface StepStreamOptions extends LayerPlanReasonListItemStream {
+  /** @internal Literal value or variable name of the stream condition. */
+  condition?: boolean | string;
+}
 /**
  * Additional details about the planning for a field; currently only relates to
  * the `@stream` directive.

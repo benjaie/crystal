@@ -991,45 +991,15 @@ declare global {
        */
       maxPlanningDepth?: number;
 
-      /**
-       * This supports the `$step.cloneStreams = true` option, allowing
-       * multiple consumers to consume the same underlying stream, but tries to
-       * avoid any one consumer getting more than `distributorTargetBufferSize`
-       * items ahead of any other. When a fast consumer gets this far ahead of
-       * the slowest consumer, it will be paused for `distributorPauseDuration`
-       * milliseconds to allow the slowest consumer to advance. Should the
-       * slowest consumer not advance in time, the fast consumer will be
-       * allowed to continue and all intermediary results will be cached - so
-       * beware of memory exhaustion and be sure to place sensible limits on
-       * your queries (and construct them wisely).
-       *
-       * This must be set higher than the largest `@stream(initialCount:)`
-       * argument you want to support.
-       *
-       * @advanced
-       */
+      /** Maximum rows materialized in streaming fallbacks across one request.
+       * Defaults to 100,000. Use Infinity to disable the limit. */
+      maxMaterializedStreamRows?: number;
+
+      /** @deprecated Legacy upper bound on initialCount for incremental output. */
       distributorTargetBufferSize?: number;
-
-      /**
-       * When the `distributorTargetBufferSize` is exceeded, every time we get
-       * `distributorTargetBufferSizeIncrement` items further ahead, we'll
-       * pause again.
-       *
-       * Must be at least 1. Recommend you set this fairly large.
-       *
-       * @advanced
-       */
+      /** @deprecated Distributors have been removed. */
       distributorTargetBufferSizeIncrement?: number;
-
-      /**
-       * Duration (in milliseconds) for the distributor to pause whilst waiting
-       * for the slowest consumer to advance once the
-       * `distributorTargetBufferSize` has been reached.
-       *
-       * Must be at least 0.
-       *
-       * @advanced
-       */
+      /** @deprecated Distributors have been removed. */
       distributorPauseDuration?: number;
     }
     interface Preset {
