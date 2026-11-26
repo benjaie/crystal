@@ -1,3 +1,4 @@
+#> independentSqlPrefix: "select\n  (count(*))::text"
 ## expect(errors).toBeFalsy()
 ## expect(queries).toHaveLength(8);
 {
